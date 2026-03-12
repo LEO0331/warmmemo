@@ -1,0 +1,274 @@
+import 'package:flutter/material.dart';
+
+import '../../core/widgets/common_widgets.dart';
+import '../../data/isar_service.dart';
+import '../../data/warmmemo_models.dart';
+
+/// TAB 4 – 數位訃聞系統（Digital Obituary）
+class DigitalObituaryTab extends StatefulWidget {
+  const DigitalObituaryTab({super.key});
+
+  @override
+  State<DigitalObituaryTab> createState() => _DigitalObituaryTabState();
+}
+
+class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
+  final _formKey = GlobalKey<FormState>();
+  final _deceasedNameController = TextEditingController();
+  final _relationshipController = TextEditingController(text: '家屬');
+  final _locationController = TextEditingController();
+  final _serviceDateController = TextEditingController();
+  final _customNoteController = TextEditingController();
+
+  String _tone = '溫和正式';
+  String _generatedText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  @override
+  void dispose() {
+    _deceasedNameController.dispose();
+    _relationshipController.dispose();
+    _locationController.dispose();
+    _serviceDateController.dispose();
+    _customNoteController.dispose();
+    super.dispose();
+  }
+
+  void _generateObituary() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final name = _deceasedNameController.text.trim();
+    final rel = _relationshipController.text.trim();
+    final loc = _locationController.text.trim();
+    final date = _serviceDateController.text.trim();
+    final note = _customNoteController.text.trim();
+
+    String base;
+    switch (_tone) {
+      case '宗教色彩':
+        base =
+            '敬啟者：\n\n${rel}謹此沉痛告知，家中至親「$name」已安息主懷／往生極樂，'
+            '我們將於 $date 於 $loc 舉行追思告別禮拜／誦經告別儀式，敬邀親友同來追思與祝禱。';
+        break;
+      case '極簡通知':
+        base =
+            '各位親友好：\n\n家中親人「$name」已於近日辭世，告別式將於 $date 在 $loc 舉行，'
+            '不收奠儀與花圈，願一切從簡，心意到即可。';
+        break;
+      default:
+        base =
+            '親愛的親友們：\n\n${rel}在此向各位沉痛告知，我們深愛的「$name」已於近日離世。'
+            '告別與追思儀式訂於 $date 在 $loc 舉行，誠摯邀請曾與他（她）有緣的朋友，一同以祝福與思念送他（她）最後一程。';
+    }
+
+    final footer = note.isEmpty
+        ? '\n\n敬請以祝福代替過多關心，讓家屬有空間整理心情。感謝您與我們一同紀念他（她）的一生。'
+        : '\n\n' + note;
+
+    setState(() {
+      _generatedText = '$base$footer';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '數位訃聞草稿工具',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '協助家屬先想清楚「要如何通知誰、用什麼語氣通知」，'
+              '正式商業版可匯出到 Line、WhatsApp、Email 或生成短網址／QR code，'
+              '並串接紀念頁與喪禮詳細資訊。',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  LabeledTextField(
+                    label: '往生者姓名（必填）',
+                    controller: _deceasedNameController,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? '請輸入姓名' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  LabeledTextField(
+                    label: '發文人身分（例如：家屬、長子、長女…）',
+                    controller: _relationshipController,
+                  ),
+                  const SizedBox(height: 8),
+                  LabeledTextField(
+                    label: '告別／追思儀式地點',
+                    controller: _locationController,
+                  ),
+                  const SizedBox(height: 8),
+                  LabeledTextField(
+                    label: '日期與時間（例如：4/20（日）上午 10:00）',
+                    controller: _serviceDateController,
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '希望的語氣',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('溫和正式'),
+                        selected: _tone == '溫和正式',
+                        onSelected: (_) {
+                          setState(() => _tone = '溫和正式');
+                        },
+                      ),
+                      ChoiceChip(
+                        label: const Text('宗教色彩'),
+                        selected: _tone == '宗教色彩',
+                        onSelected: (_) {
+                          setState(() => _tone = '宗教色彩');
+                        },
+                      ),
+                      ChoiceChip(
+                        label: const Text('極簡通知'),
+                        selected: _tone == '極簡通知',
+                        onSelected: (_) {
+                          setState(() => _tone = '極簡通知');
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LabeledTextField(
+                    label: '額外想補充的說明（例如：不收奠儀、改以捐款⋯）',
+                    controller: _customNoteController,
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.auto_fix_high_outlined),
+                      label: const Text('產生訃聞文案'),
+                      onPressed: () {
+                        _generateObituary();
+                        _saveDraft();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (_generatedText.isNotEmpty)
+              Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.campaign_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '可直接貼到通訊軟體的訃聞文字',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _generatedText,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 24),
+            const SectionCard(
+              title: '進一步的產品構想',
+              icon: Icons.dashboard_customize_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('・數位訃聞與紀念頁自動連結，一次設定，多管齊下（Line、Email、社群）'),
+                  SizedBox(height: 4),
+                  Text('・可匯出 PDF／圖片版本，方便印刷或長輩轉傳'),
+                  SizedBox(height: 4),
+                  Text('・讀取率與點擊統計（僅顯示數據，不暴露個資），協助家屬確認通知是否送達'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadDraft() async {
+    final isar = await IsarService.instance.db;
+    final draft = await isar.obituaryDrafts.get(1);
+    if (draft == null) return;
+
+    setState(() {
+      _deceasedNameController.text = draft.deceasedName ?? '';
+      _relationshipController.text = draft.relationship ?? '家屬';
+      _locationController.text = draft.location ?? '';
+      _serviceDateController.text = draft.serviceDate ?? '';
+      _tone = draft.tone ?? '溫和正式';
+      _customNoteController.text = draft.customNote ?? '';
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    final isar = await IsarService.instance.db;
+    final draft = ObituaryDraft()
+      ..id = 1
+      ..deceasedName = _deceasedNameController.text.trim()
+      ..relationship = _relationshipController.text.trim()
+      ..location = _locationController.text.trim()
+      ..serviceDate = _serviceDateController.text.trim()
+      ..tone = _tone
+      ..customNote = _customNoteController.text.trim()
+      ..updatedAt = DateTime.now();
+
+    await isar.writeTxn(() async {
+      await isar.obituaryDrafts.put(draft);
+    });
+  }
+}
+
