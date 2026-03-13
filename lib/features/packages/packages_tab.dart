@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/widgets/common_widgets.dart';
 
 /// TAB 2 – 固定價格方案媒合
 class PackagesTab extends StatelessWidget {
@@ -16,21 +15,21 @@ class PackagesTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '固定價格方案設計（示意）',
+              '固定價格方案設計',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              '實際商業模式中，平台會事先與合作禮儀公司談好「打包價格」與「最低服務標準」，'
+              '平台會事先與合作禮儀公司談好「打包價格」與「最低服務標準」，'
               '家屬只需選擇風格與預算帶，不需再臨時討價還價。',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             const _PackageCard(
               name: '城市極簡告別',
-              price: 'NT\$ 120,000（示意）',
+              price: 'NT\$ 120,000',
               target:
                   '適合希望儀式簡單、在殯儀館或小型會館完成告別的家庭，重視流程順暢與清楚說明。',
               items: [
@@ -46,7 +45,7 @@ class PackagesTab extends StatelessWidget {
             const SizedBox(height: 16),
             const _PackageCard(
               name: '家庭溫馨告別',
-              price: 'NT\$ 220,000（示意）',
+              price: 'NT\$ 220,000',
               target:
                   '適合希望有多一點停留與親友告別時間的家庭，重視場地氛圍與紀念感。',
               items: [
@@ -61,7 +60,7 @@ class PackagesTab extends StatelessWidget {
             const SizedBox(height: 16),
             const _PackageCard(
               name: '自然環保告別（樹葬／海葬）',
-              price: 'NT\$ 150,000（示意，不含政府規費）',
+              price: 'NT\$ 150,000（不含政府規費）',
               target:
                   '適合希望以環保、低碳方式完成身後安排的人，著重在理念與家人溝通。',
               items: [
@@ -71,21 +70,6 @@ class PackagesTab extends StatelessWidget {
                 '政府相關許可與規定說明',
                 '線上紀念頁與地點記錄（示意）',
               ],
-            ),
-            const SizedBox(height: 24),
-            const SectionCard(
-              title: '平台如何賺錢？',
-              icon: Icons.paid_outlined,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('・每一筆成功媒合收取固定服務費或一定比例的媒合佣金'),
-                  SizedBox(height: 4),
-                  Text('・加值服務：延長紀念頁託管、客製化影片製作、法律諮詢串接等'),
-                  SizedBox(height: 4),
-                  Text('・保險／信託／長照等異業合作分潤'),
-                ],
-              ),
             ),
           ],
         ),
