@@ -4,10 +4,14 @@ import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
+import '../../data/models/purchase.dart';
 import '../../data/services/export_service.dart';
 import '../../data/services/payment_service.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/purchase_service.dart';
 import '../../data/services/reminder_service.dart';
+import '../../data/services/user_role_service.dart';
+import 'order_tile.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -43,13 +47,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: AuthService.instance.isAdmin,
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return StreamBuilder<String>(
+      stream: UserRoleService.instance.roleStream(uid),
       builder: (context, snapshot) {
+        final role = snapshot.data;
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.data != true) {
+        if (role != 'admin') {
           return Center(
             child: Text(
               '此頁面僅限管理者閱覽，如欲申請請聯絡 WarmMemo 團隊。',
@@ -87,6 +96,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildReminderSection(),
           const SizedBox(height: 16),
           _buildPaymentSection(),
+          const SizedBox(height: 16),
+          _buildOrdersSection(),
           const SizedBox(height: 16),
           _buildExportSection(),
         ],
@@ -324,6 +335,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOrdersSection() {
+    return SectionCard(
+      title: '方案訂單管理',
+      icon: Icons.assignment_turned_in_outlined,
+      child: StreamBuilder<List<Purchase>>(
+        stream: PurchaseService.instance.adminOrders(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final orders = snapshot.data ?? [];
+          if (orders.isEmpty) return const Text('目前沒有訂單。');
+          return Column(
+            children: orders
+                .map(
+                  (order) => OrderTile(
+                    key: ValueKey(order.id ?? order.planName),
+                    purchase: order,
+                    onSave: (updated) {
+                      if (updated.userId == null) return;
+                      PurchaseService.instance
+                          .updateOrder(uid: updated.userId!, purchase: updated);
+                    },
+                  ),
+                )
+                .toList(),
+          );
+        },
       ),
     );
   }

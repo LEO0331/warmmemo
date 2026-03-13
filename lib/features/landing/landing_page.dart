@@ -28,6 +28,8 @@ class LandingPage extends StatelessWidget {
               const SizedBox(height: 24),
               _buildFeatureRow(theme, isWide),
               const SizedBox(height: 24),
+              _buildPhotoStrip(isWide),
+              const SizedBox(height: 24),
               _buildPackageRow(theme, isWide),
               const SizedBox(height: 24),
               _buildProofRow(theme),
@@ -218,6 +220,55 @@ class LandingPage extends StatelessWidget {
                 .toList(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoStrip(bool isWide) {
+    final images = const [
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+    ];
+    return SizedBox(
+      height: isWide ? 240 : 180,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final url = images[index % images.length];
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
+              children: [
+                Image.network(
+                  url,
+                  width: isWide ? 360 : 260,
+                  height: isWide ? 240 : 180,
+                  fit: BoxFit.cover,
+                ),
+                Positioned(
+                  bottom: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '尊重・陪伴・安心',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        // ignore: unnecessary_underscores
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemCount: images.length,
       ),
     );
   }

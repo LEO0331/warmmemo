@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_widgets.dart';
+import '../../data/firebase/auth_service.dart';
+import '../../data/models/purchase.dart';
+import '../../data/services/purchase_service.dart';
+import 'checkout_page.dart';
 
 /// TAB 2 – 固定價格方案媒合
 class PackagesTab extends StatelessWidget {
@@ -27,12 +32,12 @@ class PackagesTab extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
-            const _PackageCard(
+            _PackageCard(
               name: '城市極簡告別',
               price: 'NT\$ 120,000',
               target:
                   '適合希望儀式簡單、在殯儀館或小型會館完成告別的家庭，重視流程順暢與清楚說明。',
-              items: [
+              items: const [
                 '24 小時遺體接運一次（市區內）',
                 '停柩冰存 3 日（公立殯儀館或合作會館）',
                 '禮儀師 1 名全程帶領（家屬說明會 + 儀式執行）',
@@ -43,12 +48,12 @@ class PackagesTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            const _PackageCard(
+            _PackageCard(
               name: '家庭溫馨告別',
               price: 'NT\$ 220,000',
               target:
                   '適合希望有多一點停留與親友告別時間的家庭，重視場地氛圍與紀念感。',
-              items: [
+              items: const [
                 '上述「城市極簡告別」全部內容',
                 '會館廳別升級（可容納 50–80 人）',
                 '靈堂佈置升級（主題式花藝設計）',
@@ -58,12 +63,12 @@ class PackagesTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            const _PackageCard(
+            _PackageCard(
               name: '自然環保告別（樹葬／海葬）',
               price: 'NT\$ 150,000（不含政府規費）',
               target:
                   '適合希望以環保、低碳方式完成身後安排的人，著重在理念與家人溝通。',
-              items: [
+              items: const [
                 '遺體接運與冰存（天數依合作場地規定）',
                 '簡約告別儀式一次（家祭 + 少量親友）',
                 '骨灰處理與樹葬／海葬流程諮詢安排',
@@ -71,6 +76,8 @@ class PackagesTab extends StatelessWidget {
                 '線上紀念頁與地點記錄（示意）',
               ],
             ),
+            const SizedBox(height: 24),
+            _OrdersPanel(),
           ],
         ),
       ),
@@ -141,6 +148,23 @@ class _PackageCard extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CheckoutPage(
+                        planName: name,
+                        priceLabel: price,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('前往結帳'),
+              ),
+            ),
           ],
         ),
       ),
@@ -148,3 +172,72 @@ class _PackageCard extends StatelessWidget {
   }
 }
 
+class _OrdersPanel extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) {
+      return const SizedBox.shrink();
+    }
+    return SectionCard(
+      title: '我的方案與狀態',
+      icon: Icons.receipt_long_outlined,
+      child: StreamBuilder<List<Purchase>>(
+        stream: PurchaseService.instance.userOrders(uid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final orders = snapshot.data ?? [];
+          if (orders.isEmpty) {
+            return const Text('尚未建立方案訂單。選擇方案後可建立 pending 訂單。');
+          }
+          return Column(
+            children: orders
+                .map(
+                  (order) => ListTile(
+                    leading: const Icon(Icons.assignment_outlined),
+                    title: Text(order.planName),
+                    subtitle: Text('狀態：${order.status}｜價格：${order.priceLabel}'),
+                    trailing: Text(
+                      order.createdAt.toLocal().toString().split('.').first,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: Text(order.planName),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('價格：${order.priceLabel}'),
+                              Text('狀態：${order.status}'),
+                              if (order.companyName != null)
+                                Text('公司：${order.companyName}'),
+                              if (order.agentName != null)
+                                Text('專員：${order.agentName}'),
+                              if (order.contactNumber != null)
+                                Text('聯絡方式：${order.contactNumber}'),
+                              if (order.notes != null) Text('備註：${order.notes}'),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('關閉'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                )
+                .toList(),
+          );
+        },
+      ),
+    );
+  }
+}
