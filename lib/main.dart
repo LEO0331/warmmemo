@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'data/isar_service.dart';
 import 'features/memorial/memorial_page_tab.dart';
 import 'features/obituary/digital_obituary_tab.dart';
 import 'features/overview/overview_tab.dart';
@@ -8,8 +7,6 @@ import 'features/packages/packages_tab.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 預先初始化 Isar（第一次會稍久，之後重用 instance）
-  await IsarService.instance.db;
   runApp(const MyApp());
 }
 
@@ -68,5 +65,4 @@ class WarmMemoHomePage extends StatelessWidget {
     );
   }
 }
-
 

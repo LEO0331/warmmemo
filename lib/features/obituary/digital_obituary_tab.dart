@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/common_widgets.dart';
-import '../../data/isar_service.dart';
-import '../../data/warmmemo_models.dart';
+import '../../data/draft_storage.dart';
 
 /// TAB 4 – 數位訃聞系統（Digital Obituary）
 class DigitalObituaryTab extends StatefulWidget {
@@ -240,8 +239,8 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   }
 
   Future<void> _loadDraft() async {
-    final isar = await IsarService.instance.db;
-    final draft = await isar.obituaryDrafts.get(1);
+    final storage = await DraftStorage.instance;
+    final draft = storage.loadObituaryDraft();
     if (draft == null) return;
 
     setState(() {
@@ -255,20 +254,16 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   }
 
   Future<void> _saveDraft() async {
-    final isar = await IsarService.instance.db;
-    final draft = ObituaryDraft()
-      ..id = 1
-      ..deceasedName = _deceasedNameController.text.trim()
-      ..relationship = _relationshipController.text.trim()
-      ..location = _locationController.text.trim()
-      ..serviceDate = _serviceDateController.text.trim()
-      ..tone = _tone
-      ..customNote = _customNoteController.text.trim()
-      ..updatedAt = DateTime.now();
+    final storage = await DraftStorage.instance;
+    final draft = ObituaryDraft(
+      deceasedName: _deceasedNameController.text.trim(),
+      relationship: _relationshipController.text.trim(),
+      location: _locationController.text.trim(),
+      serviceDate: _serviceDateController.text.trim(),
+      tone: _tone,
+      customNote: _customNoteController.text.trim(),
+    );
 
-    await isar.writeTxn(() async {
-      await isar.obituaryDrafts.put(draft);
-    });
+    await storage.saveObituaryDraft(draft);
   }
 }
-

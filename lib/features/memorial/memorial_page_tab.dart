@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../../core/widgets/common_widgets.dart';
-import '../../data/isar_service.dart';
-import '../../data/warmmemo_models.dart';
+import '../../data/draft_storage.dart';
 
 /// TAB 3 – 簡易紀念頁（One-page life summary）
 class MemorialPageTab extends StatefulWidget {
@@ -241,8 +239,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Future<void> _loadDraft() async {
-    final isar = await IsarService.instance.db;
-    final draft = await isar.memorialPageDrafts.get(1);
+    final storage = await DraftStorage.instance;
+    final draft = storage.loadMemorialDraft();
     if (draft == null) return;
 
     setState(() {
@@ -256,20 +254,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Future<void> _saveDraft() async {
-    final isar = await IsarService.instance.db;
-    final draft = MemorialPageDraft()
-      ..id = 1
-      ..name = _nameController.text.trim()
-      ..nickname = _nicknameController.text.trim()
-      ..motto = _mottoController.text.trim()
-      ..bio = _bioController.text.trim()
-      ..highlights = _highlightsController.text.trim()
-      ..willNote = _willNoteController.text.trim()
-      ..updatedAt = DateTime.now();
+    final storage = await DraftStorage.instance;
+    final draft = MemorialDraft(
+      name: _nameController.text.trim(),
+      nickname: _nicknameController.text.trim(),
+      motto: _mottoController.text.trim(),
+      bio: _bioController.text.trim(),
+      highlights: _highlightsController.text.trim(),
+      willNote: _willNoteController.text.trim(),
+    );
 
-    await isar.writeTxn(() async {
-      await isar.memorialPageDrafts.put(draft);
-    });
+    await storage.saveMemorialDraft(draft);
   }
 }
-
