@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/firebase/auth_service.dart';
 import '../../core/layout/app_shell.dart';
-import 'auth_page.dart';
+import '../landing/landing_page.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -21,7 +21,7 @@ class AuthGate extends StatelessWidget {
           return const AppShell();
         }
 
-        return const AuthPage();
+        return const LandingPage();
       },
     );
   }
