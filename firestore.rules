@@ -14,7 +14,9 @@ service cloud.firestore {
       }
 
       match /orders/{orderId} {
-        allow read, write: if request.auth.uid == userId || request.auth.token.admin == true;
+        allow read, write: if request.auth.uid == userId
+          || request.auth.token.admin == true
+          || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
       }
     }
 

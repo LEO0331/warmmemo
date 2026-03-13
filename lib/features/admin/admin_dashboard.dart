@@ -18,6 +18,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final ScrollController _scrollController = ScrollController();
   String? _statusFilter;
   String? _planFilter;
+  String? _cursor;
+  bool _loadingPage = false;
+  final List<Purchase> _allOrders = [];
 
   @override
   void dispose() {
@@ -64,129 +67,163 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildOrdersOverview(),
           const SizedBox(height: 16),
           _buildOrdersWorkQueue(),
+          const SizedBox(height: 12),
+          if (_loadingPage)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: CircularProgressIndicator(),
+            )),
+          if (!_loadingPage && _cursor != null)
+            Align(
+              alignment: Alignment.center,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.expand_more),
+                label: const Text('載入更多'),
+                onPressed: _loadMore,
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildOrdersOverview() {
-    return StreamBuilder<List<Purchase>>(
-      stream: PurchaseService.instance.adminOrders(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final orders = snapshot.data ?? [];
-        final planNames = orders.map((o) => o.planName).toSet().toList()..sort();
-        final statuses = orders.map((o) => o.status).toSet().toList()..sort();
-        final filtered = orders.where((o) {
-          final sOk = _statusFilter == null || o.status == _statusFilter;
-          final pOk = _planFilter == null || o.planName == _planFilter;
-          return sOk && pOk;
-        }).toList();
-        return SectionCard(
-          title: '方案訂單管理（檢視）',
-          icon: Icons.assignment_outlined,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final planNames = _allOrders.map((o) => o.planName).toSet().toList()..sort();
+    final statuses = _allOrders.map((o) => o.status).toSet().toList()..sort();
+    final filtered = _applyFilters(_allOrders);
+    return SectionCard(
+      title: '方案訂單管理（檢視）',
+      icon: Icons.assignment_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  ChoiceChip(
-                    label: const Text('全部狀態'),
-                    selected: _statusFilter == null,
-                    onSelected: (_) => setState(() => _statusFilter = null),
-                  ),
-                  ...statuses.map((s) => ChoiceChip(
-                        label: Text(s),
-                        selected: _statusFilter == s,
-                        onSelected: (_) => setState(() => _statusFilter = s),
-                      )),
-                  ChoiceChip(
-                    label: const Text('全部方案'),
-                    selected: _planFilter == null,
-                    onSelected: (_) => setState(() => _planFilter = null),
-                  ),
-                  ...planNames.map((p) => ChoiceChip(
-                        label: Text(p),
-                        selected: _planFilter == p,
-                        onSelected: (_) => setState(() => _planFilter = p),
-                      )),
-                ],
+              ChoiceChip(
+                label: const Text('全部狀態'),
+                selected: _statusFilter == null,
+                onSelected: (_) => setState(() => _statusFilter = null),
               ),
-              const SizedBox(height: 12),
-              if (filtered.isEmpty) const Text('目前沒有符合條件的訂單。')
-              else
-                ...filtered.map(
-                  (o) => ListTile(
-                    leading: const Icon(Icons.receipt_long_outlined),
-                    title: Text(o.planName),
-                    subtitle: Text('狀態：${o.status}｜金額：${o.priceLabel}'),
-                    trailing: Text(
-                      o.createdAt.toLocal().toString().split('.').first,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ),
+              ...statuses.map((s) => ChoiceChip(
+                    label: Text(s),
+                    selected: _statusFilter == s,
+                    onSelected: (_) => setState(() => _statusFilter = s),
+                  )),
+              ChoiceChip(
+                label: const Text('全部方案'),
+                selected: _planFilter == null,
+                onSelected: (_) => setState(() => _planFilter = null),
+              ),
+              ...planNames.map((p) => ChoiceChip(
+                    label: Text(p),
+                    selected: _planFilter == p,
+                    onSelected: (_) => setState(() => _planFilter = p),
+                  )),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          if (filtered.isEmpty)
+            const Text('目前沒有符合條件的訂單。')
+          else
+            ...filtered.map(
+              (o) => ListTile(
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: Text(o.planName),
+                subtitle: Text('狀態：${o.status}｜金額：${o.priceLabel}'),
+                trailing: Text(
+                  o.createdAt.toLocal().toString().split('.').first,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildOrdersWorkQueue() {
-    return StreamBuilder<List<Purchase>>(
-      stream: PurchaseService.instance.adminOrders(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final orders = snapshot.data ?? [];
-        final filtered = orders.where((o) {
-          final sOk = _statusFilter == null || o.status == _statusFilter;
-          final pOk = _planFilter == null || o.planName == _planFilter;
-          return sOk && pOk;
-        }).toList();
-        if (filtered.isEmpty) {
-          return const SectionCard(
-            title: '個別訂單處理',
-            icon: Icons.task_outlined,
-            child: Text('目前沒有待處理的訂單。'),
+    final filtered = _applyFilters(_allOrders);
+    if (filtered.isEmpty) {
+      return const SectionCard(
+        title: '個別訂單處理',
+        icon: Icons.task_outlined,
+        child: Text('目前沒有待處理的訂單。'),
+      );
+    }
+    return SectionCard(
+      title: '個別訂單處理',
+      icon: Icons.task_outlined,
+      child: Column(
+        children: filtered.map((o) {
+          return ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(o.planName),
+            subtitle: Text('狀態：${o.status}｜用戶：${o.userId ?? '-'}'),
+            trailing: FilledButton(
+              onPressed: () async {
+                final updated = await Navigator.of(context).push<Purchase>(
+                  MaterialPageRoute(
+                    builder: (_) => OrderDetailPage(purchase: o),
+                  ),
+                );
+                if (updated != null && updated.userId != null) {
+                  await PurchaseService.instance.updateOrder(
+                    uid: updated.userId!,
+                    purchase: updated.copyWith(status: 'complete'),
+                  );
+                  setState(() {
+                    final idx = _allOrders.indexWhere((p) => p.id == updated.id);
+                    if (idx != -1) _allOrders[idx] = updated.copyWith(status: 'complete');
+                  });
+                }
+              },
+              child: const Text('填寫/完成'),
+            ),
           );
-        }
-        return SectionCard(
-          title: '個別訂單處理',
-          icon: Icons.task_outlined,
-          child: Column(
-            children: filtered.map((o) {
-              return ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(o.planName),
-                subtitle: Text('狀態：${o.status}｜用戶：${o.userId ?? '-'}'),
-                trailing: FilledButton(
-                  onPressed: () async {
-                    final updated = await Navigator.of(context).push<Purchase>(
-                      MaterialPageRoute(
-                        builder: (_) => OrderDetailPage(purchase: o),
-                      ),
-                    );
-                    if (updated != null && updated.userId != null) {
-                      await PurchaseService.instance.updateOrder(
-                        uid: updated.userId!,
-                        purchase: updated.copyWith(status: 'complete'),
-                      );
-                    }
-                  },
-                  child: const Text('填寫/完成'),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
+        }).toList(),
+      ),
     );
+  }
+
+  List<Purchase> _applyFilters(List<Purchase> source) {
+    return source.where((o) {
+      final sOk = _statusFilter == null || o.status == _statusFilter;
+      final pOk = _planFilter == null || o.planName == _planFilter;
+      return sOk && pOk;
+    }).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFirstPage();
+  }
+
+  Future<void> _loadFirstPage() async {
+    setState(() => _loadingPage = true);
+    final page = await PurchaseService.instance.adminOrdersPage(limit: 20);
+    setState(() {
+      _allOrders
+        ..clear()
+        ..addAll(page.items);
+      _cursor = page.cursor;
+      _loadingPage = false;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_cursor == null || _loadingPage) return;
+    setState(() => _loadingPage = true);
+    final page = await PurchaseService.instance.adminOrdersPage(
+      limit: 20,
+      startAfterCreatedAt: _cursor,
+    );
+    setState(() {
+      _allOrders.addAll(page.items);
+      _cursor = page.cursor;
+      _loadingPage = false;
+    });
   }
 }

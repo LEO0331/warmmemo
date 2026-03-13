@@ -40,6 +40,27 @@ class PurchaseService {
     );
   }
 
+  Future<({List<Purchase> items, String? cursor})> adminOrdersPage({
+    int limit = 20,
+    String? startAfterCreatedAt,
+  }) async {
+    Query<Map<String, dynamic>> query = _firestore
+        .collectionGroup('orders')
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+    if (startAfterCreatedAt != null) {
+      query = query.startAfter([startAfterCreatedAt]);
+    }
+    final snapshot = await query.get();
+    final items = snapshot.docs
+        .map((doc) => Purchase.fromMap(doc.data(),
+            id: doc.id, userId: doc.reference.parent.parent?.id))
+        .toList();
+    final nextCursor =
+        snapshot.docs.isNotEmpty ? snapshot.docs.last.data()['createdAt'] as String? : null;
+    return (items: items, cursor: nextCursor);
+  }
+
   Future<void> updateOrder({
     required String uid,
     required Purchase purchase,
