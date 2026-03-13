@@ -52,3 +52,15 @@ lib/firebase_options.dart
 
 # 如果有使用本地環境變數
 .env
+
+# 排除巨大的套件資料夾
+node_modules/
+
+# 排除本地測試用的金鑰設定
+.runtimeconfig.json
+
+# 排除日誌檔案
+npm-debug.log*
+firebase-debug.log*
+firestore-debug.log*
+
