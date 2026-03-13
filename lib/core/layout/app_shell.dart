@@ -29,12 +29,11 @@ class _AppShellState extends State<AppShell> {
     _NavItem('簡易紀念頁', Icons.person_outline, MemorialPageTab()),
     _NavItem('數位訃聞', Icons.campaign_outlined, DigitalObituaryTab()),
   ];
-
   static const _adminDestination =
       _NavItem('Admin', Icons.admin_panel_settings, AdminDashboard());
 
   bool _isAdmin = false;
-  bool _loadingAdmin = true;
+  bool _loading = true;
   int _selectedIndex = 0;
 
   List<_NavItem> get _destinations {
@@ -54,7 +53,7 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) return;
     setState(() {
       _isAdmin = isAdmin;
-      _loadingAdmin = false;
+      _loading = false;
       if (_selectedIndex >= _destinations.length) {
         _selectedIndex = _destinations.length - 1;
       }
@@ -63,39 +62,30 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loadingAdmin) {
+    if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    final isWide = MediaQuery.of(context).size.width >= 900;
     final destinations = _destinations;
+    final isWide = MediaQuery.of(context).size.width >= 900;
     return Scaffold(
       appBar: AppBar(
         title: const Text('暖備 WarmMemo'),
+        centerTitle: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_outlined),
-            onPressed: () => AuthService.instance.signOut(),
             tooltip: '登出',
+            onPressed: () => AuthService.instance.signOut(),
           ),
         ],
       ),
-      drawer: isWide ? null : Drawer(child: _buildDrawerContent(context, destinations)),
+      drawer: isWide ? null : Drawer(child: _buildDrawerContent(destinations)),
       body: Row(
         children: [
-          if (isWide)
-            NavigationRail(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-              destinations: destinations
-                  .map((dest) => NavigationRailDestination(
-                        icon: Icon(dest.icon),
-                        label: Text(dest.label),
-                      ))
-                  .toList(),
-            ),
+          if (isWide) _buildSidebar(destinations),
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
@@ -107,12 +97,69 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildDrawerContent(BuildContext context, List<_NavItem> destinations) {
+  Widget _buildSidebar(List<_NavItem> destinations) {
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border(
+          right: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Column(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Icon(Icons.fireplace, size: 48, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(height: 12),
+                  Text(
+                    'WarmMemo',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.separated(
+              itemCount: destinations.length,
+              // ignore: unnecessary_underscores
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final item = destinations[index];
+                final selected = index == _selectedIndex;
+                return ListTile(
+                  leading: Icon(item.icon),
+                  title: Text(item.label),
+                  selected: selected,
+                  onTap: () => setState(() => _selectedIndex = index),
+                );
+              },
+            ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.logout_outlined),
+            title: const Text('登出'),
+            onTap: () => AuthService.instance.signOut(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerContent(List<_NavItem> destinations) {
     return SafeArea(
-      child: ListView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const DrawerHeader(
-            child: Text('WarmMemo'),
+            decoration: BoxDecoration(color: Colors.teal),
+            child: Text('WarmMemo', style: TextStyle(color: Colors.white)),
           ),
           ...List.generate(destinations.length, (index) {
             final item = destinations[index];
@@ -126,6 +173,16 @@ class _AppShellState extends State<AppShell> {
               },
             );
           }),
+          const Spacer(),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.logout_outlined),
+            title: const Text('登出'),
+            onTap: () {
+              Navigator.of(context).maybePop();
+              AuthService.instance.signOut();
+            },
+          ),
         ],
       ),
     );

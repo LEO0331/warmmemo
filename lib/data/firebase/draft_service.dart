@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/admin_models.dart';
 import '../models/draft_models.dart';
 
 class FirebaseDraftService {
@@ -73,6 +74,16 @@ class FirebaseDraftService {
         .toList());
   }
 
+  Future<List<NotificationEvent>> fetchNotificationHistory({int limit = 500}) async {
+    final snapshot = await _notifications
+        .orderBy('occurredAt', descending: true)
+        .limit(limit)
+        .get();
+    return snapshot.docs
+        .map((doc) => NotificationEvent.fromMap(doc.data()))
+        .toList();
+  }
+
   Stream<DraftMetrics> adminMetricsStream() {
     return _firestore.collectionGroup('stats').snapshots().map((snapshot) {
       final userIds = <String>{};
@@ -113,5 +124,36 @@ class FirebaseDraftService {
           {'updatedAt': FieldValue.serverTimestamp()},
           SetOptions(merge: true),
         );
+  }
+
+  Future<List<UserComplianceSnapshot>> fetchUserSummaries({int limit = 120}) async {
+    final snapshot = await _users.limit(limit).get();
+    final summaries = await Future.wait(snapshot.docs.map((doc) async {
+      final drafts = doc.reference.collection('drafts');
+      final memorialSnapshot = await drafts.doc('memorial').get();
+      final obituarySnapshot = await drafts.doc('obituary').get();
+      final statsSnapshot = await doc.reference.collection('meta').doc('stats').get();
+
+      final memorial = memorialSnapshot.exists ? MemorialDraft.fromMap(memorialSnapshot.data()!) : null;
+      final obituary = obituarySnapshot.exists ? ObituaryDraft.fromMap(obituarySnapshot.data()!) : null;
+      final stats = statsSnapshot.exists
+          ? DraftStats.fromMap(statsSnapshot.data()!)
+          : DraftStats(readCount: 0, clickCount: 0);
+
+      return UserComplianceSnapshot(
+        userId: doc.id,
+        memorialDraft: memorial,
+        obituaryDraft: obituary,
+        stats: stats,
+        lastReminderAt: _parseTimestamp(statsSnapshot.data()?['lastReminderAt']),
+      );
+    }));
+    return summaries;
+  }
+
+  DateTime? _parseTimestamp(Object? raw) {
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
   }
 }

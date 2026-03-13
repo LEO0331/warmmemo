@@ -10,6 +10,7 @@ import '../../core/export/pdf_exporter.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
+import '../../data/services/notification_service.dart';
 
 /// TAB 3 – 簡易紀念頁（One-page life summary）
 class MemorialPageTab extends StatefulWidget {
@@ -72,6 +73,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             ),
             const SizedBox(height: 12),
             if (_stats != null) _buildStatsCard(theme, _stats!),
+            if (_stats != null && AuthService.instance.currentUser?.uid != null)
+              const SizedBox(height: 12),
+            if (_stats != null && AuthService.instance.currentUser?.uid != null)
+              _buildUserNotificationCard(AuthService.instance.currentUser!.uid),
             const SizedBox(height: 16),
             Form(
               key: _formKey,
@@ -181,6 +186,50 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildUserNotificationCard(String uid) {
+    return StreamBuilder<List<NotificationEvent>>(
+      stream: NotificationService.instance.streamForUser(uid),
+      builder: (context, snapshot) {
+        final events = snapshot.data ?? [];
+        if (events.isEmpty) {
+          return const SectionCard(
+            title: '我的通知狀態',
+            icon: Icons.notifications_outlined,
+            child: Text('尚未有通知紀錄，系統會自動追蹤閱讀與點擊。'),
+          );
+        }
+        return SectionCard(
+          title: '我的通知狀態',
+          icon: Icons.notifications_outlined,
+          child: Column(
+            children: events
+                .take(4)
+                .map(
+                  (event) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      event.status == 'read'
+                          ? Icons.mark_email_read_outlined
+                          : Icons.circle_outlined,
+                      size: 20,
+                    ),
+                    title: Text(event.draftType ?? '草稿'),
+                    subtitle: Text(
+                      '${event.channel} · ${event.status}${event.tone != null ? ' · ${event.tone}' : ''}',
+                    ),
+                    trailing: Text(
+                      event.occurredAt.toLocal().toString().split('.').first,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
     );
   }
 
