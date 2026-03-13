@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Firebase 敏感設定檔
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+ios/Firebase/
+lib/firebase_options.dart
+
+# 如果有使用本地環境變數
+.env
