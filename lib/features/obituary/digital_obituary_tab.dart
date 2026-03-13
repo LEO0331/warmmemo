@@ -1,7 +1,15 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../core/export/pdf_exporter.dart';
 import '../../core/widgets/common_widgets.dart';
-import '../../data/draft_storage.dart';
+import '../../data/firebase/auth_service.dart';
+import '../../data/firebase/draft_service.dart';
+import '../../data/models/draft_models.dart';
 
 /// TAB 4 – 數位訃聞系統（Digital Obituary）
 class DigitalObituaryTab extends StatefulWidget {
@@ -21,6 +29,7 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
 
   String _tone = '溫和正式';
   String _generatedText = '';
+  final _previewKey = GlobalKey();
 
   @override
   void initState() {
@@ -171,9 +180,9 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                     child: FilledButton.icon(
                       icon: const Icon(Icons.auto_fix_high_outlined),
                       label: const Text('產生訃聞文案'),
-                      onPressed: () {
+                      onPressed: () async {
                         _generateObituary();
-                        _saveDraft();
+                        await _saveDraft();
                       },
                     ),
                   ),
@@ -182,42 +191,68 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
             ),
             const SizedBox(height: 24),
             if (_generatedText.isNotEmpty)
-              Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.campaign_outlined,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '可直接貼到通訊軟體的訃聞文字',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+              RepaintBoundary(
+                key: _previewKey,
+                child: Card(
+                  elevation: 0,
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.campaign_outlined,
+                              color: theme.colorScheme.primary,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _generatedText,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
+                            const SizedBox(width: 8),
+                            Text(
+                              '可直接貼到通訊軟體的訃聞文字',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _generatedText,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             const SizedBox(height: 24),
+            if (_generatedText.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: const Text('匯出 PDF'),
+                        onPressed: _exportObituaryPdf,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.image_outlined),
+                        label: const Text('匯出圖片'),
+                        onPressed: _exportObituaryImage,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SectionCard(
               title: '進一步的產品構想',
               icon: Icons.dashboard_customize_outlined,
@@ -239,8 +274,10 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   }
 
   Future<void> _loadDraft() async {
-    final storage = await DraftStorage.instance;
-    final draft = storage.loadObituaryDraft();
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final draft = await FirebaseDraftService.instance.loadObituary(uid);
     if (draft == null) return;
 
     setState(() {
@@ -254,7 +291,9 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   }
 
   Future<void> _saveDraft() async {
-    final storage = await DraftStorage.instance;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+
     final draft = ObituaryDraft(
       deceasedName: _deceasedNameController.text.trim(),
       relationship: _relationshipController.text.trim(),
@@ -264,6 +303,59 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       customNote: _customNoteController.text.trim(),
     );
 
-    await storage.saveObituaryDraft(draft);
+    await FirebaseDraftService.instance.saveObituary(uid, draft);
+  }
+
+  ObituaryDraft get _currentObituaryDraft => ObituaryDraft(
+        deceasedName: _deceasedNameController.text.trim(),
+        relationship: _relationshipController.text.trim(),
+        location: _locationController.text.trim(),
+        serviceDate: _serviceDateController.text.trim(),
+        tone: _tone,
+        customNote: _customNoteController.text.trim(),
+      );
+
+  Future<void> _exportObituaryPdf() async {
+    try {
+      await PdfExporter.exportObituary(_currentObituaryDraft);
+      _showMessage('PDF 已準備好');
+    } catch (error) {
+      _showMessage('匯出失敗：$error');
+    }
+  }
+
+  Future<void> _exportObituaryImage() async {
+    final bytes = await _captureObituaryImage();
+    if (bytes == null) {
+      _showMessage('無法擷取圖片');
+      return;
+    }
+
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          bytes,
+          mimeType: 'image/png',
+          name: 'warmmemo_obituary.png',
+        ),
+      ],
+      text: 'WarmMemo 訃聞圖片',
+    );
+    _showMessage('圖片已準備好');
+  }
+
+  Future<Uint8List?> _captureObituaryImage() async {
+    final context = _previewKey.currentContext;
+    if (context == null) return null;
+    final boundary = context.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 3);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }

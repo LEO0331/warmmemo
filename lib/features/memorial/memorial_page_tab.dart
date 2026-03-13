@@ -1,6 +1,15 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../../core/widgets/common_widgets.dart';
-import '../../data/draft_storage.dart';
+import '../../core/export/pdf_exporter.dart';
+import '../../data/firebase/auth_service.dart';
+import '../../data/firebase/draft_service.dart';
+import '../../data/models/draft_models.dart';
 
 /// TAB 3 – 簡易紀念頁（One-page life summary）
 class MemorialPageTab extends StatefulWidget {
@@ -21,6 +30,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   final _willNoteController = TextEditingController();
 
   bool _showPreview = false;
+  final _previewKey = GlobalKey();
+  DraftStats? _stats;
 
   @override
   void initState() {
@@ -61,6 +72,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               '並可選擇是否付費延長保存。',
               style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 12),
+            if (_stats != null) _buildStatsCard(theme, _stats!),
             const SizedBox(height: 16),
             Form(
               key: _formKey,
@@ -121,7 +134,34 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               ),
             ),
             const SizedBox(height: 24),
-            if (_showPreview) _buildPreviewCard(theme),
+            if (_showPreview)
+              RepaintBoundary(
+                key: _previewKey,
+                child: _buildPreviewCard(theme),
+              ),
+            if (_showPreview)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: const Text('匯出 PDF'),
+                        onPressed: _exportMemorialPdf,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.image_outlined),
+                        label: const Text('匯出圖片'),
+                        onPressed: _exportMemorialImage,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 24),
             const SectionCard(
               title: '商業思維：紀念頁如何變成服務？',
@@ -140,6 +180,34 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStatsCard(ThemeData theme, DraftStats stats) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _statColumn(theme, '閱讀次數', stats.readCount),
+            _statColumn(theme, '點擊次數', stats.clickCount),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statColumn(ThemeData theme, String label, int value) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: theme.textTheme.bodyMedium),
+        const SizedBox(height: 4),
+        Text(value.toString(), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
@@ -239,8 +307,11 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Future<void> _loadDraft() async {
-    final storage = await DraftStorage.instance;
-    final draft = storage.loadMemorialDraft();
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final draft = await FirebaseDraftService.instance.loadMemorial(uid);
+    await _refreshStats(uid);
     if (draft == null) return;
 
     setState(() {
@@ -253,8 +324,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     });
   }
 
+  Future<void> _refreshStats(String uid) async {
+    final stats = await FirebaseDraftService.instance.loadStats(uid);
+    if (!mounted) return;
+    setState(() => _stats = stats);
+  }
+
   Future<void> _saveDraft() async {
-    final storage = await DraftStorage.instance;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+
     final draft = MemorialDraft(
       name: _nameController.text.trim(),
       nickname: _nicknameController.text.trim(),
@@ -264,6 +343,60 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       willNote: _willNoteController.text.trim(),
     );
 
-    await storage.saveMemorialDraft(draft);
+    await FirebaseDraftService.instance.saveMemorial(uid, draft);
+    await _refreshStats(uid);
+  }
+
+  MemorialDraft get _currentMemorialDraft => MemorialDraft(
+        name: _nameController.text.trim(),
+        nickname: _nicknameController.text.trim(),
+        motto: _mottoController.text.trim(),
+        bio: _bioController.text.trim(),
+        highlights: _highlightsController.text.trim(),
+        willNote: _willNoteController.text.trim(),
+      );
+
+  Future<void> _exportMemorialPdf() async {
+    try {
+      await PdfExporter.exportMemorial(_currentMemorialDraft);
+      _showMessage('PDF 已準備好');
+    } catch (error) {
+      _showMessage('匯出失敗：$error');
+    }
+  }
+
+  Future<void> _exportMemorialImage() async {
+    final bytes = await _capturePreviewImage();
+    if (bytes == null) {
+      _showMessage('無法擷取畫面');
+      return;
+    }
+
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          bytes,
+          mimeType: 'image/png',
+          name: 'warmmemo_memorial.png',
+        ),
+      ],
+      text: 'WarmMemo 紀念頁圖片',
+    );
+    _showMessage('圖片已準備好');
+  }
+
+  Future<Uint8List?> _capturePreviewImage() async {
+    final context = _previewKey.currentContext;
+    if (context == null) return null;
+    final boundary = context.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 3);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
