@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -10,18 +11,27 @@ class PdfExporter {
   PdfExporter._();
 
   static Future<void> exportMemorial(MemorialDraft draft) async {
-    final bytes = await _pdfBytes(_buildMemorialPage(draft));
+    final bytes = await _pdfBytes(await _buildMemorialPage(draft));
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_memorial.pdf');
   }
 
   static Future<void> exportObituary(ObituaryDraft draft) async {
-    final bytes = await _pdfBytes(_buildObituaryPage(draft));
+    final bytes = await _pdfBytes(await _buildObituaryPage(draft));
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_obituary.pdf');
   }
 
-  static pw.Page _buildMemorialPage(MemorialDraft draft) {
+  static Future<pw.Page> _buildMemorialPage(MemorialDraft draft) async {
+    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
+    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
+    final myFont = pw.Font.ttf(fontData);
+    final fontBold = pw.Font.ttf(boldData);
+
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
+      theme: pw.ThemeData.withFont(
+        base: myFont,
+        bold: fontBold
+      ),
       build: (context) => pw.Padding(
         padding: const pw.EdgeInsets.all(24),
         child: pw.Column(
@@ -41,9 +51,18 @@ class PdfExporter {
     );
   }
 
-  static pw.Page _buildObituaryPage(ObituaryDraft draft) {
+  static Future<pw.Page> _buildObituaryPage(ObituaryDraft draft) async {
+    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
+    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
+    final myFont = pw.Font.ttf(fontData);
+    final fontBold = pw.Font.ttf(boldData);
+
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
+      theme: pw.ThemeData.withFont(
+        base: myFont,
+        bold: fontBold
+      ),
       build: (context) => pw.Padding(
         padding: const pw.EdgeInsets.all(24),
         child: pw.Column(
