@@ -1,8 +1,8 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/export/pdf_exporter.dart';
@@ -215,10 +215,23 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: '一鍵複製',
+                              icon: const Icon(Icons.copy_all_outlined),
+                              onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                await Clipboard.setData(ClipboardData(text: _generatedText));
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                  const SnackBar(content: Text('文案已複製')),
+                                );
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text(
+                        SelectableText(
                           _generatedText,
                           style: theme.textTheme.bodyMedium,
                         ),

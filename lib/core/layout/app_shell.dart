@@ -41,9 +41,11 @@ class _AppShellState extends State<AppShell> {
   StreamSubscription<String>? _roleSub;
 
   List<_NavItem> get _destinations {
-    final list = List<_NavItem>.from(_baseDestinations);
-    if (_isAdmin) list.add(_adminDestination);
-    return list;
+    if (_isAdmin) {
+      // 管理者僅需查看後台
+      return const [_adminDestination];
+    }
+    return List<_NavItem>.from(_baseDestinations);
   }
 
   @override

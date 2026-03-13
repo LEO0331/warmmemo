@@ -6,10 +6,8 @@ import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
 import '../../data/models/purchase.dart';
 import '../../data/services/export_service.dart';
-import '../../data/services/payment_service.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/purchase_service.dart';
-import '../../data/services/reminder_service.dart';
 import '../../data/services/user_role_service.dart';
 import 'order_tile.dart';
 
@@ -21,27 +19,15 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final _invoiceEmailController = TextEditingController();
-  final _invoiceNameController = TextEditingController();
-  final _invoiceAmountController = TextEditingController(text: '120000');
-  final _invoiceDescriptionController = TextEditingController(text: 'WarmMemo 專案費用');
-  PaymentProvider _selectedProvider = PaymentProvider.stripe;
-  String? _invoiceLink;
-  bool _creatingInvoice = false;
+  final ScrollController _scrollController = ScrollController();
   bool _exporting = false;
-  bool _sendingReminder = false;
-  String? _reminderMessage;
   String? _selectedTone;
   String? _selectedChannel;
   String? _selectedStatus;
-  String _selectedReminderChannel = 'email';
 
   @override
   void dispose() {
-    _invoiceEmailController.dispose();
-    _invoiceNameController.dispose();
-    _invoiceAmountController.dispose();
-    _invoiceDescriptionController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -75,6 +61,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildAdminBody(BuildContext context) {
     final theme = Theme.of(context);
     return SingleChildScrollView(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,17 +72,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 4),
           Text(
-            '封裝平台指標、通知追蹤與提醒推播，協助銷售團隊快速找到還在等待通知的用戶。',
+            '封裝平台指標與訂單追蹤，協助銷售團隊快速處理 pending / received / complete 的需求。',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           _buildMetricsSection(),
           const SizedBox(height: 16),
           _buildNotificationSection(),
-          const SizedBox(height: 16),
-          _buildReminderSection(),
-          const SizedBox(height: 16),
-          _buildPaymentSection(),
           const SizedBox(height: 16),
           _buildOrdersSection(),
           const SizedBox(height: 16),
@@ -196,130 +179,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildReminderSection() {
-    return SectionCard(
-      title: '提醒推播',
-      icon: Icons.notifications_active_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          StreamBuilder<int>(
-            stream: NotificationService.instance.pendingCount(),
-            builder: (context, snapshot) {
-              final pending = snapshot.data ?? 0;
-              return Text('目前有 $pending 筆通知仍維持 pending，可以再推提醒。');
-            },
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: ['email', 'line', 'sms']
-                .map((channel) => ChoiceChip(
-                      label: Text(channel.toUpperCase()),
-                      selected: _selectedReminderChannel == channel,
-                      onSelected: (_) {
-                        setState(() => _selectedReminderChannel = channel);
-                      },
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.campaign_outlined),
-                  label: Text(_sendingReminder ? '推播中…' : '提醒待處理用戶'),
-                  onPressed: _sendingReminder ? null : _sendReminder,
-                ),
-              ),
-            ],
-          ),
-          if (_reminderMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _reminderMessage!,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentSection() {
-    return SectionCard(
-      title: '付款與發票 (Stripe / 綠界)',
-      icon: Icons.receipt_long_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextFormField(
-            controller: _invoiceEmailController,
-            decoration: const InputDecoration(labelText: '帳單 Email'),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _invoiceNameController,
-            decoration: const InputDecoration(labelText: '姓名／公司'),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _invoiceAmountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: '金額 (NTD)'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<PaymentProvider>(
-                  initialValue: _selectedProvider,
-                  decoration: const InputDecoration(labelText: '供應商'),
-                  items: PaymentProvider.values
-                      .map((provider) => DropdownMenuItem(
-                            value: provider,
-                            child: Text(provider.name.toUpperCase()),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedProvider = value);
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _invoiceDescriptionController,
-            decoration: const InputDecoration(labelText: '描述'),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              icon: const Icon(Icons.payment_outlined),
-              label: Text(_creatingInvoice ? '建立中…' : '建立發票'),
-              onPressed: _creatingInvoice ? null : _createInvoice,
-            ),
-          ),
-          if (_invoiceLink != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: SelectableText(
-                '發票連結：$_invoiceLink',
-                style: const TextStyle(decoration: TextDecoration.underline),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  // 提醒推播與付款功能暫時移除，以避免干擾後台動線。
 
   Widget _buildExportSection() {
     return SectionCard(
@@ -369,72 +229,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         },
       ),
     );
-  }
-
-  Future<void> _createInvoice() async {
-    final email = _invoiceEmailController.text.trim();
-    final name = _invoiceNameController.text.trim();
-    final amount = double.tryParse(_invoiceAmountController.text.trim()) ?? 0;
-    final description = _invoiceDescriptionController.text.trim();
-    if (email.isEmpty || name.isEmpty || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請填寫 Email、姓名與金額。')),
-      );
-      return;
-    }
-
-    setState(() {
-      _creatingInvoice = true;
-      _invoiceLink = null;
-    });
-
-    try {
-      final result = await PaymentService.instance.createInvoice(
-        email: email,
-        name: name,
-        amountCents: (amount * 100).round(),
-        description: description.isEmpty ? 'WarmMemo 服務' : description,
-        provider: _selectedProvider,
-        currency: 'twd',
-      );
-      if (!mounted) return;
-      setState(() => _invoiceLink = result.checkoutUrl);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('發票已建立：${result.invoiceId}')),
-      );
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('建立發票失敗：$error')),
-      );
-    } finally {
-      if (mounted) setState(() => _creatingInvoice = false);
-    }
-  }
-
-  Future<void> _sendReminder() async {
-    setState(() {
-      _sendingReminder = true;
-      _reminderMessage = null;
-    });
-    try {
-      final result = await ReminderService.instance.pushReminders(
-        channel: _selectedReminderChannel,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (result.users.isEmpty) {
-          _reminderMessage = '目前沒有等待提醒的用戶。';
-        } else {
-          _reminderMessage =
-              '已向 ${result.users.length} 位用戶發送 ${result.channel.toUpperCase()} 提醒。';
-        }
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _reminderMessage = '提醒失敗：$error');
-    } finally {
-      if (mounted) setState(() => _sendingReminder = false);
-    }
   }
 
   Future<void> _exportCompliance() async {

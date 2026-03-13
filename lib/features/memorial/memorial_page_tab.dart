@@ -262,11 +262,34 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              displayName,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    displayName,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '一鍵複製全文',
+                  icon: const Icon(Icons.copy_all_outlined),
+                  onPressed: () async {
+                    final fullText = [
+                      displayName,
+                      if (motto.isNotEmpty) '「$motto」',
+                      if (_bioController.text.trim().isNotEmpty) _bioController.text,
+                      if (_highlightsController.text.trim().isNotEmpty) _highlightsController.text,
+                      if (_willNoteController.text.trim().isNotEmpty) _willNoteController.text,
+                    ].join('\n');
+                    await Clipboard.setData(ClipboardData(text: fullText));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(const SnackBar(content: Text('紀念頁內容已複製')));
+                  },
+                ),
+              ],
             ),
             if (motto.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -285,7 +308,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(_bioController.text),
+              SelectableText(_bioController.text),
               const SizedBox(height: 12),
             ],
             if (_highlightsController.text.trim().isNotEmpty) ...[
@@ -295,7 +318,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(_highlightsController.text),
+              SelectableText(_highlightsController.text),
               const SizedBox(height: 12),
             ],
             if (_willNoteController.text.trim().isNotEmpty) ...[
@@ -305,7 +328,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(_willNoteController.text),
+              SelectableText(_willNoteController.text),
               const SizedBox(height: 12),
             ],
             const Divider(),
