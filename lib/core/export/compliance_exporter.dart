@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
@@ -48,8 +49,16 @@ class ComplianceExporter {
 
   static Future<Uint8List> _buildPdf(List<NotificationEvent> events, DraftMetrics metrics) async {
     final doc = pw.Document();
+    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
+    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
+    final myFont = pw.Font.ttf(fontData);
+    final fontBold = pw.Font.ttf(boldData);
     doc.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
+      theme: pw.ThemeData.withFont(
+        base: myFont,
+        bold: fontBold
+      ),
       build: (context) => pw.Padding(
         padding: const pw.EdgeInsets.all(24),
         child: pw.Column(
@@ -100,8 +109,16 @@ class ComplianceExporter {
 
   static Future<Uint8List> _buildDraftPdf(List<UserComplianceSnapshot> bundles) async {
     final doc = pw.Document();
+    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
+    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
+    final myFont = pw.Font.ttf(fontData);
+    final fontBold = pw.Font.ttf(boldData);
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
+      theme: pw.ThemeData.withFont(
+        base: myFont,
+        bold: fontBold
+      ),
       margin: const pw.EdgeInsets.all(24),
       build: (context) {
         return [
