@@ -32,25 +32,28 @@ class _AuthPageState extends State<AuthPage> {
       _error = null;
     });
 
-    try {
-      if (isLogin) {
-        await AuthService.instance.signIn(
-          email: _loginEmail.text.trim(),
-          password: _loginPassword.text.trim(),
-        );
-      } else {
-        await AuthService.instance.signUp(
-          email: _registerEmail.text.trim(),
-          password: _registerPassword.text.trim(),
-        );
+      try {
+        if (isLogin) {
+          await AuthService.instance.signIn(
+            email: _loginEmail.text.trim(),
+            password: _loginPassword.text.trim(),
+          );
+        } else {
+          await AuthService.instance.signUp(
+            email: _registerEmail.text.trim(),
+            password: _registerPassword.text.trim(),
+          );
+        }
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        setState(() => _error = e.toString());
+      } finally {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+        }
       }
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
   }
 
   Widget _buildForm({
