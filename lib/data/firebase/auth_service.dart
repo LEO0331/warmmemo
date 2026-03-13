@@ -12,6 +12,13 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  Future<bool> get isAdmin async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    final idTokenResult = await user.getIdTokenResult(true);
+    return idTokenResult.claims?['admin'] == true;
+  }
+
   Future<UserCredential> signIn({required String email, required String password}) {
     return _auth.signInWithEmailAndPassword(email: email, password: password);
   }

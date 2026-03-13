@@ -12,6 +12,9 @@ class FirebaseDraftService {
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
 
+  CollectionReference<Map<String, dynamic>> get _notifications =>
+      _firestore.collection('notifications');
+
   DocumentReference<Map<String, dynamic>> _memorialDoc(String uid) =>
       _users.doc(uid).collection('drafts').doc('memorial');
 
@@ -68,6 +71,41 @@ class FirebaseDraftService {
               'drafts': doc.data()['drafts'],
             })
         .toList());
+  }
+
+  Stream<DraftMetrics> adminMetricsStream() {
+    return _firestore.collectionGroup('stats').snapshots().map((snapshot) {
+      final userIds = <String>{};
+      var totalReads = 0;
+      var totalClicks = 0;
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        userIds.add(doc.reference.parent.parent?.id ?? 'unknown');
+        totalReads += data['readCount'] as int? ?? 0;
+        totalClicks += data['clickCount'] as int? ?? 0;
+      }
+
+      return DraftMetrics(
+        totalUsers: userIds.length,
+        totalReads: totalReads,
+        totalClicks: totalClicks,
+      );
+    });
+  }
+
+  Stream<List<NotificationEvent>> notificationTimeline({int limit = 20}) {
+    return _notifications
+        .orderBy('occurredAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationEvent.fromMap(doc.data()))
+            .toList());
+  }
+
+  Future<void> logNotificationEvent(NotificationEvent event) {
+    return _notifications.add(event.toMap());
   }
 
   Future<void> _touchUserDoc(String uid) {

@@ -67,9 +67,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             ),
             const SizedBox(height: 8),
             Text(
-              '這裡示範「一頁式生命摘要」的填寫方式，'
-              '正式商業版會在雲端產生一個專屬連結，提供家屬於告別式前後 14 天分享給親友瀏覽，'
-              '並可選擇是否付費延長保存。',
+              '填寫親友的故事與回憶後，即可生成預覽，並透過 PDF／圖片快速分享給親友與長輩。',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
@@ -163,20 +161,6 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 ),
               ),
             const SizedBox(height: 24),
-            const SectionCard(
-              title: '商業思維：紀念頁如何變成服務？',
-              icon: Icons.lightbulb_outline,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('・免費版：與喪葬方案綁定，提供 14 日連結，有效期限到期自動下架'),
-                  SizedBox(height: 4),
-                  Text('・付費升級：延長保存、更多照片／影片空間、自訂網址'),
-                  SizedBox(height: 4),
-                  Text('・B2B：提供禮儀公司白標版本，讓他們也能提供數位紀念服務'),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -221,7 +205,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
     return Card(
       elevation: 0,
-      color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),

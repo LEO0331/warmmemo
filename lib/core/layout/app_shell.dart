@@ -23,19 +23,54 @@ class _NavItem {
 }
 
 class _AppShellState extends State<AppShell> {
-  final List<_NavItem> _destinations = const [
+  final List<_NavItem> _baseDestinations = const [
     _NavItem('流程總覽', Icons.map_outlined, OverviewTab()),
     _NavItem('固定方案', Icons.handshake_outlined, PackagesTab()),
     _NavItem('簡易紀念頁', Icons.person_outline, MemorialPageTab()),
     _NavItem('數位訃聞', Icons.campaign_outlined, DigitalObituaryTab()),
-    _NavItem('Admin', Icons.admin_panel_settings, AdminDashboard()),
   ];
 
+  static const _adminDestination =
+      _NavItem('Admin', Icons.admin_panel_settings, AdminDashboard());
+
+  bool _isAdmin = false;
+  bool _loadingAdmin = true;
   int _selectedIndex = 0;
+
+  List<_NavItem> get _destinations {
+    final list = List<_NavItem>.from(_baseDestinations);
+    if (_isAdmin) list.add(_adminDestination);
+    return list;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdminFlag();
+  }
+
+  Future<void> _loadAdminFlag() async {
+    final isAdmin = await AuthService.instance.isAdmin;
+    if (!mounted) return;
+    setState(() {
+      _isAdmin = isAdmin;
+      _loadingAdmin = false;
+      if (_selectedIndex >= _destinations.length) {
+        _selectedIndex = _destinations.length - 1;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingAdmin) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final isWide = MediaQuery.of(context).size.width >= 900;
+    final destinations = _destinations;
     return Scaffold(
       appBar: AppBar(
         title: const Text('暖備 WarmMemo'),
@@ -47,14 +82,14 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
-      drawer: isWide ? null : Drawer(child: _buildDrawerContent(context)),
+      drawer: isWide ? null : Drawer(child: _buildDrawerContent(context, destinations)),
       body: Row(
         children: [
           if (isWide)
             NavigationRail(
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-              destinations: _destinations
+              destinations: destinations
                   .map((dest) => NavigationRailDestination(
                         icon: Icon(dest.icon),
                         label: Text(dest.label),
@@ -64,7 +99,7 @@ class _AppShellState extends State<AppShell> {
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
-              children: _destinations.map((dest) => dest.widget).toList(),
+              children: destinations.map((dest) => dest.widget).toList(),
             ),
           ),
         ],
@@ -72,15 +107,15 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildDrawerContent(BuildContext context) {
+  Widget _buildDrawerContent(BuildContext context, List<_NavItem> destinations) {
     return SafeArea(
       child: ListView(
         children: [
           const DrawerHeader(
             child: Text('WarmMemo'),
           ),
-          ...List.generate(_destinations.length, (index) {
-            final item = _destinations[index];
+          ...List.generate(destinations.length, (index) {
+            final item = destinations[index];
             return ListTile(
               leading: Icon(item.icon),
               title: Text(item.label),
