@@ -77,8 +77,8 @@ class LandingPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '''暖備 WarmMemo 結合固定方案、數位訃聞與紀念頁創建，讓您在關鍵時刻把握清楚、懂得聲明意圖，
-並進一步透過通知追蹤與點擊統計確認訊息是否送達。''',
+            '暖備 WarmMemo 結合固定方案、數位訃聞與紀念頁創建，讓您在關鍵時刻把握清楚、懂得聲明意圖，\n'
+            '並進一步透過通知追蹤與點擊統計確認訊息是否送達。Above-the-fold CTA 與社群認證可協助 SEO 與轉換。',
             style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
           ),
           const SizedBox(height: 24),
@@ -89,6 +89,11 @@ class LandingPage extends StatelessWidget {
               FilledButton(
                 onPressed: () => _openAuth(context),
                 child: const Text('開始規劃'),
+              ),
+              OutlinedButton(
+                onPressed: () => _openAuth(context),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text('Admin 登入'),
               ),
             ],
           ),
@@ -239,7 +244,7 @@ class LandingPage extends StatelessWidget {
               children: logos
                   .map((logo) => Chip(
                         label: Text(logo),
-                        backgroundColor: theme.colorScheme.surfaceVariant,
+                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
                       ))
                   .toList(),
             ),
@@ -267,7 +272,7 @@ class LandingPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SectionCard(
-        title: '常見問題 (SEO Friendly FAQ)',
+        title: '常見問題 (FAQ)',
         icon: Icons.help_outline,
         child: Column(
           children: faqs

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/firebase/auth_service.dart';
+import '../../data/services/user_role_service.dart';
 import '../../core/layout/app_shell.dart';
 import '../landing/landing_page.dart';
 
@@ -18,6 +19,7 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
+          UserRoleService.instance.ensureUserProfile(snapshot.data!);
           return const AppShell();
         }
 

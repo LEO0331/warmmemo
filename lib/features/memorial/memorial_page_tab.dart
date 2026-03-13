@@ -1,9 +1,10 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/widgets/common_widgets.dart';
 import '../../core/export/pdf_exporter.dart';
@@ -318,12 +319,28 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    'https://warmmemo.tw/m/$fakeLinkId',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
+                  child: InkWell(
+                    onTap: () async {
+                      final url = Uri.parse('https://warmmemo.tw/m/$fakeLinkId');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      }
+                    },
+                    onLongPress: () {
+                      // 長按自動複製到剪貼簿
+                      Clipboard.setData(ClipboardData(text: 'https://warmmemo.tw/m/$fakeLinkId'));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('已複製連結')),
+                      );
+                    },
+                    child: Text(
+                      'https://warmmemo.tw/m/$fakeLinkId',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline, // 增加底線讓它看起來像連結
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

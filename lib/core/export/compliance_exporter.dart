@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;

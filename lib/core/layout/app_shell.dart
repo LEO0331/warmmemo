@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../data/firebase/auth_service.dart';
+import '../../data/services/user_role_service.dart';
 import '../../features/admin/admin_dashboard.dart';
 import '../../features/memorial/memorial_page_tab.dart';
 import '../../features/obituary/digital_obituary_tab.dart';
@@ -33,8 +36,9 @@ class _AppShellState extends State<AppShell> {
       _NavItem('Admin', Icons.admin_panel_settings, AdminDashboard());
 
   bool _isAdmin = false;
-  bool _loading = true;
+  bool _loadingRole = true;
   int _selectedIndex = 0;
+  StreamSubscription<String>? _roleSub;
 
   List<_NavItem> get _destinations {
     final list = List<_NavItem>.from(_baseDestinations);
@@ -45,24 +49,35 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _loadAdminFlag();
+    _listenForRole();
   }
 
-  Future<void> _loadAdminFlag() async {
-    final isAdmin = await AuthService.instance.isAdmin;
-    if (!mounted) return;
-    setState(() {
-      _isAdmin = isAdmin;
-      _loading = false;
-      if (_selectedIndex >= _destinations.length) {
-        _selectedIndex = _destinations.length - 1;
-      }
+  Future<void> _listenForRole() async {
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+    await UserRoleService.instance.ensureUserProfile(user);
+    _roleSub?.cancel();
+    _roleSub = UserRoleService.instance.roleStream(user.uid).listen((role) {
+      if (!mounted) return;
+      setState(() {
+        _isAdmin = role == 'admin';
+        _loadingRole = false;
+        if (_selectedIndex >= _destinations.length) {
+          _selectedIndex = _destinations.length - 1;
+        }
+      });
     });
   }
 
   @override
+  void dispose() {
+    _roleSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    if (_loadingRole) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );

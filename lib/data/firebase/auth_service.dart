@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../services/user_role_service.dart';
+
 /// A thin wrapper around Firebase Authentication.
 class AuthService {
   AuthService._();
@@ -20,11 +22,23 @@ class AuthService {
   }
 
   Future<UserCredential> signIn({required String email, required String password}) {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+    return _auth.signInWithEmailAndPassword(email: email, password: password).then((credential) {
+      final user = credential.user;
+      if (user != null) {
+        UserRoleService.instance.ensureUserProfile(user);
+      }
+      return credential;
+    });
   }
 
   Future<UserCredential> signUp({required String email, required String password}) {
-    return _auth.createUserWithEmailAndPassword(email: email, password: password);
+    return _auth.createUserWithEmailAndPassword(email: email, password: password).then((credential) {
+      final user = credential.user;
+      if (user != null) {
+        UserRoleService.instance.ensureUserProfile(user);
+      }
+      return credential;
+    });
   }
 
   Future<void> signOut() => _auth.signOut();
