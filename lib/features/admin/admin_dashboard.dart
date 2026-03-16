@@ -15,6 +15,12 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
+  // Firestore rules currently check admin by doing cross-document exists+get on
+  // `/users/{uid}`. In collectionGroup queries, that cost is paid per document,
+  // so large page sizes can hit Firestore's cross-document access limits and
+  // cause permission-denied even for real admins.
+  static const int _pageSize = 4;
+
   final ScrollController _scrollController = ScrollController();
   String? _statusFilter;
   String? _planFilter;
@@ -59,12 +65,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           });
         }
 
-        return _buildAdminBody(context);
+        return _buildAdminBody(context, uid);
       },
     );
   }
 
-  Widget _buildAdminBody(BuildContext context) {
+  Widget _buildAdminBody(BuildContext context, String uid) {
     final theme = Theme.of(context);
     return SingleChildScrollView(
       controller: _scrollController,
@@ -72,7 +78,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Admin 控制台', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Admin 控制台',
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Auth UID：$uid')),
+                  );
+                },
+                child: const Text('顯示 UID'),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
           const SizedBox(height: 16),
@@ -210,7 +234,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _loadFirstPage() async {
     setState(() => _loadingPage = true);
     try {
-      final page = await PurchaseService.instance.adminOrdersPage(limit: 20);
+      final page = await PurchaseService.instance.adminOrdersPage(limit: _pageSize);
       if (!mounted) return;
       setState(() {
         _allOrders
@@ -225,9 +249,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _loadingPage = false;
         _cursor = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('讀取訂單失敗：$error')),
-      );
+      final message = error.toString().contains('permission-denied')
+          ? '讀取訂單失敗：permission-denied。若你在 rules 用 `exists()+get()` 檢查 admin role，'
+              'collectionGroup 一次抓太多筆可能會超過 cross-document 限制而被拒絕。'
+              '請確認 `users/{adminUid}.role == "admin"` 且後台查詢使用小分頁（已改為 $_pageSize 筆/頁）。'
+          : '讀取訂單失敗：$error';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -236,7 +263,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     setState(() => _loadingPage = true);
     try {
       final page = await PurchaseService.instance.adminOrdersPage(
-        limit: 20,
+        limit: _pageSize,
         startAfterCreatedAt: _cursor,
       );
       if (!mounted) return;
@@ -248,9 +275,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _loadingPage = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('載入更多失敗：$error')),
-      );
+      final message = error.toString().contains('permission-denied')
+          ? '載入更多失敗：permission-denied。請確認後台帳號 role 與規則允許 orders list。'
+          : '載入更多失敗：$error';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 }

@@ -46,7 +46,7 @@ class PurchaseService {
   }
 
   Future<({List<Purchase> items, String? cursor})> adminOrdersPage({
-    int limit = 20,
+    int limit = 5,
     String? startAfterCreatedAt,
   }) async {
     Query<Map<String, dynamic>> query = _firestore
