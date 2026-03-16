@@ -32,7 +32,7 @@ class PurchaseService {
   }
 
   Stream<List<Purchase>> adminOrders() {
-    return _firestore.collectionGroup('orders').orderBy('createdAt', descending: true).snapshots().map(
+    return _firestore.collectionGroup('orders').snapshots().map(
       (snapshot) => snapshot.docs.map((doc) {
         final userId = doc.reference.parent.parent?.id;
         return Purchase.fromMap(
@@ -47,14 +47,14 @@ class PurchaseService {
 
   Future<({List<Purchase> items, String? cursor})> adminOrdersPage({
     int limit = 5,
-    String? startAfterCreatedAt,
+    String? startAfterDocPath,
   }) async {
     Query<Map<String, dynamic>> query = _firestore
         .collectionGroup('orders')
-        .orderBy('createdAt', descending: true)
+        .orderBy(FieldPath.documentId)
         .limit(limit);
-    if (startAfterCreatedAt != null) {
-      query = query.startAfter([startAfterCreatedAt]);
+    if (startAfterDocPath != null) {
+      query = query.startAfter([startAfterDocPath]);
     }
     final snapshot = await query.get();
     final items = snapshot.docs
@@ -66,7 +66,7 @@ class PurchaseService {
             ))
         .toList();
     final nextCursor =
-        snapshot.docs.isNotEmpty ? snapshot.docs.last.data()['createdAt'] as String? : null;
+        snapshot.docs.isNotEmpty ? snapshot.docs.last.reference.path : null;
     return (items: items, cursor: nextCursor);
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
@@ -121,6 +122,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   );
                 },
                 child: const Text('複製 UID'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await FirebaseFirestore.instance
+                        .collectionGroup('orders')
+                        .orderBy(FieldPath.documentId)
+                        .limit(1)
+                        .get();
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('診斷：查詢成功（collectionGroup orders）')),
+                    );
+                  } catch (error) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('診斷：$error')),
+                    );
+                  }
+                },
+                child: const Text('診斷'),
               ),
             ],
           ),
@@ -282,7 +305,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       setState(() {
         _allOrders
           ..clear()
-          ..addAll(page.items);
+          ..addAll(page.items..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
         _cursor = page.cursor;
         _loadingPage = false;
       });
@@ -294,8 +317,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       });
       final currentUid = AuthService.instance.currentUser?.uid ?? '-';
       final message = error.toString().contains('permission-denied')
-          ? '讀取訂單失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件，'
-              '且後台查詢已使用小分頁（目前 $_pageSize 筆/頁）。'
+          ? '讀取訂單失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件。'
           : '讀取訂單失敗：$error';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
@@ -307,11 +329,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       final page = await PurchaseService.instance.adminOrdersPage(
         limit: _pageSize,
-        startAfterCreatedAt: _cursor,
+        startAfterDocPath: _cursor,
       );
       if (!mounted) return;
       setState(() {
-        _allOrders.addAll(page.items);
+        _allOrders
+          ..addAll(page.items)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         _cursor = page.cursor;
         _loadingPage = false;
       });
