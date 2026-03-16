@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
@@ -27,6 +28,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _cursor;
   bool _loadingPage = false;
   bool _initializedForAdmin = false;
+  bool _adminDocEnsured = false;
+  bool _adminDocChecked = false;
+  bool? _adminDocExists;
   final List<Purchase> _allOrders = [];
 
   @override
@@ -55,12 +59,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
           );
         }
 
-        // Avoid querying collectionGroup('orders') until we have confirmed role == admin,
-        // otherwise the first build after login can trigger permission-denied on web.
-        if (!_initializedForAdmin) {
-          _initializedForAdmin = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_adminDocEnsured) {
+          _adminDocEnsured = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await UserRoleService.instance.ensureAdminDoc(uid);
+              final exists = await UserRoleService.instance.adminDocExists(uid);
+              if (!mounted) return;
+              setState(() {
+                _adminDocExists = exists;
+                _adminDocChecked = true;
+              });
+            } catch (error) {
+              if (!mounted) return;
+              setState(() {
+                _adminDocChecked = true;
+                _adminDocExists = false;
+              });
+              messenger.showSnackBar(
+                SnackBar(content: Text('建立管理員識別失敗：$error')),
+              );
+            }
+            if (!mounted || _initializedForAdmin) return;
+            if (_adminDocExists == false) return;
+            _initializedForAdmin = true;
             _loadFirstPage();
           });
         }
@@ -88,16 +112,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
               TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Auth UID：$uid')),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  await Clipboard.setData(ClipboardData(text: uid));
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('已複製 UID：$uid')),
                   );
                 },
-                child: const Text('顯示 UID'),
+                child: const Text('複製 UID'),
               ),
             ],
           ),
           const SizedBox(height: 4),
+          if (_adminDocChecked && _adminDocExists == false)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '偵測不到 admins/$uid。請確認 Firestore 已建立管理員文件。',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          if (_adminDocChecked && _adminDocExists == false) const SizedBox(height: 12),
           Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
           const SizedBox(height: 16),
           _buildOrdersOverview(),
@@ -249,10 +292,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _loadingPage = false;
         _cursor = null;
       });
+      final currentUid = AuthService.instance.currentUser?.uid ?? '-';
       final message = error.toString().contains('permission-denied')
-          ? '讀取訂單失敗：permission-denied。若你在 rules 用 `exists()+get()` 檢查 admin role，'
-              'collectionGroup 一次抓太多筆可能會超過 cross-document 限制而被拒絕。'
-              '請確認 `users/{adminUid}.role == "admin"` 且後台查詢使用小分頁（已改為 $_pageSize 筆/頁）。'
+          ? '讀取訂單失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件，'
+              '且後台查詢已使用小分頁（目前 $_pageSize 筆/頁）。'
           : '讀取訂單失敗：$error';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
@@ -275,8 +318,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _loadingPage = false);
+      final currentUid = AuthService.instance.currentUser?.uid ?? '-';
       final message = error.toString().contains('permission-denied')
-          ? '載入更多失敗：permission-denied。請確認後台帳號 role 與規則允許 orders list。'
+          ? '載入更多失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件。'
           : '載入更多失敗：$error';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }

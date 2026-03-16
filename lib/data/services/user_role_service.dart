@@ -29,4 +29,18 @@ class UserRoleService {
       return (data?['role'] as String?) ?? 'user';
     });
   }
+
+  Future<void> ensureAdminDoc(String uid) async {
+    final doc = _firestore.collection('admins').doc(uid);
+    final snapshot = await doc.get();
+    if (snapshot.exists) return;
+    await doc.set(
+      {'updatedAt': FieldValue.serverTimestamp()},
+    );
+  }
+
+  Future<bool> adminDocExists(String uid) async {
+    final snapshot = await _firestore.collection('admins').doc(uid).get();
+    return snapshot.exists;
+  }
 }

@@ -23,6 +23,11 @@ service cloud.firestore {
       }
     }
 
+    // Admin-only catch-all for any orders subcollection path.
+    match /{path=**}/orders/{orderId} {
+      allow read: if isAdminDoc() || request.auth.token.admin == true;
+    }
+
     // Backward compatible: root-level orders/{orderId}
     match /orders/{orderId} {
       allow read: if request.auth != null && (
@@ -42,8 +47,13 @@ service cloud.firestore {
 
     match /admins/{adminId} {
       allow read: if request.auth != null && request.auth.uid == adminId;
-      // Only admins (by token) can manage admins docs.
-      allow write: if request.auth != null && request.auth.token.admin == true;
+      // Allow a role-based admin to create their own admin doc once.
+      allow create: if request.auth != null
+        && request.auth.uid == adminId
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Token-based admins can still manage admin docs.
+      allow update, delete: if request.auth != null && request.auth.token.admin == true;
     }
   }
 }
