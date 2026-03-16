@@ -5,6 +5,7 @@ class Purchase {
     required this.status,
     this.userId,
     this.id,
+    this.docPath,
     DateTime? createdAt,
     this.companyName,
     this.contactNumber,
@@ -14,6 +15,7 @@ class Purchase {
 
   final String? id;
   final String? userId;
+  final String? docPath;
   final String planName;
   final String priceLabel;
   final String status; // pending | received | complete
@@ -31,10 +33,12 @@ class Purchase {
     String? agentName,
     String? notes,
     String? userId,
+    String? docPath,
   }) {
     return Purchase(
       userId: userId ?? this.userId,
       id: id ?? this.id,
+      docPath: docPath ?? this.docPath,
       planName: planName,
       priceLabel: priceLabel,
       status: status ?? this.status,
@@ -58,9 +62,16 @@ class Purchase {
         'notes': notes,
       };
 
-  factory Purchase.fromMap(Map<String, dynamic> map, {String? id, String? userId}) => Purchase(
+  factory Purchase.fromMap(
+    Map<String, dynamic> map, {
+    String? id,
+    String? userId,
+    String? docPath,
+  }) =>
+      Purchase(
         id: id,
         userId: userId ?? map['userId'] as String?,
+        docPath: docPath,
         planName: map['planName'] as String? ?? '',
         priceLabel: map['priceLabel'] as String? ?? '',
         status: map['status'] as String? ?? 'pending',

@@ -27,7 +27,7 @@ class PurchaseService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => Purchase.fromMap(doc.data(), id: doc.id))
+            .map((doc) => Purchase.fromMap(doc.data(), id: doc.id, docPath: doc.reference.path))
             .toList());
   }
 
@@ -35,7 +35,12 @@ class PurchaseService {
     return _firestore.collectionGroup('orders').orderBy('createdAt', descending: true).snapshots().map(
       (snapshot) => snapshot.docs.map((doc) {
         final userId = doc.reference.parent.parent?.id;
-        return Purchase.fromMap(doc.data(), id: doc.id, userId: userId);
+        return Purchase.fromMap(
+          doc.data(),
+          id: doc.id,
+          userId: userId,
+          docPath: doc.reference.path,
+        );
       }).toList(),
     );
   }
@@ -53,8 +58,12 @@ class PurchaseService {
     }
     final snapshot = await query.get();
     final items = snapshot.docs
-        .map((doc) => Purchase.fromMap(doc.data(),
-            id: doc.id, userId: doc.reference.parent.parent?.id))
+        .map((doc) => Purchase.fromMap(
+              doc.data(),
+              id: doc.id,
+              userId: doc.reference.parent.parent?.id,
+              docPath: doc.reference.path,
+            ))
         .toList();
     final nextCursor =
         snapshot.docs.isNotEmpty ? snapshot.docs.last.data()['createdAt'] as String? : null;
@@ -66,9 +75,14 @@ class PurchaseService {
     required Purchase purchase,
   }) async {
     if (purchase.id == null) return;
+    final docPath = purchase.docPath;
+    if (docPath != null && docPath.isNotEmpty) {
+      await _firestore.doc(docPath).set(purchase.toMap(), SetOptions(merge: true));
+      return;
+    }
     await _users.doc(uid).collection('orders').doc(purchase.id).set(
-          purchase.toMap(),
-          SetOptions(merge: true),
-        );
+      purchase.toMap(),
+      SetOptions(merge: true),
+    );
   }
 }

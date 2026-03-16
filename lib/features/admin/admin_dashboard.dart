@@ -20,6 +20,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _planFilter;
   String? _cursor;
   bool _loadingPage = false;
+  bool _initializedForAdmin = false;
   final List<Purchase> _allOrders = [];
 
   @override
@@ -47,6 +48,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           );
         }
+
+        // Avoid querying collectionGroup('orders') until we have confirmed role == admin,
+        // otherwise the first build after login can trigger permission-denied on web.
+        if (!_initializedForAdmin) {
+          _initializedForAdmin = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _loadFirstPage();
+          });
+        }
+
         return _buildAdminBody(context);
       },
     );
@@ -195,35 +207,50 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }).toList();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadFirstPage();
-  }
-
   Future<void> _loadFirstPage() async {
     setState(() => _loadingPage = true);
-    final page = await PurchaseService.instance.adminOrdersPage(limit: 20);
-    setState(() {
-      _allOrders
-        ..clear()
-        ..addAll(page.items);
-      _cursor = page.cursor;
-      _loadingPage = false;
-    });
+    try {
+      final page = await PurchaseService.instance.adminOrdersPage(limit: 20);
+      if (!mounted) return;
+      setState(() {
+        _allOrders
+          ..clear()
+          ..addAll(page.items);
+        _cursor = page.cursor;
+        _loadingPage = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingPage = false;
+        _cursor = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('讀取訂單失敗：$error')),
+      );
+    }
   }
 
   Future<void> _loadMore() async {
     if (_cursor == null || _loadingPage) return;
     setState(() => _loadingPage = true);
-    final page = await PurchaseService.instance.adminOrdersPage(
-      limit: 20,
-      startAfterCreatedAt: _cursor,
-    );
-    setState(() {
-      _allOrders.addAll(page.items);
-      _cursor = page.cursor;
-      _loadingPage = false;
-    });
+    try {
+      final page = await PurchaseService.instance.adminOrdersPage(
+        limit: 20,
+        startAfterCreatedAt: _cursor,
+      );
+      if (!mounted) return;
+      setState(() {
+        _allOrders.addAll(page.items);
+        _cursor = page.cursor;
+        _loadingPage = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingPage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('載入更多失敗：$error')),
+      );
+    }
   }
 }
