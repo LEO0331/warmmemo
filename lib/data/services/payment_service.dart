@@ -50,25 +50,34 @@ class PaymentService {
       throw StateError('使用者尚未驗證，無法建立發票。');
     }
 
-    final response = await _client.post(
-      Uri.parse('$_backendHost/$_functionName'),
-      headers: {
-        HttpHeaders.contentTypeHeader: 'application/json',
-        HttpHeaders.authorizationHeader: 'Bearer $idToken',
-      },
-      body: jsonEncode({
-        'email': email,
-        'name': name,
-        'amountCents': amountCents,
-        'description': description,
-        'currency': currency,
-        'provider': provider.name,
-      }),
-    );
+    final response = await _client
+        .post(
+          Uri.parse('$_backendHost/$_functionName'),
+          headers: {
+            HttpHeaders.contentTypeHeader: 'application/json',
+            HttpHeaders.authorizationHeader: 'Bearer $idToken',
+          },
+          body: jsonEncode({
+            'email': email,
+            'name': name,
+            'amountCents': amountCents,
+            'description': description,
+            'currency': currency,
+            'provider': provider.name,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
 
     if (response.statusCode >= 400) {
+      String backendCode = 'unknown';
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        backendCode = body['code'] as String? ?? backendCode;
+      } catch (_) {
+        // Keep default code when backend body is not JSON.
+      }
       throw StateError(
-        '建立發票失敗：${response.body}',
+        '建立發票失敗（$backendCode，HTTP ${response.statusCode}）：${response.body}',
       );
     }
 

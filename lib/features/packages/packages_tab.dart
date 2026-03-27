@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
@@ -212,18 +213,64 @@ class _OrdersPanel extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('價格：${order.priceLabel}'),
-                              Text('狀態：${order.status}'),
+                              SelectableText('價格：${order.priceLabel}'),
+                              SelectableText('狀態：${order.status}'),
+                              if (order.paymentProvider != null)
+                                SelectableText('付款方式：${order.paymentProvider}'),
+                              if (order.paymentStatus != null)
+                                SelectableText('付款狀態：${order.paymentStatus}'),
+                              if (order.invoiceId != null)
+                                SelectableText('Invoice ID：${order.invoiceId}'),
+                              if (order.checkoutUrl != null)
+                                SelectableText('付款連結：${order.checkoutUrl}'),
                               if (order.companyName != null)
-                                Text('公司：${order.companyName}'),
+                                SelectableText('公司：${order.companyName}'),
                               if (order.agentName != null)
-                                Text('專員：${order.agentName}'),
+                                SelectableText('專員：${order.agentName}'),
                               if (order.contactNumber != null)
-                                Text('聯絡方式：${order.contactNumber}'),
-                              if (order.notes != null) Text('備註：${order.notes}'),
+                                SelectableText('聯絡方式：${order.contactNumber}'),
+                              if (order.notes != null) SelectableText('備註：${order.notes}'),
                             ],
                           ),
                           actions: [
+                            TextButton.icon(
+                              onPressed: () async {
+                                final buffer = StringBuffer()
+                                  ..writeln('方案：${order.planName}')
+                                  ..writeln('價格：${order.priceLabel}')
+                                  ..writeln('狀態：${order.status}');
+                                if (order.paymentProvider != null) {
+                                  buffer.writeln('付款方式：${order.paymentProvider}');
+                                }
+                                if (order.paymentStatus != null) {
+                                  buffer.writeln('付款狀態：${order.paymentStatus}');
+                                }
+                                if (order.invoiceId != null) {
+                                  buffer.writeln('Invoice ID：${order.invoiceId}');
+                                }
+                                if (order.checkoutUrl != null) {
+                                  buffer.writeln('付款連結：${order.checkoutUrl}');
+                                }
+                                if (order.companyName != null) {
+                                  buffer.writeln('公司：${order.companyName}');
+                                }
+                                if (order.agentName != null) {
+                                  buffer.writeln('專員：${order.agentName}');
+                                }
+                                if (order.contactNumber != null) {
+                                  buffer.writeln('聯絡方式：${order.contactNumber}');
+                                }
+                                if (order.notes != null) {
+                                  buffer.writeln('備註：${order.notes}');
+                                }
+                                await Clipboard.setData(ClipboardData(text: buffer.toString()));
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(content: Text('訂單資訊已複製')));
+                              },
+                              icon: const Icon(Icons.copy_all_outlined),
+                              label: const Text('一鍵複製'),
+                            ),
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(),
                               child: const Text('關閉'),
