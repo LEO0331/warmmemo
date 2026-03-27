@@ -98,12 +98,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           autovalidateMode: AutovalidateMode.onUserInteraction,
           child: ListView(
             children: [
-              Text(_editing.planName, style: theme.textTheme.headlineSmall),
+              SelectableText(_editing.planName, style: theme.textTheme.headlineSmall),
               const SizedBox(height: 4),
-              Text('用戶：${_editing.userId ?? '-'}'),
-              Text('價格：${_editing.priceLabel}'),
-              Text('目前狀態：${_editing.status}'),
-              Text('付款狀態：${_editing.paymentStatus ?? '-'}'),
+              SelectableText('用戶：${_editing.userId ?? '-'}'),
+              SelectableText('價格：${_editing.priceLabel}'),
+              SelectableText('目前狀態：${_editing.status}'),
+              SelectableText('付款狀態：${_editing.paymentStatus ?? '-'}'),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _editing.status,
@@ -147,14 +147,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 onChanged: (v) => _editing = _editing.copyWith(paymentIntentId: v),
               ),
               const SizedBox(height: 8),
-              Text('付款時間：${_editing.paidAt?.toLocal().toString().split('.').first ?? '-'}'),
+              SelectableText('付款時間：${_editing.paidAt?.toLocal().toString().split('.').first ?? '-'}'),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: _editing.verifiedBy ?? AuthService.instance.currentUser?.email ?? '',
                 decoration: const InputDecoration(labelText: '核對人員 (verifiedBy)'),
                 onChanged: (v) => _editing = _editing.copyWith(verifiedBy: v),
               ),
-              Text('核對時間：${_editing.verifiedAt?.toLocal().toString().split('.').first ?? '-'}'),
+              SelectableText('核對時間：${_editing.verifiedAt?.toLocal().toString().split('.').first ?? '-'}'),
               const SizedBox(height: 8),
               TextFormField(
                 initialValue: _editing.verificationNote,

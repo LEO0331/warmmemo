@@ -2,24 +2,37 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Use a dedicated admins collection to avoid per-document get() cost in list queries.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     function isAdminDoc() {
-      return request.auth != null
+      return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || request.auth.token.admin == true || isAdminDoc();
-      allow write: if request.auth.uid == userId;
+      allow read: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
+      allow create: if isOwner(userId) && request.resource.data.role == 'user';
+      allow update: if (isOwner(userId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+          || request.auth.token.admin == true
+          || isAdminDoc();
+      allow delete: if request.auth.token.admin == true || isAdminDoc();
 
       match /drafts/{draftId} {
-        allow read, write: if request.auth.uid == userId || request.auth.token.admin == true || isAdminDoc();
+        allow read, write: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
       }
 
       match /meta/{metaDoc} {
-        allow read, write: if request.auth.uid == userId || request.auth.token.admin == true || isAdminDoc();
+        allow read, write: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
       }
 
       match /orders/{orderId} {
-        allow read, write: if request.auth.uid == userId || request.auth.token.admin == true || isAdminDoc();
+        allow read, write: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
       }
     }
 
@@ -30,30 +43,31 @@ service cloud.firestore {
 
     // Backward compatible: root-level orders/{orderId}
     match /orders/{orderId} {
-      allow read: if request.auth != null && (
+      allow read: if isSignedIn() && (
         request.auth.uid == resource.data.userId || request.auth.token.admin == true || isAdminDoc()
       );
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && (request.auth.token.admin == true || isAdminDoc());
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isSignedIn() && (request.auth.token.admin == true || isAdminDoc());
     }
 
     match /notifications/{notificationId} {
-      allow read: if request.auth.uid == resource.data.userId || request.auth.token.admin == true || isAdminDoc();
+      allow read: if isSignedIn()
+        && (request.auth.uid == resource.data.userId || request.auth.token.admin == true || isAdminDoc());
       allow create:
         if (request.auth.token.admin == true || isAdminDoc()) ||
-           (request.auth.uid != null && request.auth.uid == request.resource.data.userId);
+           (isSignedIn() && request.auth.uid == request.resource.data.userId);
       allow update, delete: if request.auth.token.admin == true || isAdminDoc();
     }
 
     match /admins/{adminId} {
-      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow read: if isSignedIn() && request.auth.uid == adminId;
       // Allow a role-based admin to create their own admin doc once.
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
         && request.auth.uid == adminId
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       // Token-based admins can still manage admin docs.
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+      allow update, delete: if isSignedIn() && request.auth.token.admin == true;
     }
   }
 }

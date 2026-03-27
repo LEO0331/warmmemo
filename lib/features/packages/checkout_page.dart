@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../core/widgets/app_feedback.dart';
 import '../../data/firebase/auth_service.dart';
@@ -106,7 +107,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
       final checkoutUri = Uri.tryParse(payment?.checkoutUrl ?? '');
       if (checkoutUri != null) {
-        await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
+        final opened = await launchUrl(
+          checkoutUri,
+          mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+          webOnlyWindowName: '_blank',
+        );
+        if (!opened && mounted) {
+          AppFeedback.show(
+            context,
+            message: '付款頁未成功開啟，請使用「重新開啟付款」或複製連結手動開啟。',
+            tone: FeedbackTone.error,
+          );
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -217,12 +229,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
             const SizedBox(height: 16),
             SelectableText(
               '提交後狀態為 pending，管理員確認後會更新為 received / complete，'
-              '付款狀態會先顯示 checkout_created。您可於方案列表查看最新狀態。',
+              '付款狀態會先顯示 checkout_created（Spark 模式可使用固定 Payment Link）。您可於方案列表查看最新狀態。',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
             if (_lastInvoiceId != null)
-              SelectableText('Invoice ID：$_lastInvoiceId', style: theme.textTheme.bodySmall),
+              SelectableText('付款單號：$_lastInvoiceId', style: theme.textTheme.bodySmall),
             if (_lastCheckoutUrl != null) ...[
               SelectableText('Checkout URL：$_lastCheckoutUrl', style: theme.textTheme.bodySmall),
               const SizedBox(height: 8),
@@ -247,11 +259,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   OutlinedButton.icon(
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final colorScheme = Theme.of(context).colorScheme;
                       final url = _lastCheckoutUrl;
                       if (url == null) return;
                       final uri = Uri.tryParse(url);
                       if (uri == null) return;
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      final opened = await launchUrl(
+                        uri,
+                        mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+                        webOnlyWindowName: '_blank',
+                      );
+                      if (!opened && mounted) {
+                        AppFeedback.showWithMessenger(
+                          messenger,
+                          colorScheme: colorScheme,
+                          message: '付款頁未成功開啟，請先複製連結再於瀏覽器貼上。',
+                          tone: FeedbackTone.error,
+                        );
+                      }
                     },
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('重新開啟付款'),

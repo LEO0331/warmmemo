@@ -324,27 +324,41 @@ class _AdminDashboardState extends State<AdminDashboard> {
             )
           else
             ...filtered.map(
-              (o) => ListTile(
-                leading: const Icon(Icons.receipt_long_outlined),
-                title: Text(o.planName),
-                subtitle: Text(
-                  '狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜金額：${o.priceLabel}\n'
-                  '最近核對：${_latestVerificationSummary(o)}',
-                ),
-                isThreeLine: true,
-                trailing: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      o.createdAt.toLocal().toString().split('.').first,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    IconButton(
-                      tooltip: '複製核對摘要',
-                      onPressed: () => _copyVerificationSummary(o),
-                      icon: const Icon(Icons.copy_all_outlined, size: 18),
-                    ),
-                  ],
+              (o) => Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(
+                        o.planName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      SelectableText('狀態：${o.status}'),
+                      SelectableText('付款：${o.paymentStatus ?? '-'}'),
+                      SelectableText('金額：${o.priceLabel}'),
+                      SelectableText('建立時間：${o.createdAt.toLocal().toString().split('.').first}'),
+                      SelectableText('最近核對：${_latestVerificationSummary(o)}'),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () => _copyVerificationSummary(o),
+                            child: const Text('複製核對摘要'),
+                          ),
+                          if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
+                            OutlinedButton(
+                              onPressed: () => _resendCheckoutLink(o),
+                              child: const Text('重送付款連結'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -371,47 +385,60 @@ class _AdminDashboardState extends State<AdminDashboard> {
       icon: Icons.task_outlined,
       child: Column(
         children: filtered.map((o) {
-          return ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: Text(o.planName),
-            subtitle: Text(
-              '狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜用戶：${o.userId ?? '-'}\n'
-              '最近核對：${_latestVerificationSummary(o)}',
-            ),
-            isThreeLine: true,
-            trailing: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
-                  TextButton(
-                    onPressed: () => _resendCheckoutLink(o),
-                    child: const Text('重送付款連結'),
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    o.planName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
-                TextButton(
-                  onPressed: () => _copyVerificationSummary(o),
-                  child: const Text('複製核對摘要'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final updated = await Navigator.of(context).push<Purchase>(
-                      MaterialPageRoute(
-                        builder: (_) => OrderDetailPage(purchase: o),
+                  const SizedBox(height: 6),
+                  SelectableText('狀態：${o.status}'),
+                  SelectableText('付款：${o.paymentStatus ?? '-'}'),
+                  SelectableText('用戶：${o.userId ?? '-'}'),
+                  SelectableText('最近核對：${_latestVerificationSummary(o)}'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
+                        OutlinedButton(
+                          onPressed: () => _resendCheckoutLink(o),
+                          child: const Text('重送付款連結'),
+                        ),
+                      OutlinedButton(
+                        onPressed: () => _copyVerificationSummary(o),
+                        child: const Text('複製核對摘要'),
                       ),
-                    );
-                    if (updated != null && updated.userId != null) {
-                      await PurchaseService.instance.updateOrder(
-                        uid: updated.userId!,
-                        purchase: updated,
-                      );
-                      setState(() {
-                        final idx = _allOrders.indexWhere((p) => p.id == updated.id);
-                        if (idx != -1) _allOrders[idx] = updated;
-                      });
-                    }
-                  },
-                  child: const Text('填寫/完成'),
-                ),
-              ],
+                      FilledButton(
+                        onPressed: () async {
+                          final updated = await Navigator.of(context).push<Purchase>(
+                            MaterialPageRoute(
+                              builder: (_) => OrderDetailPage(purchase: o),
+                            ),
+                          );
+                          if (updated != null && updated.userId != null) {
+                            await PurchaseService.instance.updateOrder(
+                              uid: updated.userId!,
+                              purchase: updated,
+                            );
+                            setState(() {
+                              final idx = _allOrders.indexWhere((p) => p.id == updated.id);
+                              if (idx != -1) _allOrders[idx] = updated;
+                            });
+                          }
+                        },
+                        child: const Text('編輯訂單'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         }).toList(),

@@ -286,7 +286,7 @@ class _OrdersPanelState extends State<_OrdersPanel> {
                               if (order.paymentStatus != null)
                                 SelectableText('付款狀態：${order.paymentStatus}'),
                               if (order.invoiceId != null)
-                                SelectableText('Invoice ID：${order.invoiceId}'),
+                                SelectableText('付款單號：${order.invoiceId}'),
                               if (order.checkoutUrl != null)
                                 SelectableText('付款連結：${order.checkoutUrl}'),
                               if (order.companyName != null)
@@ -321,7 +321,7 @@ class _OrdersPanelState extends State<_OrdersPanel> {
                                   buffer.writeln('付款狀態：${order.paymentStatus}');
                                 }
                                 if (order.invoiceId != null) {
-                                  buffer.writeln('Invoice ID：${order.invoiceId}');
+                                  buffer.writeln('付款單號：${order.invoiceId}');
                                 }
                                 if (order.checkoutUrl != null) {
                                   buffer.writeln('付款連結：${order.checkoutUrl}');

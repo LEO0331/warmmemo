@@ -35,6 +35,14 @@ class PaymentService {
       String.fromEnvironment('WARMEMO_PAYMENT_BACKEND_URL', defaultValue: _defaultBackend);
   static const _functionName =
       String.fromEnvironment('WARMEMO_PAYMENT_FUNCTION', defaultValue: 'createInvoice');
+  static const _useHostedPaymentLinks =
+      bool.fromEnvironment('WARMEMO_USE_HOSTED_PAYMENT_LINKS', defaultValue: false);
+  static const _paymentLink120000 =
+      String.fromEnvironment('STRIPE_PAYMENT_LINK_120000', defaultValue: '');
+  static const _paymentLink150000 =
+      String.fromEnvironment('STRIPE_PAYMENT_LINK_150000', defaultValue: '');
+  static const _paymentLink220000 =
+      String.fromEnvironment('STRIPE_PAYMENT_LINK_220000', defaultValue: '');
 
   Future<PaymentResult> createInvoice({
     required String email,
@@ -44,10 +52,22 @@ class PaymentService {
     required PaymentProvider provider,
     String currency = 'twd',
   }) async {
+    if (_useHostedPaymentLinks) {
+      final url = _resolveHostedPaymentLink(amountCents: amountCents);
+      if (url == null) {
+        throw StateError('尚未設定此方案的 Stripe Payment Link。');
+      }
+      return PaymentResult(
+        provider: PaymentProvider.stripe,
+        invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+        checkoutUrl: url,
+      );
+    }
+
     final user = AuthService.instance.currentUser;
     final idToken = await user?.getIdToken();
     if (idToken == null) {
-      throw StateError('使用者尚未驗證，無法建立發票。');
+      throw StateError('使用者尚未驗證，無法建立付款資訊。');
     }
 
     final response = await _client
@@ -70,14 +90,16 @@ class PaymentService {
 
     if (response.statusCode >= 400) {
       String backendCode = 'unknown';
+      String backendError = response.body;
       try {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         backendCode = body['code'] as String? ?? backendCode;
+        backendError = body['error'] as String? ?? backendError;
       } catch (_) {
         // Keep default code when backend body is not JSON.
       }
       throw StateError(
-        '建立發票失敗（$backendCode，HTTP ${response.statusCode}）：${response.body}',
+        '建立付款資訊失敗（$backendCode，HTTP ${response.statusCode}）：$backendError',
       );
     }
 
@@ -87,7 +109,11 @@ class PaymentService {
     final providerName = body['provider'] as String?;
 
     if (invoiceId == null || checkoutUrl == null || providerName == null) {
-      throw StateError('後端未回傳完整發票資訊。');
+      throw StateError('後端未回傳完整付款資訊。');
+    }
+    final parsed = Uri.tryParse(checkoutUrl);
+    if (parsed == null || !(parsed.isScheme('https') || parsed.isScheme('http'))) {
+      throw StateError('後端回傳的 checkoutUrl 無效：$checkoutUrl');
     }
 
     final providerValue = PaymentProvider.values.firstWhere(
@@ -100,5 +126,19 @@ class PaymentService {
       invoiceId: invoiceId,
       checkoutUrl: checkoutUrl,
     );
+  }
+
+  String? _resolveHostedPaymentLink({required int amountCents}) {
+    // 目前專案方案以整數金額（分）對應固定 Payment Link
+    switch (amountCents) {
+      case 120000:
+        return _paymentLink120000.isEmpty ? null : _paymentLink120000;
+      case 150000:
+        return _paymentLink150000.isEmpty ? null : _paymentLink150000;
+      case 220000:
+        return _paymentLink220000.isEmpty ? null : _paymentLink220000;
+      default:
+        return null;
+    }
   }
 }
