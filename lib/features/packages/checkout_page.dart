@@ -50,45 +50,86 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     setState(() => _submitting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     try {
       final amount = _parseAmount(widget.priceLabel);
-      final payment = await PaymentService.instance.createInvoice(
-        email: email,
-        name: email.split('@').first,
-        amountCents: amount,
-        description: 'WarmMemo 方案：${widget.planName}',
-        provider: PaymentProvider.stripe,
-      );
+      PaymentResult? payment;
+      var paymentStatus = 'awaiting_checkout';
+      try {
+        payment = await PaymentService.instance.createInvoice(
+          email: email,
+          name: email.split('@').first,
+          amountCents: amount,
+          description: 'WarmMemo 方案：${widget.planName}',
+          provider: PaymentProvider.stripe,
+        );
+        paymentStatus = 'checkout_created';
+      } catch (error) {
+        // Web 常見 XHR/CORS 問題下，先保留訂單讓客服可後續跟進與補發連結。
+        final errorCode = _extractErrorCode(error.toString());
+        setState(() {
+          _lastErrorCode = errorCode;
+          _lastCheckoutUrl = null;
+          _lastInvoiceId = null;
+        });
+        AppFeedback.showWithMessenger(
+          messenger,
+          colorScheme: colorScheme,
+          message: '付款連結建立失敗（$errorCode），已先建立待付款訂單，請稍後重試。',
+          tone: FeedbackTone.error,
+        );
+      }
       final purchase = Purchase(
         planName: widget.planName,
         priceLabel: widget.priceLabel,
         priceAmount: amount,
         status: 'pending',
-        paymentProvider: payment.provider.name,
-        paymentStatus: 'checkout_created',
-        invoiceId: payment.invoiceId,
-        checkoutUrl: payment.checkoutUrl,
+        paymentProvider: payment?.provider.name ?? PaymentProvider.stripe.name,
+        paymentStatus: paymentStatus,
+        invoiceId: payment?.invoiceId,
+        checkoutUrl: payment?.checkoutUrl,
         paymentCurrency: 'twd',
       );
-      final created = await PurchaseService.instance.createOrder(uid: uid, purchase: purchase);
-      final checkoutUri = Uri.tryParse(payment.checkoutUrl);
+      Purchase created;
+      if (_createdOrder == null) {
+        created = await PurchaseService.instance.createOrder(uid: uid, purchase: purchase);
+      } else {
+        created = _createdOrder!.copyWith(
+          paymentProvider: purchase.paymentProvider,
+          paymentStatus: purchase.paymentStatus,
+          invoiceId: purchase.invoiceId,
+          checkoutUrl: purchase.checkoutUrl,
+          paymentCurrency: purchase.paymentCurrency,
+        );
+        await PurchaseService.instance.updateOrder(uid: uid, purchase: created);
+      }
+      final checkoutUri = Uri.tryParse(payment?.checkoutUrl ?? '');
       if (checkoutUri != null) {
         await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
       }
       if (!mounted) return;
       setState(() {
         _createdOrder = created;
-        _lastInvoiceId = payment.invoiceId;
-        _lastCheckoutUrl = payment.checkoutUrl;
-        _lastErrorCode = null;
+        _lastInvoiceId = payment?.invoiceId;
+        _lastCheckoutUrl = payment?.checkoutUrl;
+        if (payment != null) _lastErrorCode = null;
       });
       ScaffoldMessenger.of(context)
           .hideCurrentSnackBar();
-      AppFeedback.show(
-        context,
-        message: '訂單已建立，請完成 Stripe 付款。',
-        tone: FeedbackTone.success,
-      );
+      if (payment != null) {
+        AppFeedback.show(
+          context,
+          message: '訂單已建立，請完成 Stripe 付款。',
+          tone: FeedbackTone.success,
+        );
+      } else {
+        AppFeedback.show(
+          context,
+          message: '訂單已建立為待付款。你可稍後重試建立付款連結。',
+          tone: FeedbackTone.info,
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       final errorCode = _extractErrorCode(error.toString());
@@ -224,6 +265,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  if (_lastCheckoutUrl == null)
+                    OutlinedButton(
+                      onPressed: _submitting ? null : _submitOrder,
+                      child: const Text('重試建立付款連結'),
+                    ),
                   OutlinedButton(
                     onPressed: _submitting ? null : () => _markPaymentStatus('cancelled'),
                     child: const Text('取消付款'),
