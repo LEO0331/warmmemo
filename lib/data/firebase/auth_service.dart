@@ -17,8 +17,16 @@ class AuthService {
 
   Future<void> configurePersistence() async {
     if (!kIsWeb) return;
-    // Keep auth state scoped to the current browser tab/session.
-    await _auth.setPersistence(Persistence.SESSION);
+    // Default to LOCAL so payment round-trips (Stripe -> app) keep users signed in.
+    // Override with: --dart-define=WARMEMO_AUTH_PERSISTENCE=SESSION
+    const mode = String.fromEnvironment(
+      'WARMEMO_AUTH_PERSISTENCE',
+      defaultValue: 'LOCAL',
+    );
+    final normalized = mode.trim().toUpperCase();
+    final persistence =
+        normalized == 'SESSION' ? Persistence.SESSION : Persistence.LOCAL;
+    await _auth.setPersistence(persistence);
   }
 
   bool isEmailPasswordUser(User user) {

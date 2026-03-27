@@ -280,6 +280,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 onSelected: (_) => setState(() => _paymentQuickFilter = null),
               ),
               ChoiceChip(
+                label: const Text('paid'),
+                selected: _paymentQuickFilter == 'paid',
+                onSelected: (_) => setState(() => _paymentQuickFilter = 'paid'),
+              ),
+              ChoiceChip(
                 label: const Text('checkout_created'),
                 selected: _paymentQuickFilter == 'checkout_created',
                 onSelected: (_) => setState(() => _paymentQuickFilter = 'checkout_created'),
@@ -295,6 +300,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 onSelected: (_) => setState(() => _paymentQuickFilter = 'failed'),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            '統計：已付款 ${_allOrders.where((o) => o.paymentStatus == 'paid').length} 筆 / 共 ${_allOrders.length} 筆',
           ),
           const SizedBox(height: 8),
           Wrap(

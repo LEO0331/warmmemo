@@ -21,6 +21,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _processingUnsupportedProvider = false;
   bool _handledPaymentHint = false;
+  late final int _initialTabIndex = _resolveInitialTabIndex();
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +68,7 @@ class _AuthGateState extends State<AuthGate> {
             return const LandingPage();
           }
           UserRoleService.instance.ensureUserProfile(user);
-          return const AppShell();
+          return AppShell(initialIndex: _initialTabIndex);
         }
 
         return const LandingPage();
@@ -105,5 +106,14 @@ class _AuthGateState extends State<AuthGate> {
         tone: FeedbackTone.info,
       );
     });
+  }
+
+  int _resolveInitialTabIndex() {
+    if (!kIsWeb) return 0;
+    final fragment = Uri.base.fragment.toLowerCase();
+    if (fragment.contains('packages')) {
+      return 1;
+    }
+    return 0;
   }
 }

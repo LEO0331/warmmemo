@@ -11,7 +11,9 @@ import '../../features/overview/overview_tab.dart';
 import '../../features/packages/packages_tab.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -51,6 +53,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex < 0 ? 0 : widget.initialIndex;
     _listenForRole();
   }
 
