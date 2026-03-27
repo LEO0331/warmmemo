@@ -5,7 +5,14 @@ import '../../core/widgets/app_feedback.dart';
 import '../../data/firebase/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  const AuthPage({
+    super.key,
+    this.signIn,
+    this.signUp,
+  });
+
+  final Future<void> Function(String email, String password)? signIn;
+  final Future<void> Function(String email, String password)? signUp;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -52,15 +59,27 @@ class _AuthPageState extends State<AuthPage> {
 
       try {
         if (isLogin) {
-          await AuthService.instance.signIn(
-            email: _loginEmail.text.trim(),
-            password: _loginPassword.text.trim(),
-          );
+          final email = _loginEmail.text.trim();
+          final password = _loginPassword.text.trim();
+          if (widget.signIn != null) {
+            await widget.signIn!(email, password);
+          } else {
+            await AuthService.instance.signIn(
+              email: email,
+              password: password,
+            );
+          }
         } else {
-          await AuthService.instance.signUp(
-            email: _registerEmail.text.trim(),
-            password: _registerPassword.text.trim(),
-          );
+          final email = _registerEmail.text.trim();
+          final password = _registerPassword.text.trim();
+          if (widget.signUp != null) {
+            await widget.signUp!(email, password);
+          } else {
+            await AuthService.instance.signUp(
+              email: email,
+              password: password,
+            );
+          }
         }
         if (mounted && Navigator.of(context).canPop()) {
           AppFeedback.show(

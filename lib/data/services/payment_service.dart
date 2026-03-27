@@ -26,13 +26,16 @@ class PaymentService {
   PaymentService({
     http.Client? client,
     AuthService? authService,
+    Future<String?> Function()? idTokenProvider,
   })  : _client = client ?? http.Client(),
-        _authService = authService;
+        _authService = authService,
+        _idTokenProvider = idTokenProvider;
 
   static final PaymentService instance = PaymentService();
 
   final http.Client _client;
   final AuthService? _authService;
+  final Future<String?> Function()? _idTokenProvider;
 
   static const _defaultBackend =
       'https://asia-east1-warmmemo-1a485.cloudfunctions.net';
@@ -80,8 +83,8 @@ class PaymentService {
       );
     }
 
-    final user = (_authService ?? AuthService.instance).currentUser;
-    final idToken = await user?.getIdToken();
+    final idToken = await (_idTokenProvider?.call() ??
+        (_authService ?? AuthService.instance).currentUser?.getIdToken());
     if (idToken == null) {
       throw StateError('使用者尚未驗證，無法建立付款資訊。');
     }

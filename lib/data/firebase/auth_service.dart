@@ -5,11 +5,16 @@ import '../services/user_role_service.dart';
 
 /// A thin wrapper around Firebase Authentication.
 class AuthService {
-  AuthService._();
+  AuthService({
+    FirebaseAuth? auth,
+    Future<void> Function(User user)? ensureUserProfile,
+  })  : _auth = auth ?? FirebaseAuth.instance,
+        _ensureUserProfile = ensureUserProfile ?? UserRoleService.instance.ensureUserProfile;
 
-  static final AuthService instance = AuthService._();
+  static final AuthService instance = AuthService();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth;
+  final Future<void> Function(User user) _ensureUserProfile;
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -45,7 +50,7 @@ class AuthService {
     return _auth.signInWithEmailAndPassword(email: email, password: password).then((credential) {
       final user = credential.user;
       if (user != null) {
-        UserRoleService.instance.ensureUserProfile(user);
+        _ensureUserProfile(user);
       }
       return credential;
     });
@@ -55,7 +60,7 @@ class AuthService {
     return _auth.createUserWithEmailAndPassword(email: email, password: password).then((credential) {
       final user = credential.user;
       if (user != null) {
-        UserRoleService.instance.ensureUserProfile(user);
+        _ensureUserProfile(user);
       }
       return credential;
     });

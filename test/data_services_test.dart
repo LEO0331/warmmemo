@@ -1,7 +1,11 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 
+import 'package:warmmemo/data/firebase/auth_service.dart';
 import 'package:warmmemo/data/firebase/draft_service.dart';
 import 'package:warmmemo/data/models/draft_models.dart';
 import 'package:warmmemo/data/models/purchase.dart';
@@ -27,6 +31,89 @@ void main() {
       expect(service.hostedCheckoutUrlForAmount(120000), isNull);
       expect(service.hostedCheckoutUrlForAmount(150000), isNull);
       expect(service.hostedCheckoutUrlForAmount(220000), isNull);
+    });
+
+    test('createInvoice throws when id token is missing in backend mode', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => null,
+      );
+      expect(
+        () => service.createInvoice(
+          email: 'a@test.com',
+          name: 'A',
+          amountCents: 120000,
+          description: 'desc',
+          provider: PaymentProvider.stripe,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('createInvoice maps backend error payload', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          expect(request.headers['authorization'], 'Bearer token');
+          return http.Response('{"code":"quota-exceeded","error":"daily limit"}', 429);
+        }),
+      );
+      expect(
+        () => service.createInvoice(
+          email: 'a@test.com',
+          name: 'A',
+          amountCents: 120000,
+          description: 'desc',
+          provider: PaymentProvider.stripe,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('quota-exceeded'),
+          ),
+        ),
+      );
+    });
+
+    test('createInvoice validates backend success payload', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          return http.Response('{"invoiceId":"a"}', 200);
+        }),
+      );
+      expect(
+        () => service.createInvoice(
+          email: 'a@test.com',
+          name: 'A',
+          amountCents: 120000,
+          description: 'desc',
+          provider: PaymentProvider.stripe,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('createInvoice returns parsed payment result', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          return http.Response(
+            '{"invoiceId":"inv_123","checkoutUrl":"https://example.com/checkout","provider":"ecpay"}',
+            200,
+          );
+        }),
+      );
+      final result = await service.createInvoice(
+        email: 'a@test.com',
+        name: 'A',
+        amountCents: 120000,
+        description: 'desc',
+        provider: PaymentProvider.stripe,
+      );
+      expect(result.invoiceId, 'inv_123');
+      expect(result.checkoutUrl, 'https://example.com/checkout');
+      expect(result.provider, PaymentProvider.ecpay);
     });
   });
 
@@ -129,6 +216,57 @@ void main() {
       expect(doc.data()?['status'], 'complete');
     });
 
+    test('PurchaseService batch update returns skipped reasons and updates', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+
+      final ok = await purchaseService.createOrder(
+        uid: 'u1',
+        purchase: Purchase(
+          planName: 'OK',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+          paymentStatus: 'checkout_created',
+        ),
+      );
+      final noChange = await purchaseService.createOrder(
+        uid: 'u1',
+        purchase: Purchase(
+          planName: 'NoChange',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'complete',
+          paymentStatus: 'paid',
+        ),
+      );
+
+      final report = await purchaseService.adminBatchUpdate(
+        purchases: [
+          ok,
+          noChange,
+          Purchase(
+            id: 'missing',
+            planName: 'MissingUid',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'pending',
+          ),
+        ],
+        caseStatus: 'received',
+        paymentStatus: 'paid',
+        actor: 'tester',
+      );
+      expect(report.selectedCount, 3);
+      expect(report.updatedCount, 1);
+      expect(report.skippedCount, 2);
+      expect(report.skipped.any((s) => s.reason.contains('缺少 userId')), isTrue);
+      expect(report.skipped.any((s) => s.reason.contains('案件狀態不可')), isTrue);
+      final updatedDoc = await db.doc(ok.docPath!).get();
+      expect(updatedDoc.data()?['status'], 'received');
+      expect(updatedDoc.data()?['paymentStatus'], 'paid');
+    });
+
     test('NotificationService and ReminderService create reminder once per user', () async {
       final db = FakeFirebaseFirestore();
       final notificationService = NotificationService(firestore: db);
@@ -224,9 +362,30 @@ void main() {
 
       final timeline = await service.timeline(limit: 2).first;
       expect(timeline.length, 2);
+      expect(timeline.first.id, isNotNull);
       final streamForUser = await service.streamForUser('u2', limit: 2).first;
       expect(streamForUser.length, 1);
       expect(streamForUser.first.userId, 'u2');
+      expect(streamForUser.first.id, isNotNull);
+    });
+
+    test('NotificationService markRead updates status', () async {
+      final db = FakeFirebaseFirestore();
+      final service = NotificationService(firestore: db);
+      await service.logEvent(
+        NotificationEvent(
+          userId: 'u1',
+          channel: 'email',
+          status: 'pending',
+          occurredAt: DateTime(2026, 3, 2),
+        ),
+      );
+      final before = await db.collection('notifications').get();
+      final id = before.docs.first.id;
+      await service.markRead(id);
+      final after = await db.collection('notifications').doc(id).get();
+      expect(after.data()?['status'], 'read');
+      expect(after.data()?['readAt'], isNotNull);
     });
 
     test('FirebaseDraftService saves and reads drafts/stats/summaries', () async {
@@ -329,6 +488,37 @@ void main() {
       expect(await roleService.roleStream('u1').first, 'user');
       await db.collection('users').doc('u1').set({'role': 'admin'});
       expect(await roleService.roleStream('u1').first, 'admin');
+    });
+
+    test('UserRoleService ensureUserProfile initializes role and email', () async {
+      final db = FakeFirebaseFirestore();
+      final roleService = UserRoleService(firestore: db);
+      final user = MockUser(uid: 'u100', email: 'u100@test.com');
+      await roleService.ensureUserProfile(user);
+      final doc = await db.collection('users').doc('u100').get();
+      expect(doc.data()?['role'], 'user');
+      expect(doc.data()?['email'], 'u100@test.com');
+      expect(doc.data()?['updatedAt'], isNotNull);
+    });
+
+    test('AuthService signIn/signUp delegates and ensures profile', () async {
+      var ensuredCount = 0;
+      final auth = MockFirebaseAuth(
+        mockUser: MockUser(uid: 'u200', email: 'u200@test.com'),
+      );
+      final service = AuthService(
+        auth: auth,
+        ensureUserProfile: (_) async {
+          ensuredCount++;
+        },
+      );
+      await service.signIn(email: 'u200@test.com', password: '123456');
+      await service.signUp(email: 'u200@test.com', password: '123456');
+      expect(ensuredCount, 2);
+      expect(service.currentUser, isNotNull);
+      expect(service.isEmailPasswordUser(service.currentUser!), isTrue);
+      await service.signOut();
+      expect(service.currentUser, isNull);
     });
 
     test('UserComplianceSnapshot serializes summary fields', () {
