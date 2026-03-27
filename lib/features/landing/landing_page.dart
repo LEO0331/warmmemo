@@ -48,7 +48,7 @@ class LandingPage extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0C8383), Color(0xFF2EB5B5)],
+          colors: [Color(0xFFB96843), Color(0xFFE2A37C), Color(0xFFF2C8AB)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -81,7 +81,7 @@ class LandingPage extends StatelessWidget {
           Text(
             '暖備 WarmMemo 結合固定方案、數位訃聞與紀念頁創建，讓您在關鍵時刻把握清楚、懂得聲明意圖，\n'
             '並進一步透過通知追蹤與點擊統計確認訊息是否送達。',
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
           ),
           const SizedBox(height: 24),
           Wrap(
@@ -89,6 +89,10 @@ class LandingPage extends StatelessWidget {
             runSpacing: 12,
             children: [
               FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8F4F36),
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () => _openAuth(context),
                 child: const Text('開始規劃'),
               ),
@@ -125,8 +129,12 @@ class LandingPage extends StatelessWidget {
             mainAxisSpacing: 12,
             physics: const NeverScrollableScrollPhysics(),
             children: features
+                .asMap()
+                .entries
                 .map(
-                  (feature) => Card(
+                  (entry) => AppearMotion(
+                    delayMs: 50 * entry.key,
+                    child: Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
@@ -136,10 +144,11 @@ class LandingPage extends StatelessWidget {
                         children: [
                           Icon(Icons.check_circle_outline, color: theme.colorScheme.primary),
                           const SizedBox(width: 10),
-                          Expanded(child: Text(feature, style: theme.textTheme.bodyMedium)),
+                          Expanded(child: Text(entry.value, style: theme.textTheme.bodyMedium)),
                         ],
                       ),
                     ),
+                  ),
                   ),
                 )
                 .toList(),
@@ -181,8 +190,12 @@ class LandingPage extends StatelessWidget {
             mainAxisSpacing: 12,
             physics: const NeverScrollableScrollPhysics(),
             children: packages
+                .asMap()
+                .entries
                 .map(
-                  (package) => Card(
+                  (entry) => AppearMotion(
+                    delayMs: 70 * entry.key,
+                    child: Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
@@ -195,14 +208,14 @@ class LandingPage extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: Text(
-                                  package['name']!,
+                                  entry.value['name']!,
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                               Text(
-                                package['price']!,
+                                entry.value['price']!,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.primary,
                                   fontWeight: FontWeight.bold,
@@ -211,10 +224,11 @@ class LandingPage extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text(package['target']!, style: theme.textTheme.bodySmall),
+                          Text(entry.value['target']!, style: theme.textTheme.bodySmall),
                         ],
                       ),
                     ),
+                  ),
                   ),
                 )
                 .toList(),

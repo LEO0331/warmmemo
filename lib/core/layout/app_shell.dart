@@ -100,16 +100,25 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
       drawer: isWide ? null : Drawer(child: _buildDrawerContent(destinations)),
-      body: Row(
-        children: [
-          if (isWide) _buildSidebar(destinations),
-          Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: destinations.map((dest) => dest.widget).toList(),
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFBF8), Color(0xFFFFF4EC)],
           ),
-        ],
+        ),
+        child: Row(
+          children: [
+            if (isWide) _buildSidebar(destinations),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: destinations.map((dest) => dest.widget).toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -118,9 +127,13 @@ class _AppShellState extends State<AppShell> {
     return Container(
       width: 240,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFF6EF), Color(0xFFFFEFE2)],
+        ),
         border: Border(
-          right: BorderSide(color: Theme.of(context).dividerColor),
+          right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
       ),
       child: Column(
@@ -149,11 +162,16 @@ class _AppShellState extends State<AppShell> {
               itemBuilder: (context, index) {
                 final item = destinations[index];
                 final selected = index == _selectedIndex;
-                return ListTile(
-                  leading: Icon(item.icon),
-                  title: Text(item.label),
-                  selected: selected,
-                  onTap: () => setState(() => _selectedIndex = index),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tileColor: selected ? const Color(0xFFF8E5D8) : Colors.transparent,
+                    leading: Icon(item.icon),
+                    title: Text(item.label),
+                    selected: selected,
+                    onTap: () => setState(() => _selectedIndex = index),
+                  ),
                 );
               },
             ),
@@ -175,7 +193,13 @@ class _AppShellState extends State<AppShell> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const DrawerHeader(
-            decoration: BoxDecoration(color: Colors.teal),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFC8744F), Color(0xFFE0A57E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
             child: Text('WarmMemo', style: TextStyle(color: Colors.white)),
           ),
           ...List.generate(destinations.length, (index) {
