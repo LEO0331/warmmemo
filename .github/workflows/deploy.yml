@@ -21,6 +21,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Write payment config
+        run: |
+          mkdir -p env
+          cat > env/payment.dev.json << 'EOF'
+          ${{ secrets.PAYMENT_DEV_JSON }}
+          EOF
+          
       - name: Build Web
         # 重要：不使用 --web-renderer 參數（新版已移除），改由 index.html 控制
         # 確保 base-href 與你的 Repo 名稱一致
