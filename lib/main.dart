@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'data/firebase/auth_service.dart';
 import 'firebase_options.dart';
 import 'features/auth/auth_gate.dart';
 
@@ -9,6 +10,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await AuthService.instance.configurePersistence();
   runApp(const WarmMemoApp());
 }
 

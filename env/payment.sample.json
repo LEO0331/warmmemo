@@ -1,0 +1,8 @@
+{
+  "WARMEMO_USE_HOSTED_PAYMENT_LINKS": "true",
+  "WARMEMO_PAYMENT_BACKEND_URL": "https://asia-east1-warmmemo-1a485.cloudfunctions.net",
+  "WARMEMO_PAYMENT_FUNCTION": "createInvoice",
+  "STRIPE_PAYMENT_LINK_120000": "https://buy.stripe.com/your-link-120000",
+  "STRIPE_PAYMENT_LINK_150000": "https://buy.stripe.com/your-link-150000",
+  "STRIPE_PAYMENT_LINK_220000": "https://buy.stripe.com/your-link-220000"
+}

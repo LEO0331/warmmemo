@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../services/user_role_service.dart';
 
@@ -13,6 +14,12 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   User? get currentUser => _auth.currentUser;
+
+  Future<void> configurePersistence() async {
+    if (!kIsWeb) return;
+    // Keep auth state scoped to the current browser tab/session.
+    await _auth.setPersistence(Persistence.SESSION);
+  }
 
   bool isEmailPasswordUser(User user) {
     if (user.providerData.isEmpty) return true;
