@@ -28,6 +28,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String? _lastInvoiceId;
   String? _lastCheckoutUrl;
   String? _lastErrorCode;
+  String? _lastErrorDetail;
+  String? _expectedPaymentLinkKey;
   Purchase? _createdOrder;
 
   Future<void> _submitOrder() async {
@@ -51,80 +53,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     setState(() => _submitting = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
     try {
       final amount = _parseAmount(widget.priceLabel);
-      PaymentResult? payment;
-      var paymentStatus = 'awaiting_checkout';
-      var launchedEarly = false;
-      final useHostedLinks = PaymentService.instance.useHostedPaymentLinks;
-      if (useHostedLinks) {
-        final hostedUrl = PaymentService.instance.hostedCheckoutUrlForAmount(amount);
-        if (hostedUrl == null) {
-          throw StateError('尚未設定此方案的 Stripe Payment Link。');
-        }
-        final hostedUri = Uri.tryParse(hostedUrl);
-        if (hostedUri == null || !(hostedUri.isScheme('https') || hostedUri.isScheme('http'))) {
-          throw StateError('Payment Link 格式錯誤，請確認以 https:// 開頭。');
-        }
-        // Hosted link 可直接開啟，不需等待後端建立連結。
-        final opened = await _openCheckoutUri(hostedUri);
-        launchedEarly = opened;
-        if (!opened) {
-          AppFeedback.showWithMessenger(
-            messenger,
-            colorScheme: colorScheme,
-            message: '瀏覽器可能阻擋了付款頁，請按「開啟付款頁」重試。',
-            tone: FeedbackTone.error,
-            actionLabel: '開啟付款頁',
-            onAction: () {
-              _openCheckoutUri(hostedUri, preferSameTabOnWeb: true);
-            },
-          );
-        }
-        payment = PaymentResult(
-          provider: PaymentProvider.stripe,
-          invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
-          checkoutUrl: hostedUrl,
-        );
-        paymentStatus = 'checkout_created';
+      const paymentStatus = 'checkout_created';
+      _expectedPaymentLinkKey = PaymentService.instance.missingHostedLinkKeyForAmount(amount);
+      final hostedUrl = PaymentService.instance.hostedCheckoutUrlForAmount(amount);
+      if (hostedUrl == null || hostedUrl.isEmpty) {
+        final key = PaymentService.instance.missingHostedLinkKeyForAmount(amount);
+        throw StateError('payment-link-missing:$key');
       }
-      try {
-        if (!useHostedLinks) {
-          payment = await PaymentService.instance.createInvoice(
-            email: email,
-            name: email.split('@').first,
-            amountCents: amount,
-            description: 'WarmMemo 方案：${widget.planName}',
-            provider: PaymentProvider.stripe,
-          );
-          paymentStatus = 'checkout_created';
-        }
-      } catch (error) {
-        // Web 常見 XHR/CORS 問題下，先保留訂單讓客服可後續跟進與補發連結。
-        final errorCode = _extractErrorCode(error.toString());
-        setState(() {
-          _lastErrorCode = errorCode;
-          _lastCheckoutUrl = null;
-          _lastInvoiceId = null;
-        });
-        AppFeedback.showWithMessenger(
-          messenger,
-          colorScheme: colorScheme,
-          message: '付款連結建立失敗（$errorCode），已先建立待付款訂單，請稍後重試。',
-          tone: FeedbackTone.error,
-        );
+      final hostedUri = Uri.tryParse(hostedUrl);
+      if (hostedUri == null || !(hostedUri.isScheme('https') || hostedUri.isScheme('http'))) {
+        throw StateError('payment-link-invalid');
       }
+      final payment = PaymentResult(
+        provider: PaymentProvider.stripe,
+        invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+        checkoutUrl: hostedUrl,
+      );
       final purchase = Purchase(
         planName: widget.planName,
         priceLabel: widget.priceLabel,
         priceAmount: amount,
         status: 'pending',
-        paymentProvider: payment?.provider.name ?? PaymentProvider.stripe.name,
+        paymentProvider: payment.provider.name,
         paymentStatus: paymentStatus,
-        invoiceId: payment?.invoiceId,
-        checkoutUrl: payment?.checkoutUrl,
+        invoiceId: payment.invoiceId,
+        checkoutUrl: payment.checkoutUrl,
         paymentCurrency: 'twd',
       );
       Purchase created;
@@ -140,50 +95,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
         await PurchaseService.instance.updateOrder(uid: uid, purchase: created);
       }
-      final checkoutUri = Uri.tryParse(payment?.checkoutUrl ?? '');
-      final canOpenCheckout = checkoutUri != null &&
-          (checkoutUri.isScheme('https') || checkoutUri.isScheme('http'));
-      if (!launchedEarly && canOpenCheckout) {
-        final opened = await _openCheckoutUri(checkoutUri);
-        if (!opened && mounted) {
-          AppFeedback.show(
-            context,
-            message: '付款頁未成功開啟，請使用「重新開啟付款」或複製連結手動開啟。',
-            tone: FeedbackTone.error,
-            actionLabel: '開啟付款頁',
-            onAction: () {
-              _openCheckoutUri(checkoutUri, preferSameTabOnWeb: true);
-            },
-          );
-        }
+      final opened = await _openCheckoutUri(hostedUri, preferSameTabOnWeb: true);
+      if (!opened && mounted) {
+        AppFeedback.show(
+          context,
+          message: '付款頁未成功開啟，請檢查 Payment Link 是否可公開使用。',
+          tone: FeedbackTone.error,
+        );
       }
       if (!mounted) return;
       setState(() {
         _createdOrder = created;
-        _lastInvoiceId = payment?.invoiceId;
-        _lastCheckoutUrl = payment?.checkoutUrl;
-        if (payment != null) _lastErrorCode = null;
+        _lastInvoiceId = payment.invoiceId;
+        _lastCheckoutUrl = payment.checkoutUrl;
+        _lastErrorCode = null;
       });
       ScaffoldMessenger.of(context)
           .hideCurrentSnackBar();
-      if (payment != null) {
-        AppFeedback.show(
-          context,
-          message: '訂單已建立，請完成 Stripe 付款。',
-          tone: FeedbackTone.success,
-        );
-      } else {
-        AppFeedback.show(
-          context,
-          message: '訂單已建立為待付款。你可稍後重試建立付款連結。',
-          tone: FeedbackTone.info,
-        );
-      }
+      AppFeedback.show(
+        context,
+        message: '訂單已建立，正在前往 Stripe 付款。',
+        tone: FeedbackTone.success,
+      );
     } catch (error) {
       if (!mounted) return;
       final errorCode = _extractErrorCode(error.toString());
       setState(() {
         _lastErrorCode = errorCode;
+        _lastErrorDetail = error.toString();
       });
       AppFeedback.show(
         context,
@@ -206,49 +145,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return parsed;
   }
 
-  Future<void> _markPaymentStatus(String paymentStatus) async {
-    final uid = AuthService.instance.currentUser?.uid;
-    final order = _createdOrder;
-    if (uid == null || order == null) return;
-    setState(() => _submitting = true);
-    try {
-      final updated = order.copyWith(
-        paymentStatus: paymentStatus,
-      );
-      await PurchaseService.instance.updateOrder(uid: uid, purchase: updated);
-      if (!mounted) return;
-      setState(() {
-        _createdOrder = updated;
-      });
-      AppFeedback.show(
-        context,
-        message: '已更新付款狀態：$paymentStatus',
-        tone: FeedbackTone.success,
-      );
-    } catch (error) {
-      if (!mounted) return;
-      final code = _extractErrorCode(error.toString());
-      setState(() => _lastErrorCode = code);
-      AppFeedback.show(
-        context,
-        message: '更新付款狀態失敗（$code）',
-        tone: FeedbackTone.error,
-        actionLabel: '重試',
-        onAction: () => _markPaymentStatus(paymentStatus),
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
   String _extractErrorCode(String text) {
+    if (text.contains('payment-link-missing:')) {
+      final key = text.split('payment-link-missing:').last;
+      return 'payment-link-missing ($key)';
+    }
+    if (text.contains('payment-link-missing')) return 'payment-link-missing';
+    if (text.contains('payment-link-invalid')) return 'payment-link-invalid';
     final match = RegExp(r'\[([^\]]+)\]').firstMatch(text);
     if (match == null) return 'unknown';
     final raw = match.group(1) ?? 'unknown';
     return raw.contains('/') ? raw.split('/').last : raw;
   }
 
-  Future<bool> _openCheckoutUri(Uri uri, {bool preferSameTabOnWeb = false}) {
+  Future<bool> _openCheckoutUri(Uri uri, {bool preferSameTabOnWeb = true}) {
     return launchUrl(
       uri,
       mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
@@ -334,34 +244,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
             ],
-            if (_createdOrder != null) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (_lastCheckoutUrl == null)
-                    OutlinedButton(
-                      onPressed: _submitting ? null : _submitOrder,
-                      child: const Text('重試建立付款連結'),
-                    ),
-                  OutlinedButton(
-                    onPressed: _submitting ? null : () => _markPaymentStatus('cancelled'),
-                    child: const Text('取消付款'),
-                  ),
-                  OutlinedButton(
-                    onPressed: _submitting ? null : () => _markPaymentStatus('expired'),
-                    child: const Text('付款逾時'),
-                  ),
-                ],
-              ),
-            ],
             if (_lastErrorCode != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: SelectableText(
-                  '錯誤碼：$_lastErrorCode',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      '錯誤碼：$_lastErrorCode'
+                      '${_lastErrorCode == 'payment-link-invalid' ? '（付款連結格式錯誤）' : ''}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                    ),
+                    if (_expectedPaymentLinkKey != null)
+                      SelectableText(
+                        '預期讀取 key：$_expectedPaymentLinkKey',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                      ),
+                    if (_lastErrorDetail != null)
+                      SelectableText(
+                        '詳細錯誤：$_lastErrorDetail',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                      ),
+                  ],
                 ),
               ),
             const Spacer(),

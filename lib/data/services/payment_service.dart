@@ -140,16 +140,37 @@ class PaymentService {
   }
 
   String? _resolveHostedPaymentLink({required int amountCents}) {
-    // 目前專案方案以整數金額（分）對應固定 Payment Link
+    // 兼容兩種單位：
+    // 1) 120000 / 150000 / 220000（目前 UI 解析的金額）
+    // 2) 12000000 / 15000000 / 22000000（若未來改為分）
     switch (amountCents) {
       case 120000:
+      case 12000000:
         return _paymentLink120000.isEmpty ? null : _paymentLink120000;
       case 150000:
+      case 15000000:
         return _paymentLink150000.isEmpty ? null : _paymentLink150000;
       case 220000:
+      case 22000000:
         return _paymentLink220000.isEmpty ? null : _paymentLink220000;
       default:
         return null;
+    }
+  }
+
+  String missingHostedLinkKeyForAmount(int amountCents) {
+    switch (amountCents) {
+      case 120000:
+      case 12000000:
+        return 'STRIPE_PAYMENT_LINK_120000';
+      case 150000:
+      case 15000000:
+        return 'STRIPE_PAYMENT_LINK_150000';
+      case 220000:
+      case 22000000:
+        return 'STRIPE_PAYMENT_LINK_220000';
+      default:
+        return 'STRIPE_PAYMENT_LINK_<PLAN_AMOUNT>';
     }
   }
 }
