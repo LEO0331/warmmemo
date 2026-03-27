@@ -11,6 +11,11 @@ class Purchase {
     this.contactNumber,
     this.agentName,
     this.notes,
+    this.paymentProvider,
+    this.paymentStatus,
+    this.invoiceId,
+    this.checkoutUrl,
+    this.paymentCurrency,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final String? id;
@@ -24,6 +29,11 @@ class Purchase {
   final String? contactNumber;
   final String? agentName;
   final String? notes;
+  final String? paymentProvider; // stripe | ecpay
+  final String? paymentStatus; // awaiting_checkout | checkout_created | paid | failed
+  final String? invoiceId;
+  final String? checkoutUrl;
+  final String? paymentCurrency;
 
   Purchase copyWith({
     String? id,
@@ -34,6 +44,11 @@ class Purchase {
     String? notes,
     String? userId,
     String? docPath,
+    String? paymentProvider,
+    String? paymentStatus,
+    String? invoiceId,
+    String? checkoutUrl,
+    String? paymentCurrency,
   }) {
     return Purchase(
       userId: userId ?? this.userId,
@@ -47,6 +62,11 @@ class Purchase {
       contactNumber: contactNumber ?? this.contactNumber,
       agentName: agentName ?? this.agentName,
       notes: notes ?? this.notes,
+      paymentProvider: paymentProvider ?? this.paymentProvider,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      invoiceId: invoiceId ?? this.invoiceId,
+      checkoutUrl: checkoutUrl ?? this.checkoutUrl,
+      paymentCurrency: paymentCurrency ?? this.paymentCurrency,
     );
   }
 
@@ -60,6 +80,11 @@ class Purchase {
         'contactNumber': contactNumber,
         'agentName': agentName,
         'notes': notes,
+        'paymentProvider': paymentProvider,
+        'paymentStatus': paymentStatus,
+        'invoiceId': invoiceId,
+        'checkoutUrl': checkoutUrl,
+        'paymentCurrency': paymentCurrency,
       };
 
   factory Purchase.fromMap(
@@ -80,5 +105,10 @@ class Purchase {
         contactNumber: map['contactNumber'] as String?,
         agentName: map['agentName'] as String?,
         notes: map['notes'] as String?,
+        paymentProvider: map['paymentProvider'] as String?,
+        paymentStatus: map['paymentStatus'] as String?,
+        invoiceId: map['invoiceId'] as String?,
+        checkoutUrl: map['checkoutUrl'] as String?,
+        paymentCurrency: map['paymentCurrency'] as String?,
       );
 }

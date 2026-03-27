@@ -247,7 +247,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               (o) => ListTile(
                 leading: const Icon(Icons.receipt_long_outlined),
                 title: Text(o.planName),
-                subtitle: Text('狀態：${o.status}｜金額：${o.priceLabel}'),
+                subtitle: Text(
+                  '狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜金額：${o.priceLabel}',
+                ),
                 trailing: Text(
                   o.createdAt.toLocal().toString().split('.').first,
                   style: const TextStyle(fontSize: 12),
@@ -276,7 +278,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           return ListTile(
             leading: const Icon(Icons.person_outline),
             title: Text(o.planName),
-            subtitle: Text('狀態：${o.status}｜用戶：${o.userId ?? '-'}'),
+            subtitle: Text('狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜用戶：${o.userId ?? '-'}'),
             trailing: FilledButton(
               onPressed: () async {
                 final updated = await Navigator.of(context).push<Purchase>(
