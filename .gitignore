@@ -50,6 +50,8 @@ macos/Runner/GoogleService-Info.plist
 
 # 如果有使用本地環境變數
 .env
+env/*.json
+!env/payment.sample.json
 
 # 排除巨大的套件資料夾
 node_modules/
@@ -61,4 +63,3 @@ node_modules/
 npm-debug.log*
 firebase-debug.log*
 firestore-debug.log*
-
