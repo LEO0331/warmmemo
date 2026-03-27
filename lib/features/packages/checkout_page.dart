@@ -57,15 +57,50 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final amount = _parseAmount(widget.priceLabel);
       PaymentResult? payment;
       var paymentStatus = 'awaiting_checkout';
-      try {
-        payment = await PaymentService.instance.createInvoice(
-          email: email,
-          name: email.split('@').first,
-          amountCents: amount,
-          description: 'WarmMemo 方案：${widget.planName}',
+      var launchedEarly = false;
+      final useHostedLinks = PaymentService.instance.useHostedPaymentLinks;
+      if (useHostedLinks) {
+        final hostedUrl = PaymentService.instance.hostedCheckoutUrlForAmount(amount);
+        if (hostedUrl == null) {
+          throw StateError('尚未設定此方案的 Stripe Payment Link。');
+        }
+        final hostedUri = Uri.tryParse(hostedUrl);
+        if (hostedUri == null || !(hostedUri.isScheme('https') || hostedUri.isScheme('http'))) {
+          throw StateError('Payment Link 格式錯誤，請確認以 https:// 開頭。');
+        }
+        // Hosted link 可直接開啟，不需等待後端建立連結。
+        final opened = await _openCheckoutUri(hostedUri);
+        launchedEarly = opened;
+        if (!opened) {
+          AppFeedback.showWithMessenger(
+            messenger,
+            colorScheme: colorScheme,
+            message: '瀏覽器可能阻擋了付款頁，請按「開啟付款頁」重試。',
+            tone: FeedbackTone.error,
+            actionLabel: '開啟付款頁',
+            onAction: () {
+              _openCheckoutUri(hostedUri, preferSameTabOnWeb: true);
+            },
+          );
+        }
+        payment = PaymentResult(
           provider: PaymentProvider.stripe,
+          invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+          checkoutUrl: hostedUrl,
         );
         paymentStatus = 'checkout_created';
+      }
+      try {
+        if (!useHostedLinks) {
+          payment = await PaymentService.instance.createInvoice(
+            email: email,
+            name: email.split('@').first,
+            amountCents: amount,
+            description: 'WarmMemo 方案：${widget.planName}',
+            provider: PaymentProvider.stripe,
+          );
+          paymentStatus = 'checkout_created';
+        }
       } catch (error) {
         // Web 常見 XHR/CORS 問題下，先保留訂單讓客服可後續跟進與補發連結。
         final errorCode = _extractErrorCode(error.toString());
@@ -108,17 +143,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final checkoutUri = Uri.tryParse(payment?.checkoutUrl ?? '');
       final canOpenCheckout = checkoutUri != null &&
           (checkoutUri.isScheme('https') || checkoutUri.isScheme('http'));
-      if (canOpenCheckout) {
-        final opened = await launchUrl(
-          checkoutUri,
-          mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
-          webOnlyWindowName: '_blank',
-        );
+      if (!launchedEarly && canOpenCheckout) {
+        final opened = await _openCheckoutUri(checkoutUri);
         if (!opened && mounted) {
           AppFeedback.show(
             context,
             message: '付款頁未成功開啟，請使用「重新開啟付款」或複製連結手動開啟。',
             tone: FeedbackTone.error,
+            actionLabel: '開啟付款頁',
+            onAction: () {
+              _openCheckoutUri(checkoutUri, preferSameTabOnWeb: true);
+            },
           );
         }
       }
@@ -213,6 +248,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return raw.contains('/') ? raw.split('/').last : raw;
   }
 
+  Future<bool> _openCheckoutUri(Uri uri, {bool preferSameTabOnWeb = false}) {
+    return launchUrl(
+      uri,
+      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      webOnlyWindowName: kIsWeb ? (preferSameTabOnWeb ? '_self' : '_blank') : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -275,11 +318,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         );
                         return;
                       }
-                      final opened = await launchUrl(
-                        uri,
-                        mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
-                        webOnlyWindowName: '_blank',
-                      );
+                      final opened = await _openCheckoutUri(uri, preferSameTabOnWeb: true);
                       if (!opened && mounted) {
                         AppFeedback.showWithMessenger(
                           messenger,
@@ -330,7 +369,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _submitting ? null : _submitOrder,
-                child: Text(_submitting ? '建立 Stripe 結帳中…' : '建立付款並送出訂單'),
+                child: Text(_submitting ? '前往中…' : '前往 Stripe 付款'),
               ),
             ),
           ],

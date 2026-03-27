@@ -35,14 +35,21 @@ class PaymentService {
       String.fromEnvironment('WARMEMO_PAYMENT_BACKEND_URL', defaultValue: _defaultBackend);
   static const _functionName =
       String.fromEnvironment('WARMEMO_PAYMENT_FUNCTION', defaultValue: 'createInvoice');
-  static const _useHostedPaymentLinks =
-      bool.fromEnvironment('WARMEMO_USE_HOSTED_PAYMENT_LINKS', defaultValue: false);
+  static const _useHostedPaymentLinksRaw =
+      String.fromEnvironment('WARMEMO_USE_HOSTED_PAYMENT_LINKS', defaultValue: 'false');
+  static final _useHostedPaymentLinks = _useHostedPaymentLinksRaw.toLowerCase() == 'true';
   static const _paymentLink120000 =
       String.fromEnvironment('STRIPE_PAYMENT_LINK_120000', defaultValue: '');
   static const _paymentLink150000 =
       String.fromEnvironment('STRIPE_PAYMENT_LINK_150000', defaultValue: '');
   static const _paymentLink220000 =
       String.fromEnvironment('STRIPE_PAYMENT_LINK_220000', defaultValue: '');
+
+  bool get useHostedPaymentLinks => _useHostedPaymentLinks;
+
+  String? hostedCheckoutUrlForAmount(int amountCents) {
+    return _resolveHostedPaymentLink(amountCents: amountCents);
+  }
 
   Future<PaymentResult> createInvoice({
     required String email,
@@ -53,7 +60,7 @@ class PaymentService {
     String currency = 'twd',
   }) async {
     if (_useHostedPaymentLinks) {
-      final url = _resolveHostedPaymentLink(amountCents: amountCents);
+      final url = hostedCheckoutUrlForAmount(amountCents);
       if (url == null) {
         throw StateError('尚未設定此方案的 Stripe Payment Link。');
       }
