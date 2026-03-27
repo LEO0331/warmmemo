@@ -1,0 +1,33 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ] # 當推送到 main 分支時觸發
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          # flutter-version: '3.40.0' # 可選：指定版本
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        # 重要：不使用 --web-renderer 參數（新版已移除），改由 index.html 控制
+        # 確保 base-href 與你的 Repo 名稱一致
+        run: flutter build web --release --base-href "/warmmemo/"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
