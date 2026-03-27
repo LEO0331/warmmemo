@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../data/firebase/auth_service.dart';
 
@@ -47,13 +48,34 @@ class _AuthPageState extends State<AuthPage> {
         if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
-      } catch (e) {
-        setState(() => _error = e.toString());
+      } on FirebaseAuthException catch (e) {
+        setState(() => _error = _friendlyAuthError(e));
+      } catch (_) {
+        setState(() => _error = '發生未知錯誤，請稍後再試。');
       } finally {
         if (mounted) {
           setState(() => _isProcessing = false);
         }
       }
+  }
+
+  String _friendlyAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Email 格式不正確。';
+      case 'invalid-credential':
+      case 'wrong-password':
+      case 'user-not-found':
+        return '帳號或密碼錯誤。';
+      case 'email-already-in-use':
+        return '這個 Email 已被註冊。';
+      case 'weak-password':
+        return '密碼強度不足，請至少 6 碼。';
+      case 'too-many-requests':
+        return '嘗試次數過多，請稍後再試。';
+      default:
+        return e.message ?? '登入失敗，請稍後再試。';
+    }
   }
 
   Widget _buildForm({

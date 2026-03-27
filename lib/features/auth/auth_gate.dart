@@ -6,8 +6,15 @@ import '../../data/services/user_role_service.dart';
 import '../../core/layout/app_shell.dart';
 import '../landing/landing_page.dart';
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _processingUnsupportedProvider = false;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +26,23 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          UserRoleService.instance.ensureUserProfile(snapshot.data!);
+          final user = snapshot.data!;
+          if (!AuthService.instance.isEmailPasswordUser(user)) {
+            if (!_processingUnsupportedProvider) {
+              _processingUnsupportedProvider = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                final messenger = ScaffoldMessenger.of(context);
+                await AuthService.instance.signOut();
+                _processingUnsupportedProvider = false;
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('目前僅支援 Email / Password 登入。')),
+                );
+              });
+            }
+            return const LandingPage();
+          }
+          UserRoleService.instance.ensureUserProfile(user);
           return const AppShell();
         }
 

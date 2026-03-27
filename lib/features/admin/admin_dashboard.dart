@@ -32,6 +32,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   bool _adminDocEnsured = false;
   bool _adminDocChecked = false;
   bool? _adminDocExists;
+  String? _lastErrorCode;
+  String? _lastErrorDetail;
   final List<Purchase> _allOrders = [];
 
   @override
@@ -72,6 +74,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               setState(() {
                 _adminDocExists = exists;
                 _adminDocChecked = true;
+                _lastErrorCode = null;
+                _lastErrorDetail = null;
               });
             } catch (error) {
               if (!mounted) return;
@@ -79,6 +83,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 _adminDocChecked = true;
                 _adminDocExists = false;
               });
+              _captureError(error);
               messenger.showSnackBar(
                 SnackBar(content: Text('建立管理員識別失敗：$error')),
               );
@@ -133,11 +138,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         .limit(1)
                         .get();
                     if (!mounted) return;
+                    setState(() {
+                      _lastErrorCode = null;
+                      _lastErrorDetail = null;
+                    });
                     messenger.showSnackBar(
                       const SnackBar(content: Text('診斷：查詢成功（collectionGroup orders）')),
                     );
                   } catch (error) {
                     if (!mounted) return;
+                    _captureError(error);
                     messenger.showSnackBar(
                       SnackBar(content: Text('診斷：$error')),
                     );
@@ -164,6 +174,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
           if (_adminDocChecked && _adminDocExists == false) const SizedBox(height: 12),
+          if (_lastErrorCode != null || _lastErrorDetail != null) ...[
+            _buildErrorPanel(theme),
+            const SizedBox(height: 12),
+          ],
           Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
           const SizedBox(height: 16),
           _buildOrdersOverview(),
@@ -311,6 +325,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       });
     } catch (error) {
       if (!mounted) return;
+      _captureError(error);
       setState(() {
         _loadingPage = false;
         _cursor = null;
@@ -341,12 +356,82 @@ class _AdminDashboardState extends State<AdminDashboard> {
       });
     } catch (error) {
       if (!mounted) return;
+      _captureError(error);
       setState(() => _loadingPage = false);
       final currentUid = AuthService.instance.currentUser?.uid ?? '-';
       final message = error.toString().contains('permission-denied')
           ? '載入更多失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件。'
           : '載入更多失敗：$error';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Widget _buildErrorPanel(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '系統錯誤碼：${_lastErrorCode ?? 'unknown'}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onErrorContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _humanReadableError(_lastErrorCode),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onErrorContainer,
+            ),
+          ),
+          if (_lastErrorDetail != null) ...[
+            const SizedBox(height: 8),
+            SelectableText(
+              _lastErrorDetail!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _captureError(Object error) {
+    final text = error.toString();
+    final code = _extractErrorCode(text);
+    setState(() {
+      _lastErrorCode = code;
+      _lastErrorDetail = text;
+    });
+  }
+
+  String _extractErrorCode(String text) {
+    final match = RegExp(r'\[([^\]]+)\]').firstMatch(text);
+    if (match == null) return 'unknown';
+    final raw = match.group(1) ?? 'unknown';
+    if (raw.contains('/')) return raw.split('/').last;
+    return raw;
+  }
+
+  String _humanReadableError(String? code) {
+    switch (code) {
+      case 'permission-denied':
+        return '權限不足，請確認目前帳號已在 admins 集合開通且 Firestore 規則已部署。';
+      case 'failed-precondition':
+        return '查詢前置條件不足，通常是索引或查詢條件不匹配。';
+      case 'unavailable':
+        return '服務暫時不可用，可能是網路或 Firebase 服務異常。';
+      default:
+        return '請將下方原始錯誤回報給技術團隊，以便快速定位。';
     }
   }
 }

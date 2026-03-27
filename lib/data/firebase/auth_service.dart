@@ -14,6 +14,11 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  bool isEmailPasswordUser(User user) {
+    if (user.providerData.isEmpty) return true;
+    return user.providerData.any((provider) => provider.providerId == 'password');
+  }
+
   Future<bool> get isAdmin async {
     final user = _auth.currentUser;
     if (user == null) return false;
