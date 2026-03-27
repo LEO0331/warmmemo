@@ -57,6 +57,10 @@ class PaymentService {
       if (url == null) {
         throw StateError('尚未設定此方案的 Stripe Payment Link。');
       }
+      final hosted = Uri.tryParse(url);
+      if (hosted == null || !(hosted.isScheme('https') || hosted.isScheme('http'))) {
+        throw StateError('Payment Link 格式錯誤，請確認以 https:// 開頭。');
+      }
       return PaymentResult(
         provider: PaymentProvider.stripe,
         invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',

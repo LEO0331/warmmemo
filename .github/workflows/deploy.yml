@@ -31,7 +31,7 @@ jobs:
       - name: Build Web
         # 重要：不使用 --web-renderer 參數（新版已移除），改由 index.html 控制
         # 確保 base-href 與你的 Repo 名稱一致
-        run: flutter build web --release --base-href "/warmmemo/"
+        run: flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env/payment.dev.json
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

@@ -106,7 +106,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         await PurchaseService.instance.updateOrder(uid: uid, purchase: created);
       }
       final checkoutUri = Uri.tryParse(payment?.checkoutUrl ?? '');
-      if (checkoutUri != null) {
+      final canOpenCheckout = checkoutUri != null &&
+          (checkoutUri.isScheme('https') || checkoutUri.isScheme('http'));
+      if (canOpenCheckout) {
         final opened = await launchUrl(
           checkoutUri,
           mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
@@ -264,7 +266,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       final url = _lastCheckoutUrl;
                       if (url == null) return;
                       final uri = Uri.tryParse(url);
-                      if (uri == null) return;
+                      if (uri == null || !(uri.isScheme('https') || uri.isScheme('http'))) {
+                        AppFeedback.showWithMessenger(
+                          messenger,
+                          colorScheme: colorScheme,
+                          message: '付款連結格式錯誤，請確認為 https:// 開頭。',
+                          tone: FeedbackTone.error,
+                        );
+                        return;
+                      }
                       final opened = await launchUrl(
                         uri,
                         mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,

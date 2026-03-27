@@ -1,6 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../../core/widgets/app_feedback.dart';
+import '../../core/utils/clear_payment_query_param_stub.dart'
+    if (dart.library.html) '../../core/utils/clear_payment_query_param_web.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/services/user_role_service.dart';
 import '../../core/layout/app_shell.dart';
@@ -16,9 +20,11 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   bool _processingUnsupportedProvider = false;
+  bool _handledPaymentHint = false;
 
   @override
   Widget build(BuildContext context) {
+    _handlePaymentQueryHint(context);
     return StreamBuilder<User?>(
       stream: AuthService.instance.authStateChanges,
       builder: (context, snapshot) {
@@ -67,5 +73,37 @@ class _AuthGateState extends State<AuthGate> {
         return const LandingPage();
       },
     );
+  }
+
+  void _handlePaymentQueryHint(BuildContext context) {
+    if (_handledPaymentHint || !kIsWeb) return;
+    _handledPaymentHint = true;
+    final payment = Uri.base.queryParameters['payment'];
+    if (payment == null) return;
+    clearPaymentQueryParam();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (payment == 'success') {
+        AppFeedback.show(
+          context,
+          message: '付款已完成，系統將由客服進一步核對。',
+          tone: FeedbackTone.success,
+        );
+        return;
+      }
+      if (payment == 'cancel') {
+        AppFeedback.show(
+          context,
+          message: '你已取消付款，可稍後重新開啟付款連結。',
+          tone: FeedbackTone.info,
+        );
+        return;
+      }
+      AppFeedback.show(
+        context,
+        message: '收到付款狀態：$payment',
+        tone: FeedbackTone.info,
+      );
+    });
   }
 }
