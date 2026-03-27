@@ -663,10 +663,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       AppFeedback.show(context, message: '請先勾選要批次更新的訂單', tone: FeedbackTone.info);
       return;
     }
+    final confirmed = await _confirmBatchAction(
+      selectedOrders: selected,
+      caseStatus: caseStatus,
+      paymentStatus: paymentStatus,
+    );
+    if (!confirmed) return;
     setState(() => _batchUpdating = true);
     try {
       final actor = AuthService.instance.currentUser?.email ?? AuthService.instance.currentUser?.uid;
-      final updated = await PurchaseService.instance.adminBatchUpdate(
+      final report = await PurchaseService.instance.adminBatchUpdate(
         purchases: selected,
         caseStatus: caseStatus,
         paymentStatus: paymentStatus,
@@ -678,13 +684,106 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _selectedOrderIds.clear();
         _batchUpdating = false;
       });
-      AppFeedback.show(context, message: '批次更新完成：$updated 筆', tone: FeedbackTone.success);
+      AppFeedback.show(
+        context,
+        message: '批次更新完成：成功 ${report.updatedCount} 筆，略過 ${report.skippedCount} 筆',
+        tone: FeedbackTone.success,
+      );
+      await _showBatchResult(report);
     } catch (error) {
       if (!mounted) return;
       setState(() => _batchUpdating = false);
       _captureError(error);
       AppFeedback.show(context, message: '批次更新失敗：$error', tone: FeedbackTone.error);
     }
+  }
+
+  Future<bool> _confirmBatchAction({
+    required List<Purchase> selectedOrders,
+    String? caseStatus,
+    String? paymentStatus,
+  }) async {
+    final target = <String>[];
+    if (caseStatus != null) target.add('案件狀態 -> $caseStatus');
+    if (paymentStatus != null) target.add('付款狀態 -> $paymentStatus');
+    final preview = selectedOrders.take(5).toList();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('確認批次更新'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SelectableText('預計更新筆數：${selectedOrders.length}'),
+            SelectableText('變更內容：${target.isEmpty ? '-' : target.join('，')}'),
+            const SizedBox(height: 8),
+            const Text('預覽前 5 筆：'),
+            const SizedBox(height: 6),
+            ...preview.map(
+              (o) => SelectableText('• ${o.planName}｜${o.userId ?? '-'}｜${o.status}/${o.paymentStatus ?? '-'}'),
+            ),
+            if (selectedOrders.length > preview.length)
+              SelectableText('... 另有 ${selectedOrders.length - preview.length} 筆'),
+            const SizedBox(height: 8),
+            const Text('送出後會寫入人工核對操作紀錄。'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('確認送出'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  Future<void> _showBatchResult(BatchUpdateReport report) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('批次更新結果'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SelectableText('選取：${report.selectedCount} 筆'),
+                SelectableText('成功：${report.updatedCount} 筆'),
+                SelectableText('略過：${report.skippedCount} 筆'),
+                if (report.skipped.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text('略過原因：'),
+                  const SizedBox(height: 6),
+                  ...report.skipped.take(8).map(
+                    (item) => SelectableText(
+                      '• ${item.planName}｜${item.userId}｜${item.reason}',
+                    ),
+                  ),
+                  if (report.skipped.length > 8)
+                    SelectableText('... 另有 ${report.skipped.length - 8} 筆略過'),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('關閉'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _latestVerificationSummary(Purchase order) {

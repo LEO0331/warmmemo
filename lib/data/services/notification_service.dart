@@ -18,8 +18,9 @@ class NotificationService {
         .orderBy('occurredAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => NotificationEvent.fromMap(doc.data())).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
+            .toList());
   }
 
   Stream<int> pendingCount() {
@@ -34,7 +35,9 @@ class NotificationService {
         .orderBy('occurredAt', descending: true)
         .limit(limit)
         .get();
-    return snapshot.docs.map((doc) => NotificationEvent.fromMap(doc.data())).toList();
+    return snapshot.docs
+        .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
+        .toList();
   }
 
   Future<List<NotificationEvent>> fetchPending({int limit = 200}) async {
@@ -43,7 +46,9 @@ class NotificationService {
         .orderBy('occurredAt', descending: true)
         .limit(limit)
         .get();
-    return snapshot.docs.map((doc) => NotificationEvent.fromMap(doc.data())).toList();
+    return snapshot.docs
+        .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
+        .toList();
   }
 
   Future<List<NotificationEvent>> fetchForUser(String userId, {int limit = 100}) async {
@@ -52,7 +57,9 @@ class NotificationService {
         .orderBy('occurredAt', descending: true)
         .limit(limit)
         .get();
-    return snapshot.docs.map((doc) => NotificationEvent.fromMap(doc.data())).toList();
+    return snapshot.docs
+        .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
+        .toList();
   }
 
   Stream<List<NotificationEvent>> streamForUser(String userId, {int limit = 12}) {
@@ -61,10 +68,22 @@ class NotificationService {
         .orderBy('occurredAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => NotificationEvent.fromMap(doc.data())).toList());
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
+            .toList());
   }
 
   Future<void> logEvent(NotificationEvent event) {
     return _notifications.add(event.toMap());
+  }
+
+  Future<void> markRead(String notificationId) {
+    return _notifications.doc(notificationId).set(
+      {
+        'status': 'read',
+        'readAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 }

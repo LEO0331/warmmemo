@@ -107,6 +107,7 @@ class DraftMetrics {
 
 class NotificationEvent {
   NotificationEvent({
+    this.id,
     required this.userId,
     required this.channel,
     required this.status,
@@ -115,6 +116,7 @@ class NotificationEvent {
     this.draftType,
   });
 
+  final String? id;
   final String userId;
   final String channel;
   final String status;
@@ -131,7 +133,12 @@ class NotificationEvent {
         'draftType': draftType,
       };
 
-  factory NotificationEvent.fromMap(Map<String, dynamic> map) => NotificationEvent(
+  factory NotificationEvent.fromMap(
+    Map<String, dynamic> map, {
+    String? id,
+  }) =>
+      NotificationEvent(
+        id: id,
         userId: map['userId'] as String? ?? 'unknown',
         channel: map['channel'] as String? ?? 'email',
         status: map['status'] as String? ?? 'pending',

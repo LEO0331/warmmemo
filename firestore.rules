@@ -1,7 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Use a dedicated admins collection to avoid per-document get() cost in list queries.
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,64 +9,111 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isTokenAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
     function isAdminDoc() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+
+    function isAdmin() {
+      return isTokenAdmin() || isAdminDoc();
+    }
+
+    function ownerOrderUpdatableKeysOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'paymentProvider',
+        'paymentStatus',
+        'invoiceId',
+        'checkoutUrl',
+        'paymentCurrency'
+      ]);
+    }
+
+    function ownerOrderPaymentStatusAllowed() {
+      return !(request.resource.data.paymentStatus in ['paid']);
+    }
+
     match /users/{userId} {
-      allow read: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.role == 'user';
       allow update: if (isOwner(userId)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
-          || request.auth.token.admin == true
-          || isAdminDoc();
-      allow delete: if request.auth.token.admin == true || isAdminDoc();
+          || isAdmin();
+      allow delete: if isAdmin();
 
       match /drafts/{draftId} {
-        allow read, write: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       match /meta/{metaDoc} {
-        allow read, write: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       match /orders/{orderId} {
-        allow read, write: if isOwner(userId) || request.auth.token.admin == true || isAdminDoc();
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.status == 'pending'
+          && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired'];
+        allow update: if (isOwner(userId)
+            && ownerOrderUpdatableKeysOnly()
+            && ownerOrderPaymentStatusAllowed())
+          || isAdmin();
+        allow delete: if isAdmin();
       }
     }
 
     // Admin-only catch-all for any orders subcollection path.
     match /{path=**}/orders/{orderId} {
-      allow read: if isAdminDoc() || request.auth.token.admin == true;
+      allow read: if isAdmin();
     }
 
     // Backward compatible: root-level orders/{orderId}
     match /orders/{orderId} {
       allow read: if isSignedIn() && (
-        request.auth.uid == resource.data.userId || request.auth.token.admin == true || isAdminDoc()
+        request.auth.uid == resource.data.userId || isAdmin()
       );
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if isSignedIn() && (request.auth.token.admin == true || isAdminDoc());
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.userId
+        && request.resource.data.status == 'pending'
+        && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired'];
+      allow update: if (isSignedIn()
+          && request.auth.uid == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentProvider',
+            'paymentStatus',
+            'invoiceId',
+            'checkoutUrl',
+            'paymentCurrency'
+          ])
+          && !(request.resource.data.paymentStatus in ['paid']))
+        || isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {
       allow read: if isSignedIn()
-        && (request.auth.uid == resource.data.userId || request.auth.token.admin == true || isAdminDoc());
-      allow create:
-        if (request.auth.token.admin == true || isAdminDoc()) ||
-           (isSignedIn() && request.auth.uid == request.resource.data.userId);
-      allow update, delete: if request.auth.token.admin == true || isAdminDoc();
+        && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAdmin()
+        || (isSignedIn() && request.auth.uid == request.resource.data.userId);
+      allow update: if isAdmin()
+        || (isSignedIn()
+          && request.auth.uid == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'readAt'])
+          && request.resource.data.status == 'read');
+      allow delete: if isAdmin();
     }
 
     match /admins/{adminId} {
       allow read: if isSignedIn() && request.auth.uid == adminId;
-      // Allow a role-based admin to create their own admin doc once.
       allow create: if isSignedIn()
         && request.auth.uid == adminId
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      // Token-based admins can still manage admin docs.
-      allow update, delete: if isSignedIn() && request.auth.token.admin == true;
+      allow update, delete: if isTokenAdmin();
     }
   }
 }

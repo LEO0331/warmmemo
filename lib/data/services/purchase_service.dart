@@ -37,6 +37,34 @@ class OrderWorkflow {
   }
 }
 
+class BatchUpdateSkip {
+  BatchUpdateSkip({
+    required this.orderId,
+    required this.planName,
+    required this.userId,
+    required this.reason,
+  });
+
+  final String orderId;
+  final String planName;
+  final String userId;
+  final String reason;
+}
+
+class BatchUpdateReport {
+  BatchUpdateReport({
+    required this.selectedCount,
+    required this.updatedCount,
+    required this.skipped,
+  });
+
+  final int selectedCount;
+  final int updatedCount;
+  final List<BatchUpdateSkip> skipped;
+
+  int get skippedCount => skipped.length;
+}
+
 class PurchaseService {
   PurchaseService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -127,21 +155,42 @@ class PurchaseService {
     );
   }
 
-  Future<int> adminBatchUpdate({
+  Future<BatchUpdateReport> adminBatchUpdate({
     required List<Purchase> purchases,
     String? caseStatus,
     String? paymentStatus,
     String? actor,
   }) async {
-    if (purchases.isEmpty) return 0;
+    if (purchases.isEmpty) {
+      return BatchUpdateReport(selectedCount: 0, updatedCount: 0, skipped: const []);
+    }
     var updatedCount = 0;
+    final skipped = <BatchUpdateSkip>[];
     for (final order in purchases) {
       final uid = order.userId;
-      if (uid == null || uid.isEmpty) continue;
+      if (uid == null || uid.isEmpty) {
+        skipped.add(
+          BatchUpdateSkip(
+            orderId: order.id ?? '-',
+            planName: order.planName,
+            userId: '-',
+            reason: '缺少 userId',
+          ),
+        );
+        continue;
+      }
       var next = order;
       final changes = <String>[];
       if (caseStatus != null && caseStatus != order.status) {
         if (!OrderWorkflow.canChangeCaseStatus(from: order.status, to: caseStatus)) {
+          skipped.add(
+            BatchUpdateSkip(
+              orderId: order.id ?? '-',
+              planName: order.planName,
+              userId: uid,
+              reason: '案件狀態不可由 ${order.status} 轉為 $caseStatus',
+            ),
+          );
           continue;
         }
         next = next.copyWith(status: caseStatus);
@@ -150,6 +199,14 @@ class PurchaseService {
       final currentPayment = order.paymentStatus ?? 'checkout_created';
       if (paymentStatus != null && paymentStatus != order.paymentStatus) {
         if (!OrderWorkflow.canChangePaymentStatus(from: currentPayment, to: paymentStatus)) {
+          skipped.add(
+            BatchUpdateSkip(
+              orderId: order.id ?? '-',
+              planName: order.planName,
+              userId: uid,
+              reason: '付款狀態不可由 $currentPayment 轉為 $paymentStatus',
+            ),
+          );
           continue;
         }
         next = next.copyWith(
@@ -158,7 +215,17 @@ class PurchaseService {
         );
         changes.add('payment ${order.paymentStatus ?? '-'} -> $paymentStatus');
       }
-      if (changes.isEmpty) continue;
+      if (changes.isEmpty) {
+        skipped.add(
+          BatchUpdateSkip(
+            orderId: order.id ?? '-',
+            planName: order.planName,
+            userId: uid,
+            reason: '沒有可更新的欄位',
+          ),
+        );
+        continue;
+      }
       final now = DateTime.now();
       final editor = (actor == null || actor.isEmpty) ? 'admin' : actor;
       final log = VerificationLog(
@@ -178,6 +245,10 @@ class PurchaseService {
       await updateOrder(uid: uid, purchase: next);
       updatedCount++;
     }
-    return updatedCount;
+    return BatchUpdateReport(
+      selectedCount: purchases.length,
+      updatedCount: updatedCount,
+      skipped: skipped,
+    );
   }
 }

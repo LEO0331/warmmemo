@@ -81,7 +81,7 @@ class FirebaseDraftService {
         .limit(limit)
         .get();
     return snapshot.docs
-        .map((doc) => NotificationEvent.fromMap(doc.data()))
+        .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
         .toList();
   }
 
@@ -113,7 +113,7 @@ class FirebaseDraftService {
         .limit(limit)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => NotificationEvent.fromMap(doc.data()))
+            .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
             .toList());
   }
 

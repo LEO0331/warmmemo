@@ -387,10 +387,17 @@ class _OrdersPanelState extends State<_OrdersPanel> {
   }
 }
 
-class _NotificationCenterCard extends StatelessWidget {
+class _NotificationCenterCard extends StatefulWidget {
   const _NotificationCenterCard({required this.uid});
 
   final String uid;
+
+  @override
+  State<_NotificationCenterCard> createState() => _NotificationCenterCardState();
+}
+
+class _NotificationCenterCardState extends State<_NotificationCenterCard> {
+  bool _onlyUnread = false;
 
   @override
   Widget build(BuildContext context) {
@@ -398,15 +405,30 @@ class _NotificationCenterCard extends StatelessWidget {
       title: '通知中心',
       icon: Icons.notifications_active_outlined,
       child: StreamBuilder<List<NotificationEvent>>(
-        stream: NotificationService.instance.streamForUser(uid, limit: 6),
+        stream: NotificationService.instance.streamForUser(widget.uid, limit: 20),
         builder: (context, snapshot) {
           final events = snapshot.data ?? [];
+          final unreadCount = events.where((e) => e.status != 'read').length;
+          final filtered = _onlyUnread ? events.where((e) => e.status != 'read').toList() : events;
           if (events.isEmpty) {
             return const Text('目前尚未有通知紀錄。');
           }
           return Column(
-            children: events
-                .map(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  FilterChip(
+                    label: Text('只看未讀（$unreadCount）'),
+                    selected: _onlyUnread,
+                    onSelected: (value) => setState(() => _onlyUnread = value),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ...filtered.take(8).map(
                   (event) => ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -417,13 +439,32 @@ class _NotificationCenterCard extends StatelessWidget {
                     ),
                     title: Text(event.draftType ?? '草稿通知'),
                     subtitle: Text('${event.channel} · ${event.status}'),
-                    trailing: Text(
-                      event.occurredAt.toLocal().toString().split('.').first,
-                      style: const TextStyle(fontSize: 12),
+                    trailing: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          event.occurredAt.toLocal().toString().split('.').first,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        if (event.status != 'read' && event.id != null)
+                          TextButton(
+                            onPressed: () async {
+                              await NotificationService.instance.markRead(event.id!);
+                              if (!context.mounted) return;
+                              AppFeedback.show(
+                                context,
+                                message: '已標記為已讀',
+                                tone: FeedbackTone.success,
+                              );
+                            },
+                            child: const Text('標記已讀'),
+                          ),
+                      ],
                     ),
                   ),
                 )
-                .toList(),
+            ],
           );
         },
       ),
