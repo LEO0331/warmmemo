@@ -3,12 +3,16 @@ import '../firebase/draft_service.dart';
 import 'notification_service.dart';
 
 class ExportService {
-  ExportService._();
+  ExportService({
+    FirebaseDraftService? draftService,
+    NotificationService? notificationService,
+  })  : _draftService = draftService ?? FirebaseDraftService.instance,
+        _notificationService = notificationService ?? NotificationService.instance;
 
-  static final ExportService instance = ExportService._();
+  static final ExportService instance = ExportService();
 
-  final FirebaseDraftService _draftService = FirebaseDraftService.instance;
-  final NotificationService _notificationService = NotificationService.instance;
+  final FirebaseDraftService _draftService;
+  final NotificationService _notificationService;
 
   Future<void> exportCompliancePackage() async {
     final history = await _notificationService.fetchHistory(limit: 500);

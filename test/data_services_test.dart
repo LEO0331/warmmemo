@@ -1,0 +1,351 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:warmmemo/data/firebase/draft_service.dart';
+import 'package:warmmemo/data/models/draft_models.dart';
+import 'package:warmmemo/data/models/purchase.dart';
+import 'package:warmmemo/data/models/admin_models.dart';
+import 'package:warmmemo/data/services/notification_service.dart';
+import 'package:warmmemo/data/services/payment_service.dart';
+import 'package:warmmemo/data/services/purchase_service.dart';
+import 'package:warmmemo/data/services/reminder_service.dart';
+import 'package:warmmemo/data/services/user_role_service.dart';
+
+void main() {
+  group('PaymentService', () {
+    test('maps missing key names by amount', () {
+      final service = PaymentService();
+      expect(service.missingHostedLinkKeyForAmount(120000), 'STRIPE_PAYMENT_LINK_120000');
+      expect(service.missingHostedLinkKeyForAmount(15000000), 'STRIPE_PAYMENT_LINK_150000');
+      expect(service.missingHostedLinkKeyForAmount(220000), 'STRIPE_PAYMENT_LINK_220000');
+      expect(service.missingHostedLinkKeyForAmount(1), 'STRIPE_PAYMENT_LINK_<PLAN_AMOUNT>');
+    });
+
+    test('returns null hosted url when no dart-define provided', () {
+      final service = PaymentService();
+      expect(service.hostedCheckoutUrlForAmount(120000), isNull);
+      expect(service.hostedCheckoutUrlForAmount(150000), isNull);
+      expect(service.hostedCheckoutUrlForAmount(220000), isNull);
+    });
+  });
+
+  group('Firestore-backed services', () {
+    test('PurchaseService can create and update nested user order', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+
+      final created = await purchaseService.createOrder(
+        uid: 'userA',
+        purchase: Purchase(
+          planName: '城市極簡告別',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+          paymentStatus: 'checkout_created',
+        ),
+      );
+      expect(created.id, isNotNull);
+      expect(created.docPath, contains('users/userA/orders/'));
+
+      final updated = created.copyWith(status: 'received');
+      await purchaseService.updateOrder(uid: 'userA', purchase: updated);
+
+      final doc = await db.doc(updated.docPath!).get();
+      expect(doc.data()?['status'], 'received');
+    });
+
+    test('PurchaseService userOrders stream and paging APIs work', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+
+      await purchaseService.createOrder(
+        uid: 'u1',
+        purchase: Purchase(
+          planName: 'A',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+          createdAt: DateTime(2026, 3, 1),
+        ),
+      );
+      await purchaseService.createOrder(
+        uid: 'u1',
+        purchase: Purchase(
+          planName: 'B',
+          priceLabel: 'NT\$ 150,000',
+          priceAmount: 150000,
+          status: 'pending',
+          createdAt: DateTime(2026, 3, 2),
+        ),
+      );
+      await purchaseService.createOrder(
+        uid: 'u2',
+        purchase: Purchase(
+          planName: 'C',
+          priceLabel: 'NT\$ 220,000',
+          priceAmount: 220000,
+          status: 'pending',
+          createdAt: DateTime(2026, 3, 3),
+        ),
+      );
+
+      final userOrders = await purchaseService.userOrders('u1').first;
+      expect(userOrders.length, 2);
+      expect(userOrders.first.planName, 'B');
+
+      final adminOrders = await purchaseService.adminOrders().first;
+      expect(adminOrders.length, 3);
+      expect(adminOrders.any((o) => o.userId == 'u1'), isTrue);
+      expect(adminOrders.any((o) => o.userId == 'u2'), isTrue);
+    });
+
+    test('PurchaseService updateOrder falls back to users/{uid}/orders/{id}', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+      final ref = db.collection('users').doc('u9').collection('orders').doc('o1');
+      await ref.set({
+        'planName': 'X',
+        'priceLabel': 'NT\$ 120,000',
+        'priceAmount': 120000,
+        'status': 'pending',
+        'createdAt': DateTime(2026, 1, 1).toIso8601String(),
+      });
+
+      await purchaseService.updateOrder(
+        uid: 'u9',
+        purchase: Purchase(
+          id: 'o1',
+          userId: 'u9',
+          planName: 'X',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'complete',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      final doc = await ref.get();
+      expect(doc.data()?['status'], 'complete');
+    });
+
+    test('NotificationService and ReminderService create reminder once per user', () async {
+      final db = FakeFirebaseFirestore();
+      final notificationService = NotificationService(firestore: db);
+      final reminderService = ReminderService(
+        firestore: db,
+        notificationService: notificationService,
+      );
+
+      final now = DateTime(2026, 3, 27, 10, 0);
+      await notificationService.logEvent(
+        NotificationEvent(
+          userId: 'u1',
+          channel: 'email',
+          status: 'pending',
+          occurredAt: now,
+          tone: 'warm',
+          draftType: 'memorial',
+        ),
+      );
+      await notificationService.logEvent(
+        NotificationEvent(
+          userId: 'u1',
+          channel: 'line',
+          status: 'pending',
+          occurredAt: now.add(const Duration(minutes: 1)),
+          tone: 'warm',
+          draftType: 'memorial',
+        ),
+      );
+      await notificationService.logEvent(
+        NotificationEvent(
+          userId: 'u2',
+          channel: 'sms',
+          status: 'pending',
+          occurredAt: now.add(const Duration(minutes: 2)),
+          tone: 'formal',
+          draftType: 'obituary',
+        ),
+      );
+
+      final result = await reminderService.pushReminders(channel: 'email');
+      expect(result.notifications, 2);
+      expect(result.users.toSet(), {'u1', 'u2'});
+
+      final reminders = await db
+          .collection('notifications')
+          .where('status', isEqualTo: 'reminder')
+          .get();
+      expect(reminders.docs.length, 2);
+
+      final u1Stats = await db.collection('users').doc('u1').collection('meta').doc('stats').get();
+      expect(u1Stats.exists, isTrue);
+    });
+
+    test('NotificationService query methods return expected records', () async {
+      final db = FakeFirebaseFirestore();
+      final service = NotificationService(firestore: db);
+
+      await service.logEvent(
+        NotificationEvent(
+          userId: 'u1',
+          channel: 'email',
+          status: 'pending',
+          occurredAt: DateTime(2026, 3, 1, 8, 0),
+        ),
+      );
+      await service.logEvent(
+        NotificationEvent(
+          userId: 'u1',
+          channel: 'line',
+          status: 'delivered',
+          occurredAt: DateTime(2026, 3, 1, 9, 0),
+        ),
+      );
+      await service.logEvent(
+        NotificationEvent(
+          userId: 'u2',
+          channel: 'sms',
+          status: 'pending',
+          occurredAt: DateTime(2026, 3, 1, 10, 0),
+        ),
+      );
+
+      final history = await service.fetchHistory(limit: 10);
+      expect(history.length, 3);
+
+      final pending = await service.fetchPending(limit: 10);
+      expect(pending.length, 2);
+      expect(await service.pendingCount().first, 2);
+
+      final forUser = await service.fetchForUser('u1', limit: 10);
+      expect(forUser.length, 2);
+
+      final timeline = await service.timeline(limit: 2).first;
+      expect(timeline.length, 2);
+      final streamForUser = await service.streamForUser('u2', limit: 2).first;
+      expect(streamForUser.length, 1);
+      expect(streamForUser.first.userId, 'u2');
+    });
+
+    test('FirebaseDraftService saves and reads drafts/stats/summaries', () async {
+      final db = FakeFirebaseFirestore();
+      final draftService = FirebaseDraftService(firestore: db);
+
+      await draftService.saveMemorial(
+        'u1',
+        MemorialDraft(name: '王小明', bio: '測試內容'),
+      );
+      await draftService.saveObituary(
+        'u1',
+        ObituaryDraft(deceasedName: '王大明', tone: 'warm'),
+      );
+      await draftService.incrementStats('u1', readDelta: 2, clickDelta: 1);
+
+      final memorial = await draftService.loadMemorial('u1');
+      final obituary = await draftService.loadObituary('u1');
+      final stats = await draftService.loadStats('u1');
+      expect(memorial?.name, '王小明');
+      expect(obituary?.deceasedName, '王大明');
+      expect(stats.readCount, 2);
+      expect(stats.clickCount, 1);
+
+      await db.collection('users').doc('u1').collection('meta').doc('stats').set(
+        {'lastReminderAt': '2026-03-20T10:20:30.000Z'},
+        SetOptions(merge: true),
+      );
+      final summaries = await draftService.fetchUserSummaries(limit: 10);
+      expect(summaries.length, 1);
+      expect(summaries.first.userId, 'u1');
+      expect(summaries.first.lastReminderAt, isNotNull);
+    });
+
+    test('FirebaseDraftService admin overview/metrics/notifications work', () async {
+      final db = FakeFirebaseFirestore();
+      final draftService = FirebaseDraftService(firestore: db);
+
+      await db.collection('users').doc('u1').set({'updatedAt': Timestamp.now()});
+      await db.collection('users').doc('u2').set({'updatedAt': Timestamp.now()});
+      await db.collection('users').doc('u1').collection('meta').doc('stats').set({
+        'readCount': 5,
+        'clickCount': 2,
+      });
+      await db.collection('users').doc('u2').collection('meta').doc('stats').set({
+        'readCount': 3,
+        'clickCount': 4,
+      });
+
+      final overview = await draftService.adminOverview().first;
+      expect(overview.length, 2);
+
+      final metrics = await draftService.adminMetricsStream().first;
+      expect(metrics.totalUsers, 2);
+      expect(metrics.totalReads, 8);
+      expect(metrics.totalClicks, 6);
+
+      await draftService.logNotificationEvent(
+        NotificationEvent(
+          userId: 'u1',
+          channel: 'email',
+          status: 'pending',
+          occurredAt: DateTime(2026, 3, 27, 12, 0),
+          tone: 'warm',
+          draftType: 'memorial',
+        ),
+      );
+
+      final history = await draftService.fetchNotificationHistory(limit: 10);
+      expect(history.length, 1);
+      final timeline = await draftService.notificationTimeline(limit: 10).first;
+      expect(timeline.length, 1);
+      expect(timeline.first.userId, 'u1');
+    });
+
+    test('FirebaseDraftService handles empty stats update and missing drafts', () async {
+      final db = FakeFirebaseFirestore();
+      final draftService = FirebaseDraftService(firestore: db);
+
+      expect(await draftService.loadMemorial('none'), isNull);
+      expect(await draftService.loadObituary('none'), isNull);
+
+      await draftService.incrementStats('u1');
+      final statsDoc = await db.collection('users').doc('u1').collection('meta').doc('stats').get();
+      expect(statsDoc.exists, isFalse);
+    });
+
+    test('UserRoleService can ensure and verify admin doc', () async {
+      final db = FakeFirebaseFirestore();
+      final roleService = UserRoleService(firestore: db);
+
+      expect(await roleService.adminDocExists('adminUid'), isFalse);
+      await roleService.ensureAdminDoc('adminUid');
+      expect(await roleService.adminDocExists('adminUid'), isTrue);
+    });
+
+    test('UserRoleService roleStream defaults to user', () async {
+      final db = FakeFirebaseFirestore();
+      final roleService = UserRoleService(firestore: db);
+      expect(await roleService.roleStream('u1').first, 'user');
+      await db.collection('users').doc('u1').set({'role': 'admin'});
+      expect(await roleService.roleStream('u1').first, 'admin');
+    });
+
+    test('UserComplianceSnapshot serializes summary fields', () {
+      final snapshot = UserComplianceSnapshot(
+        userId: 'u1',
+        memorialDraft: MemorialDraft(name: '王小明'),
+        obituaryDraft: ObituaryDraft(deceasedName: '王大明'),
+        stats: DraftStats(readCount: 9, clickCount: 4),
+        lastReminderAt: DateTime.parse('2026-03-01T10:00:00.000Z'),
+      );
+      final map = snapshot.toMap();
+      expect(map['userId'], 'u1');
+      expect(map['readCount'], 9);
+      expect(map['clickCount'], 4);
+      expect(map['lastReminderAt'], '2026-03-01T10:00:00.000Z');
+      expect(map['memorialDraft'], isNotNull);
+      expect(map['obituaryDraft'], isNotNull);
+    });
+  });
+}

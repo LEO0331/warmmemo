@@ -4,11 +4,12 @@ import '../models/admin_models.dart';
 import '../models/draft_models.dart';
 
 class FirebaseDraftService {
-  FirebaseDraftService._();
+  FirebaseDraftService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static final FirebaseDraftService instance = FirebaseDraftService._();
+  static final FirebaseDraftService instance = FirebaseDraftService();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
@@ -85,12 +86,13 @@ class FirebaseDraftService {
   }
 
   Stream<DraftMetrics> adminMetricsStream() {
-    return _firestore.collectionGroup('stats').snapshots().map((snapshot) {
+    return _firestore.collectionGroup('meta').snapshots().map((snapshot) {
       final userIds = <String>{};
       var totalReads = 0;
       var totalClicks = 0;
 
       for (final doc in snapshot.docs) {
+        if (doc.id != 'stats') continue;
         final data = doc.data();
         userIds.add(doc.reference.parent.parent?.id ?? 'unknown');
         totalReads += data['readCount'] as int? ?? 0;

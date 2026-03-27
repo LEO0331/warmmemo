@@ -3,11 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/purchase.dart';
 
 class PurchaseService {
-  PurchaseService._();
+  PurchaseService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static final PurchaseService instance = PurchaseService._();
+  static final PurchaseService instance = PurchaseService();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
 

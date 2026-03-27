@@ -16,13 +16,16 @@ class ReminderResult {
 }
 
 class ReminderService {
-  ReminderService._();
+  ReminderService({
+    FirebaseFirestore? firestore,
+    NotificationService? notificationService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _notificationService = notificationService ?? NotificationService.instance;
 
-  static final ReminderService instance = ReminderService._();
+  static final ReminderService instance = ReminderService();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  final NotificationService _notificationService = NotificationService.instance;
+  final FirebaseFirestore _firestore;
+  final NotificationService _notificationService;
 
   Future<ReminderResult> pushReminders({
     required String channel,
