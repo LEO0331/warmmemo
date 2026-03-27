@@ -38,6 +38,8 @@ class WarmMemoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: base.copyWith(
         scaffoldBackgroundColor: warmSurface,
+        visualDensity: VisualDensity.comfortable,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           foregroundColor: Color(0xFF4B352B),
@@ -97,6 +99,7 @@ class WarmMemoApp extends StatelessWidget {
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
+            minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
             padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             ),
@@ -124,6 +127,7 @@ class WarmMemoApp extends StatelessWidget {
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
+            minimumSize: const WidgetStatePropertyAll(Size.fromHeight(46)),
             padding: const WidgetStatePropertyAll(
               EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             ),
@@ -134,10 +138,13 @@ class WarmMemoApp extends StatelessWidget {
           side: const BorderSide(color: warmOutline),
           backgroundColor: const Color(0xFFFFFCFA),
           selectedColor: const Color(0xFFF8E5D8),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
           labelStyle: const TextStyle(color: Color(0xFF5A3D31)),
         ),
         listTileTheme: const ListTileThemeData(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          minVerticalPadding: 10,
+          minLeadingWidth: 24,
         ),
       ),
       home: const AuthGate(),

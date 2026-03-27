@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
@@ -28,6 +29,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _statusFilter;
   String? _planFilter;
   String? _paymentQuickFilter;
+  String? _verifierQuickFilter;
   String? _cursor;
   bool _loadingPage = false;
   bool _initializedForAdmin = false;
@@ -69,6 +71,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             final messenger = ScaffoldMessenger.of(context);
+            final colorScheme = Theme.of(context).colorScheme;
             try {
               await UserRoleService.instance.ensureAdminDoc(uid);
               final exists = await UserRoleService.instance.adminDocExists(uid);
@@ -86,8 +89,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 _adminDocExists = false;
               });
               _captureError(error);
-              messenger.showSnackBar(
-                SnackBar(content: Text('建立管理員識別失敗：$error')),
+              AppFeedback.showWithMessenger(
+                messenger,
+                colorScheme: colorScheme,
+                message: '建立管理員識別失敗：$error',
+                tone: FeedbackTone.error,
               );
             }
             if (!mounted || _initializedForAdmin) return;
@@ -122,10 +128,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
               TextButton(
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
+                  final colorScheme = Theme.of(context).colorScheme;
                   await Clipboard.setData(ClipboardData(text: uid));
                   if (!mounted) return;
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('已複製 UID：$uid')),
+                  AppFeedback.showWithMessenger(
+                    messenger,
+                    colorScheme: colorScheme,
+                    message: '已複製 UID：$uid',
+                    tone: FeedbackTone.info,
                   );
                 },
                 child: const Text('複製 UID'),
@@ -133,6 +143,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               TextButton(
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
+                  final colorScheme = Theme.of(context).colorScheme;
                   try {
                     await FirebaseFirestore.instance
                         .collectionGroup('orders')
@@ -144,14 +155,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       _lastErrorCode = null;
                       _lastErrorDetail = null;
                     });
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('診斷：查詢成功（collectionGroup orders）')),
+                    AppFeedback.showWithMessenger(
+                      messenger,
+                      colorScheme: colorScheme,
+                      message: '診斷成功：collectionGroup orders 可查詢',
+                      tone: FeedbackTone.success,
                     );
                   } catch (error) {
                     if (!mounted) return;
                     _captureError(error);
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('診斷：$error')),
+                    AppFeedback.showWithMessenger(
+                      messenger,
+                      colorScheme: colorScheme,
+                      message: '診斷失敗：$error',
+                      tone: FeedbackTone.error,
                     );
                   }
                 },
@@ -182,6 +199,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
           Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
           const SizedBox(height: 16),
+          if (_loadingPage && _allOrders.isEmpty) ...[
+            const SkeletonOrderList(count: 4),
+            const SizedBox(height: 12),
+          ],
           _buildOrdersOverview(),
           const SizedBox(height: 16),
           _buildOrdersWorkQueue(),
@@ -208,6 +229,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildOrdersOverview() {
     final planNames = _allOrders.map((o) => o.planName).toSet().toList()..sort();
     final statuses = _allOrders.map((o) => o.status).toSet().toList()..sort();
+    final verifiers = _allOrders
+        .map((o) => _latestVerifier(o))
+        .whereType<String>()
+        .where((v) => v.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
     final filtered = _applyFilters(_allOrders);
     return SectionCard(
       title: '方案訂單管理（檢視）',
@@ -268,9 +296,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('全部核對人'),
+                selected: _verifierQuickFilter == null,
+                onSelected: (_) => setState(() => _verifierQuickFilter = null),
+              ),
+              ...verifiers.map(
+                (v) => ChoiceChip(
+                  label: Text(v),
+                  selected: _verifierQuickFilter == v,
+                  onSelected: (_) => setState(() => _verifierQuickFilter = v),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           if (filtered.isEmpty)
-            const Text('目前沒有符合條件的訂單。')
+            const EmptyStateCard(
+              title: '沒有符合條件的訂單',
+              description: '你可以調整狀態、方案、付款與核對人篩選條件。',
+              icon: Icons.filter_alt_off_outlined,
+            )
           else
             ...filtered.map(
               (o) => ListTile(
@@ -281,9 +332,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   '最近核對：${_latestVerificationSummary(o)}',
                 ),
                 isThreeLine: true,
-                trailing: Text(
-                  o.createdAt.toLocal().toString().split('.').first,
-                  style: const TextStyle(fontSize: 12),
+                trailing: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      o.createdAt.toLocal().toString().split('.').first,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    IconButton(
+                      tooltip: '複製核對摘要',
+                      onPressed: () => _copyVerificationSummary(o),
+                      icon: const Icon(Icons.copy_all_outlined, size: 18),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -298,7 +359,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return const SectionCard(
         title: '個別訂單處理',
         icon: Icons.task_outlined,
-        child: Text('目前沒有待處理的訂單。'),
+        child: EmptyStateCard(
+          title: '目前沒有待處理訂單',
+          description: '等待用戶送單後，這裡會顯示可處理項目。',
+          icon: Icons.task_alt_outlined,
+        ),
       );
     }
     return SectionCard(
@@ -322,6 +387,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     onPressed: () => _resendCheckoutLink(o),
                     child: const Text('重送付款連結'),
                   ),
+                TextButton(
+                  onPressed: () => _copyVerificationSummary(o),
+                  child: const Text('複製核對摘要'),
+                ),
                 FilledButton(
                   onPressed: () async {
                     final updated = await Navigator.of(context).push<Purchase>(
@@ -355,7 +424,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final sOk = _statusFilter == null || o.status == _statusFilter;
       final pOk = _planFilter == null || o.planName == _planFilter;
       final payOk = _paymentQuickFilter == null || o.paymentStatus == _paymentQuickFilter;
-      return sOk && pOk && payOk;
+      final verifier = _latestVerifier(o);
+      final vOk = _verifierQuickFilter == null || verifier == _verifierQuickFilter;
+      return sOk && pOk && payOk && vOk;
     }).toList();
   }
 
@@ -369,15 +440,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _resendCheckoutLink(Purchase order) async {
     final url = order.checkoutUrl;
     if (url == null || url.isEmpty) return;
-    final messenger = ScaffoldMessenger.of(context);
     await Clipboard.setData(ClipboardData(text: url));
     final uri = Uri.tryParse(url);
     if (uri != null) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
     if (!mounted) return;
-    messenger.showSnackBar(
-      SnackBar(content: Text('已重送付款連結（已複製）：$url')),
+    AppFeedback.show(
+      context,
+      message: '已重送付款連結（已複製）',
+      tone: FeedbackTone.success,
     );
   }
 
@@ -404,7 +476,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final message = error.toString().contains('permission-denied')
           ? '讀取訂單失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件。'
           : '讀取訂單失敗：$error';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      AppFeedback.show(context, message: message, tone: FeedbackTone.error);
     }
   }
 
@@ -432,8 +504,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final message = error.toString().contains('permission-denied')
           ? '載入更多失敗：permission-denied。請確認 Firestore 有 `admins/$currentUid` 文件。'
           : '載入更多失敗：$error';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      AppFeedback.show(
+        context,
+        message: message,
+        tone: FeedbackTone.error,
+        actionLabel: '重試',
+        onAction: _loadMore,
+      );
     }
+  }
+
+  String? _latestVerifier(Purchase order) {
+    if (order.verificationLogs.isEmpty) return null;
+    return order.verificationLogs.last.actor;
+  }
+
+  Future<void> _copyVerificationSummary(Purchase order) async {
+    final latest = order.verificationLogs.isNotEmpty ? order.verificationLogs.last : null;
+    final summary = StringBuffer()
+      ..writeln('方案：${order.planName}')
+      ..writeln('訂單狀態：${order.status}')
+      ..writeln('付款狀態：${order.paymentStatus ?? '-'}')
+      ..writeln('最近核對：${latest == null ? '尚未人工核對' : '${latest.actedAt.toLocal().toString().split('.').first}｜${latest.actor}'}');
+    if (latest?.summary != null) {
+      summary.writeln('核對摘要：${latest!.summary}');
+    }
+    if (latest?.note != null && latest!.note!.isNotEmpty) {
+      summary.writeln('核對備註：${latest.note}');
+    }
+    await Clipboard.setData(ClipboardData(text: summary.toString()));
+    if (!mounted) return;
+    AppFeedback.show(context, message: '核對摘要已複製', tone: FeedbackTone.success);
   }
 
   Widget _buildErrorPanel(ThemeData theme) {

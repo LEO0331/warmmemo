@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
@@ -207,7 +208,7 @@ class _OrdersPanelState extends State<_OrdersPanel> {
         stream: PurchaseService.instance.userOrders(uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const SkeletonOrderList(count: 3);
           }
           final orders = snapshot.data ?? [];
           final statuses = orders
@@ -218,7 +219,11 @@ class _OrdersPanelState extends State<_OrdersPanel> {
             ..sort();
           final filteredOrders = _applyFilters(orders);
           if (orders.isEmpty) {
-            return const Text('尚未建立方案訂單。選擇方案後可建立 pending 訂單。');
+            return const EmptyStateCard(
+              title: '尚未建立方案訂單',
+              description: '選擇方案後可建立訂單並追蹤付款狀態。',
+              icon: Icons.receipt_long_outlined,
+            );
           }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,8 +348,11 @@ class _OrdersPanelState extends State<_OrdersPanel> {
                                 }
                                 await Clipboard.setData(ClipboardData(text: buffer.toString()));
                                 if (!context.mounted) return;
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(content: Text('訂單資訊已複製')));
+                                AppFeedback.show(
+                                  context,
+                                  message: '訂單資訊已複製',
+                                  tone: FeedbackTone.success,
+                                );
                               },
                               icon: const Icon(Icons.copy_all_outlined),
                               label: const Text('一鍵複製'),

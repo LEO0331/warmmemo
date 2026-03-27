@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/services/user_role_service.dart';
 import '../../core/layout/app_shell.dart';
+import '../../core/widgets/common_widgets.dart';
 import '../landing/landing_page.dart';
 
 class AuthGate extends StatefulWidget {
@@ -22,7 +23,24 @@ class _AuthGateState extends State<AuthGate> {
       stream: AuthService.instance.authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 60),
+                  SkeletonBox(height: 26, width: 180),
+                  SizedBox(height: 16),
+                  SkeletonBox(height: 14),
+                  SizedBox(height: 10),
+                  SkeletonBox(height: 14, width: 260),
+                  SizedBox(height: 22),
+                  SkeletonOrderList(count: 3),
+                ],
+              ),
+            ),
+          );
         }
 
         if (snapshot.hasData) {

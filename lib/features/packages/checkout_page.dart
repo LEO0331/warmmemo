@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/widgets/app_feedback.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
 import '../../data/services/payment_service.dart';
@@ -32,13 +33,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final uid = AuthService.instance.currentUser?.uid;
     final email = AuthService.instance.currentUser?.email;
     if (uid == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('請先登入後再結帳')));
+      AppFeedback.show(
+        context,
+        message: '請先登入後再結帳',
+        tone: FeedbackTone.error,
+      );
       return;
     }
     if (email == null || email.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('缺少使用者 Email，無法建立 Stripe 結帳連結。')));
+      AppFeedback.show(
+        context,
+        message: '缺少使用者 Email，無法建立 Stripe 結帳連結。',
+        tone: FeedbackTone.error,
+      );
       return;
     }
 
@@ -76,15 +83,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _lastErrorCode = null;
       });
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('訂單已建立，請完成 Stripe 付款。')));
+          .hideCurrentSnackBar();
+      AppFeedback.show(
+        context,
+        message: '訂單已建立，請完成 Stripe 付款。',
+        tone: FeedbackTone.success,
+      );
     } catch (error) {
       if (!mounted) return;
       final errorCode = _extractErrorCode(error.toString());
       setState(() {
         _lastErrorCode = errorCode;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('提交失敗（$errorCode）：$error')));
+      AppFeedback.show(
+        context,
+        message: '提交失敗（$errorCode）',
+        tone: FeedbackTone.error,
+        actionLabel: '重試',
+        onAction: _submitOrder,
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -113,15 +130,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
       setState(() {
         _createdOrder = updated;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新付款狀態：$paymentStatus')),
+      AppFeedback.show(
+        context,
+        message: '已更新付款狀態：$paymentStatus',
+        tone: FeedbackTone.success,
       );
     } catch (error) {
       if (!mounted) return;
       final code = _extractErrorCode(error.toString());
       setState(() => _lastErrorCode = code);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('更新付款狀態失敗（$code）：$error')),
+      AppFeedback.show(
+        context,
+        message: '更新付款狀態失敗（$code）',
+        tone: FeedbackTone.error,
+        actionLabel: '重試',
+        onAction: () => _markPaymentStatus(paymentStatus),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -168,9 +191,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   OutlinedButton.icon(
                     onPressed: () async {
                       final messenger = ScaffoldMessenger.of(context);
+                      final colorScheme = Theme.of(context).colorScheme;
                       await Clipboard.setData(ClipboardData(text: _lastCheckoutUrl!));
                       if (!mounted) return;
-                      messenger.showSnackBar(const SnackBar(content: Text('Checkout URL 已複製')));
+                      AppFeedback.showWithMessenger(
+                        messenger,
+                        colorScheme: colorScheme,
+                        message: 'Checkout URL 已複製',
+                        tone: FeedbackTone.success,
+                      );
                     },
                     icon: const Icon(Icons.copy_all_outlined),
                     label: const Text('複製付款連結'),

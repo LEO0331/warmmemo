@@ -95,6 +95,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: ListView(
             children: [
               Text(_editing.planName, style: theme.textTheme.headlineSmall),
@@ -216,6 +217,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               TextFormField(
                 initialValue: _editing.contactNumber,
                 decoration: const InputDecoration(labelText: '聯絡電話'),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  final v = (value ?? '').trim();
+                  if (v.isEmpty) return null;
+                  final ok = RegExp(r'^[0-9+\-\s()]{8,20}$').hasMatch(v);
+                  if (!ok) return '電話格式不正確';
+                  return null;
+                },
                 onChanged: (v) => _editing = _editing.copyWith(contactNumber: v),
               ),
               TextFormField(
