@@ -28,7 +28,9 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   final _customNoteController = TextEditingController();
 
   String _tone = '溫和正式';
+  String _templateVersion = 'v2';
   String _generatedText = '';
+  List<String> _qualityWarnings = const [];
   final _previewKey = GlobalKey();
 
   @override
@@ -80,6 +82,39 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
 
     setState(() {
       _generatedText = '$base$footer';
+      _qualityWarnings = _scanQualityWarnings(_generatedText);
+    });
+  }
+
+  List<String> _scanQualityWarnings(String text) {
+    final warnings = <String>[];
+    final bannedWords = <String>[
+      '保證',
+      '最便宜',
+      '立刻成交',
+    ];
+    for (final word in bannedWords) {
+      if (text.contains(word)) {
+        warnings.add('文案含敏感商業字詞：$word');
+      }
+    }
+    if (!_serviceDateController.text.contains(RegExp(r'[0-9]'))) {
+      warnings.add('建議補上可辨識日期，避免親友誤會時間。');
+    }
+    if (_locationController.text.trim().isEmpty) {
+      warnings.add('建議補上地點，提升通知完整度。');
+    }
+    return warnings;
+  }
+
+  void _rewriteForClarity() {
+    if (_generatedText.trim().isEmpty) return;
+    final compact = _generatedText
+        .replaceAll('，誠摯邀請曾與他（她）有緣的朋友，一同以祝福與思念送他（她）最後一程。', '誠摯邀請親友出席，一同追思與祝福。')
+        .replaceAll('敬請以祝福代替過多關心，讓家屬有空間整理心情。感謝您與我們一同紀念他（她）的一生。', '敬請以祝福代替奠儀，感謝關心。');
+    setState(() {
+      _generatedText = compact;
+      _qualityWarnings = _scanQualityWarnings(compact);
     });
   }
 
@@ -144,6 +179,22 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                     spacing: 8,
                     children: [
                       ChoiceChip(
+                        label: const Text('模板 v2（推薦）'),
+                        selected: _templateVersion == 'v2',
+                        onSelected: (_) => setState(() => _templateVersion = 'v2'),
+                      ),
+                      ChoiceChip(
+                        label: const Text('模板 v1（簡潔）'),
+                        selected: _templateVersion == 'v1',
+                        onSelected: (_) => setState(() => _templateVersion = 'v1'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
                         label: const Text('溫和正式'),
                         selected: _tone == '溫和正式',
                         onSelected: (_) {
@@ -179,6 +230,9 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                       icon: const Icon(Icons.auto_fix_high_outlined),
                       label: const Text('產生訃聞文案'),
                       onPressed: () async {
+                        if (_templateVersion == 'v1' && _tone == '溫和正式') {
+                          setState(() => _tone = '極簡通知');
+                        }
                         _generateObituary();
                         await _saveDraft();
                       },
@@ -234,6 +288,37 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                         SelectableText(
                           _generatedText,
                           style: theme.textTheme.bodyMedium,
+                        ),
+                        if (_qualityWarnings.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '文案檢查建議',
+                                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 6),
+                                ..._qualityWarnings.map((item) => SelectableText('• $item')),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            onPressed: _rewriteForClarity,
+                            icon: const Icon(Icons.auto_fix_high_outlined),
+                            label: const Text('一鍵重寫（更清楚）'),
+                          ),
                         ),
                       ],
                     ),

@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
+import '../../data/models/draft_models.dart';
 import '../../data/models/purchase.dart';
+import '../../data/services/notification_service.dart';
 import '../../data/services/purchase_service.dart';
 import 'checkout_page.dart';
 
@@ -228,6 +230,8 @@ class _OrdersPanelState extends State<_OrdersPanel> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _NotificationCenterCard(uid: uid),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -380,5 +384,49 @@ class _OrdersPanelState extends State<_OrdersPanel> {
     final latest = order.verificationLogs.last;
     final time = latest.actedAt.toLocal().toString().split('.').first;
     return '$time｜${latest.actor}';
+  }
+}
+
+class _NotificationCenterCard extends StatelessWidget {
+  const _NotificationCenterCard({required this.uid});
+
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      title: '通知中心',
+      icon: Icons.notifications_active_outlined,
+      child: StreamBuilder<List<NotificationEvent>>(
+        stream: NotificationService.instance.streamForUser(uid, limit: 6),
+        builder: (context, snapshot) {
+          final events = snapshot.data ?? [];
+          if (events.isEmpty) {
+            return const Text('目前尚未有通知紀錄。');
+          }
+          return Column(
+            children: events
+                .map(
+                  (event) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      event.status == 'read'
+                          ? Icons.mark_email_read_outlined
+                          : Icons.notifications_none_outlined,
+                    ),
+                    title: Text(event.draftType ?? '草稿通知'),
+                    subtitle: Text('${event.channel} · ${event.status}'),
+                    trailing: Text(
+                      event.occurredAt.toLocal().toString().split('.').first,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                )
+                .toList(),
+          );
+        },
+      ),
+    );
   }
 }

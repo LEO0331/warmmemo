@@ -30,7 +30,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _planFilter;
   String? _paymentQuickFilter;
   String? _verifierQuickFilter;
+  String _keyword = '';
+  DateTime? _fromDate;
+  DateTime? _toDate;
   String? _cursor;
+  bool _batchUpdating = false;
   bool _loadingPage = false;
   bool _initializedForAdmin = false;
   bool _adminDocEnsured = false;
@@ -39,6 +43,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _lastErrorCode;
   String? _lastErrorDetail;
   final List<Purchase> _allOrders = [];
+  final Set<String> _selectedOrderIds = <String>{};
 
   @override
   void dispose() {
@@ -199,6 +204,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
           Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
           const SizedBox(height: 16),
+          _buildMetricsPanel(),
+          const SizedBox(height: 16),
           if (_loadingPage && _allOrders.isEmpty) ...[
             const SkeletonOrderList(count: 4),
             const SizedBox(height: 12),
@@ -243,6 +250,62 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          TextField(
+            decoration: const InputDecoration(
+              labelText: '搜尋（方案 / userId / 公司 / 聯絡）',
+              prefixIcon: Icon(Icons.search),
+            ),
+            onChanged: (value) => setState(() => _keyword = value.trim().toLowerCase()),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.date_range_outlined),
+                label: Text(
+                  _fromDate == null
+                      ? '起始日期'
+                      : '起：${_fromDate!.toLocal().toString().split(' ').first}',
+                ),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                    initialDate: _fromDate ?? DateTime.now(),
+                  );
+                  if (picked != null) setState(() => _fromDate = picked);
+                },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.event_outlined),
+                label: Text(
+                  _toDate == null
+                      ? '結束日期'
+                      : '迄：${_toDate!.toLocal().toString().split(' ').first}',
+                ),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                    initialDate: _toDate ?? DateTime.now(),
+                  );
+                  if (picked != null) setState(() => _toDate = picked);
+                },
+              ),
+              TextButton(
+                onPressed: () => setState(() {
+                  _fromDate = null;
+                  _toDate = null;
+                }),
+                child: const Text('清除日期'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 4,
@@ -389,68 +452,130 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
       );
     }
+    final cards = filtered.map((o) {
+      final selected = o.id != null && _selectedOrderIds.contains(o.id!);
+      return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Checkbox(
+                    value: selected,
+                    onChanged: o.id == null
+                        ? null
+                        : (value) {
+                            setState(() {
+                              if (value == true) {
+                                _selectedOrderIds.add(o.id!);
+                              } else {
+                                _selectedOrderIds.remove(o.id!);
+                              }
+                            });
+                          },
+                  ),
+                  const Text('批次勾選'),
+                ],
+              ),
+              SelectableText(
+                o.planName,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              SelectableText('狀態：${o.status}'),
+              SelectableText('付款：${o.paymentStatus ?? '-'}'),
+              SelectableText('用戶：${o.userId ?? '-'}'),
+              SelectableText('最近核對：${_latestVerificationSummary(o)}'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
+                    OutlinedButton(
+                      onPressed: () => _resendCheckoutLink(o),
+                      child: const Text('重送付款連結'),
+                    ),
+                  OutlinedButton(
+                    onPressed: () => _copyVerificationSummary(o),
+                    child: const Text('複製核對摘要'),
+                  ),
+                  FilledButton(
+                    onPressed: () async {
+                      final updated = await Navigator.of(context).push<Purchase>(
+                        MaterialPageRoute(
+                          builder: (_) => OrderDetailPage(purchase: o),
+                        ),
+                      );
+                      if (updated != null && updated.userId != null) {
+                        await PurchaseService.instance.updateOrder(
+                          uid: updated.userId!,
+                          purchase: updated,
+                        );
+                        setState(() {
+                          final idx = _allOrders.indexWhere((p) => p.id == updated.id);
+                          if (idx != -1) _allOrders[idx] = updated;
+                        });
+                      }
+                    },
+                    child: const Text('編輯訂單'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+
     return SectionCard(
       title: '個別訂單處理',
       icon: Icons.task_outlined,
       child: Column(
-        children: filtered.map((o) {
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SelectableText(
-                    o.planName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 6),
-                  SelectableText('狀態：${o.status}'),
-                  SelectableText('付款：${o.paymentStatus ?? '-'}'),
-                  SelectableText('用戶：${o.userId ?? '-'}'),
-                  SelectableText('最近核對：${_latestVerificationSummary(o)}'),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
-                        OutlinedButton(
-                          onPressed: () => _resendCheckoutLink(o),
-                          child: const Text('重送付款連結'),
-                        ),
-                      OutlinedButton(
-                        onPressed: () => _copyVerificationSummary(o),
-                        child: const Text('複製核對摘要'),
-                      ),
-                      FilledButton(
-                        onPressed: () async {
-                          final updated = await Navigator.of(context).push<Purchase>(
-                            MaterialPageRoute(
-                              builder: (_) => OrderDetailPage(purchase: o),
-                            ),
-                          );
-                          if (updated != null && updated.userId != null) {
-                            await PurchaseService.instance.updateOrder(
-                              uid: updated.userId!,
-                              purchase: updated,
-                            );
-                            setState(() {
-                              final idx = _allOrders.indexWhere((p) => p.id == updated.id);
-                              if (idx != -1) _allOrders[idx] = updated;
-                            });
-                          }
-                        },
-                        child: const Text('編輯訂單'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.select_all_outlined),
+                  label: const Text('全選當前列表'),
+                  onPressed: () {
+                    setState(() {
+                      _selectedOrderIds
+                        ..clear()
+                        ..addAll(filtered.map((e) => e.id).whereType<String>());
+                    });
+                  },
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.deselect_outlined),
+                  label: const Text('清空勾選'),
+                  onPressed: () => setState(_selectedOrderIds.clear),
+                ),
+                FilledButton(
+                  onPressed: _batchUpdating ? null : () => _batchApply(caseStatus: 'received'),
+                  child: const Text('批次標記 received'),
+                ),
+                FilledButton(
+                  onPressed: _batchUpdating ? null : () => _batchApply(caseStatus: 'complete'),
+                  child: const Text('批次標記 complete'),
+                ),
+                FilledButton(
+                  onPressed: _batchUpdating ? null : () => _batchApply(paymentStatus: 'paid'),
+                  child: const Text('批次標記 paid'),
+                ),
+              ],
             ),
-          );
-        }).toList(),
+          ),
+          ...cards,
+        ],
       ),
     );
   }
@@ -462,8 +587,104 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final payOk = _paymentQuickFilter == null || o.paymentStatus == _paymentQuickFilter;
       final verifier = _latestVerifier(o);
       final vOk = _verifierQuickFilter == null || verifier == _verifierQuickFilter;
-      return sOk && pOk && payOk && vOk;
+      final keywordTarget = [
+        o.planName,
+        o.userId ?? '',
+        o.companyName ?? '',
+        o.contactNumber ?? '',
+      ].join(' ').toLowerCase();
+      final kOk = _keyword.isEmpty || keywordTarget.contains(_keyword);
+      final fromOk = _fromDate == null ||
+          !o.createdAt.isBefore(DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day));
+      final toOk = _toDate == null ||
+          !o.createdAt.isAfter(DateTime(_toDate!.year, _toDate!.month, _toDate!.day, 23, 59, 59));
+      return sOk && pOk && payOk && vOk && kOk && fromOk && toOk;
     }).toList();
+  }
+
+  Widget _buildMetricsPanel() {
+    final total = _allOrders.length;
+    final pending = _allOrders.where((o) => o.status == 'pending').length;
+    final received = _allOrders.where((o) => o.status == 'received').length;
+    final complete = _allOrders.where((o) => o.status == 'complete').length;
+    final paid = _allOrders.where((o) => o.paymentStatus == 'paid').length;
+    final paidRate = total == 0 ? 0 : ((paid / total) * 100).round();
+    final completed = _allOrders.where((o) => o.status == 'complete').toList();
+    final avgHours = completed.isEmpty
+        ? 0.0
+        : completed
+                .map((o) => (o.verifiedAt ?? o.createdAt).difference(o.createdAt).inMinutes / 60)
+                .reduce((a, b) => a + b) /
+            completed.length;
+
+    return SectionCard(
+      title: '營運指標',
+      icon: Icons.insights_outlined,
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _metricChip('總訂單', '$total'),
+          _metricChip('待受理', '$pending'),
+          _metricChip('處理中', '$received'),
+          _metricChip('已完成', '$complete'),
+          _metricChip('已付款', '$paid'),
+          _metricChip('付款率', '$paidRate%'),
+          _metricChip('平均結案時間', '${avgHours.toStringAsFixed(1)}h'),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 2),
+          Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _batchApply({String? caseStatus, String? paymentStatus}) async {
+    final selected = _allOrders
+        .where((o) => o.id != null && _selectedOrderIds.contains(o.id))
+        .toList();
+    if (selected.isEmpty) {
+      AppFeedback.show(context, message: '請先勾選要批次更新的訂單', tone: FeedbackTone.info);
+      return;
+    }
+    setState(() => _batchUpdating = true);
+    try {
+      final actor = AuthService.instance.currentUser?.email ?? AuthService.instance.currentUser?.uid;
+      final updated = await PurchaseService.instance.adminBatchUpdate(
+        purchases: selected,
+        caseStatus: caseStatus,
+        paymentStatus: paymentStatus,
+        actor: actor,
+      );
+      await _loadFirstPage();
+      if (!mounted) return;
+      setState(() {
+        _selectedOrderIds.clear();
+        _batchUpdating = false;
+      });
+      AppFeedback.show(context, message: '批次更新完成：$updated 筆', tone: FeedbackTone.success);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _batchUpdating = false);
+      _captureError(error);
+      AppFeedback.show(context, message: '批次更新失敗：$error', tone: FeedbackTone.error);
+    }
   }
 
   String _latestVerificationSummary(Purchase order) {

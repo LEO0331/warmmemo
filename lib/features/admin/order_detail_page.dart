@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
+import '../../data/services/purchase_service.dart';
 
 class OrderDetailPage extends StatefulWidget {
   const OrderDetailPage({super.key, required this.purchase});
@@ -16,6 +17,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   late Purchase _editing;
   late Purchase _original;
   final _formKey = GlobalKey<FormState>();
+  String? _workflowHint;
 
   @override
   void initState() {
@@ -26,6 +28,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   void _save() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    final caseTransitionOk = OrderWorkflow.canChangeCaseStatus(
+      from: _original.status,
+      to: _editing.status,
+    );
+    final paymentTransitionOk = OrderWorkflow.canChangePaymentStatus(
+      from: _original.paymentStatus ?? 'checkout_created',
+      to: _editing.paymentStatus ?? 'checkout_created',
+    );
+    if (!caseTransitionOk || !paymentTransitionOk) {
+      setState(() {
+        _workflowHint = '狀態變更不符合流程，請依序更新（pending -> received -> complete）。';
+      });
+      return;
+    }
     final actor = AuthService.instance.currentUser?.email ??
         AuthService.instance.currentUser?.uid ??
         'admin';
@@ -104,15 +120,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               SelectableText('價格：${_editing.priceLabel}'),
               SelectableText('目前狀態：${_editing.status}'),
               SelectableText('付款狀態：${_editing.paymentStatus ?? '-'}'),
+              if (_workflowHint != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _workflowHint!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _editing.status,
                 decoration: const InputDecoration(labelText: '案件狀態'),
-                items: const [
-                  DropdownMenuItem(value: 'pending', child: Text('pending')),
-                  DropdownMenuItem(value: 'received', child: Text('received')),
-                  DropdownMenuItem(value: 'complete', child: Text('complete')),
-                ],
+                items: OrderWorkflow.caseStatuses
+                    .map((status) => DropdownMenuItem(value: status, child: Text(status)))
+                    .toList(),
                 onChanged: (value) {
                   if (value == null) return;
                   setState(() => _editing = _editing.copyWith(status: value));
@@ -122,14 +146,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               DropdownButtonFormField<String>(
                 initialValue: _editing.paymentStatus ?? 'checkout_created',
                 decoration: const InputDecoration(labelText: '付款狀態'),
-                items: const [
-                  DropdownMenuItem(value: 'awaiting_checkout', child: Text('awaiting_checkout')),
-                  DropdownMenuItem(value: 'checkout_created', child: Text('checkout_created')),
-                  DropdownMenuItem(value: 'paid', child: Text('paid')),
-                  DropdownMenuItem(value: 'failed', child: Text('failed')),
-                  DropdownMenuItem(value: 'cancelled', child: Text('cancelled')),
-                  DropdownMenuItem(value: 'expired', child: Text('expired')),
-                ],
+                items: OrderWorkflow.paymentStatuses
+                    .map((status) => DropdownMenuItem(value: status, child: Text(status)))
+                    .toList(),
                 onChanged: (value) {
                   if (value == null) return;
                   setState(() {
