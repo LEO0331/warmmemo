@@ -11,13 +11,18 @@ class PurchaseService {
 
   CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
 
-  Future<void> createOrder({
+  Future<Purchase> createOrder({
     required String uid,
     required Purchase purchase,
   }) async {
-    await _users.doc(uid).collection('orders').add(
+    final doc = await _users.doc(uid).collection('orders').add(
           purchase.copyWith(userId: uid).toMap(),
         );
+    return purchase.copyWith(
+      id: doc.id,
+      userId: uid,
+      docPath: doc.path,
+    );
   }
 
   Stream<List<Purchase>> userOrders(String uid) {

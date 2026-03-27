@@ -26,6 +26,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String? _lastInvoiceId;
   String? _lastCheckoutUrl;
   String? _lastErrorCode;
+  Purchase? _createdOrder;
 
   Future<void> _submitOrder() async {
     final uid = AuthService.instance.currentUser?.uid;
@@ -54,6 +55,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final purchase = Purchase(
         planName: widget.planName,
         priceLabel: widget.priceLabel,
+        priceAmount: amount,
         status: 'pending',
         paymentProvider: payment.provider.name,
         paymentStatus: 'checkout_created',
@@ -61,13 +63,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
         checkoutUrl: payment.checkoutUrl,
         paymentCurrency: 'twd',
       );
-      await PurchaseService.instance.createOrder(uid: uid, purchase: purchase);
+      final created = await PurchaseService.instance.createOrder(uid: uid, purchase: purchase);
       final checkoutUri = Uri.tryParse(payment.checkoutUrl);
       if (checkoutUri != null) {
         await launchUrl(checkoutUri, mode: LaunchMode.externalApplication);
       }
       if (!mounted) return;
       setState(() {
+        _createdOrder = created;
         _lastInvoiceId = payment.invoiceId;
         _lastCheckoutUrl = payment.checkoutUrl;
         _lastErrorCode = null;
@@ -94,6 +97,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
       throw StateError('無法解析方案金額：$value');
     }
     return parsed;
+  }
+
+  Future<void> _markPaymentStatus(String paymentStatus) async {
+    final uid = AuthService.instance.currentUser?.uid;
+    final order = _createdOrder;
+    if (uid == null || order == null) return;
+    setState(() => _submitting = true);
+    try {
+      final updated = order.copyWith(
+        paymentStatus: paymentStatus,
+      );
+      await PurchaseService.instance.updateOrder(uid: uid, purchase: updated);
+      if (!mounted) return;
+      setState(() {
+        _createdOrder = updated;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已更新付款狀態：$paymentStatus')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final code = _extractErrorCode(error.toString());
+      setState(() => _lastErrorCode = code);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('更新付款狀態失敗（$code）：$error')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   String _extractErrorCode(String text) {
@@ -153,6 +185,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     },
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('重新開啟付款'),
+                  ),
+                ],
+              ),
+            ],
+            if (_createdOrder != null) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: _submitting ? null : () => _markPaymentStatus('cancelled'),
+                    child: const Text('取消付款'),
+                  ),
+                  OutlinedButton(
+                    onPressed: _submitting ? null : () => _markPaymentStatus('expired'),
+                    child: const Text('付款逾時'),
                   ),
                 ],
               ),

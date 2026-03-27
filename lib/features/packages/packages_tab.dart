@@ -173,7 +173,27 @@ class _PackageCard extends StatelessWidget {
   }
 }
 
-class _OrdersPanel extends StatelessWidget {
+class _OrdersPanel extends StatefulWidget {
+  @override
+  State<_OrdersPanel> createState() => _OrdersPanelState();
+}
+
+class _OrdersPanelState extends State<_OrdersPanel> {
+  String? _paymentStatusFilter;
+  bool _onlyPendingPayment = false;
+
+  List<Purchase> _applyFilters(List<Purchase> source) {
+    return source.where((order) {
+      final payment = order.paymentStatus ?? '';
+      final matchesStatus =
+          _paymentStatusFilter == null || payment == _paymentStatusFilter;
+      final matchesPending = !_onlyPendingPayment ||
+          payment == 'awaiting_checkout' ||
+          payment == 'checkout_created';
+      return matchesStatus && matchesPending;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = AuthService.instance.currentUser?.uid;
@@ -190,16 +210,57 @@ class _OrdersPanel extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           final orders = snapshot.data ?? [];
+          final statuses = orders
+              .map((o) => o.paymentStatus)
+              .whereType<String>()
+              .toSet()
+              .toList()
+            ..sort();
+          final filteredOrders = _applyFilters(orders);
           if (orders.isEmpty) {
             return const Text('尚未建立方案訂單。選擇方案後可建立 pending 訂單。');
           }
           return Column(
-            children: orders
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ChoiceChip(
+                    label: const Text('全部付款狀態'),
+                    selected: _paymentStatusFilter == null,
+                    onSelected: (_) => setState(() => _paymentStatusFilter = null),
+                  ),
+                  ...statuses.map(
+                    (s) => ChoiceChip(
+                      label: Text(s),
+                      selected: _paymentStatusFilter == s,
+                      onSelected: (_) => setState(() => _paymentStatusFilter = s),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              FilterChip(
+                label: const Text('僅顯示待付款'),
+                selected: _onlyPendingPayment,
+                onSelected: (value) => setState(() => _onlyPendingPayment = value),
+              ),
+              const SizedBox(height: 8),
+              if (filteredOrders.isEmpty)
+                const Text('目前篩選條件下沒有訂單。')
+              else
+                ...filteredOrders
                 .map(
                   (order) => ListTile(
                     leading: const Icon(Icons.assignment_outlined),
                     title: Text(order.planName),
-                    subtitle: Text('狀態：${order.status}｜價格：${order.priceLabel}'),
+                    subtitle: Text(
+                      '狀態：${order.status}｜付款：${order.paymentStatus ?? '-'}｜價格：${order.priceLabel}\n'
+                      '最近核對：${_latestVerificationSummary(order)}',
+                    ),
+                    isThreeLine: true,
                     trailing: Text(
                       order.createdAt.toLocal().toString().split('.').first,
                       style: const TextStyle(fontSize: 12),
@@ -230,6 +291,15 @@ class _OrdersPanel extends StatelessWidget {
                               if (order.contactNumber != null)
                                 SelectableText('聯絡方式：${order.contactNumber}'),
                               if (order.notes != null) SelectableText('備註：${order.notes}'),
+                              if (order.verificationLogs.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                const SelectableText('人工核對紀錄：'),
+                                ...order.verificationLogs.reversed.map(
+                                  (log) => SelectableText(
+                                    '${log.actedAt.toLocal().toString().split('.').first}｜${log.actor}｜${log.summary}',
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           actions: [
@@ -263,6 +333,14 @@ class _OrdersPanel extends StatelessWidget {
                                 if (order.notes != null) {
                                   buffer.writeln('備註：${order.notes}');
                                 }
+                                if (order.verificationLogs.isNotEmpty) {
+                                  buffer.writeln('人工核對紀錄：');
+                                  for (final log in order.verificationLogs.reversed) {
+                                    buffer.writeln(
+                                      '${log.actedAt.toLocal().toString().split('.').first}｜${log.actor}｜${log.summary}',
+                                    );
+                                  }
+                                }
                                 await Clipboard.setData(ClipboardData(text: buffer.toString()));
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context)
@@ -281,10 +359,18 @@ class _OrdersPanel extends StatelessWidget {
                     },
                   ),
                 )
-                .toList(),
+                ,
+            ],
           );
         },
       ),
     );
+  }
+
+  String _latestVerificationSummary(Purchase order) {
+    if (order.verificationLogs.isEmpty) return '尚未人工核對';
+    final latest = order.verificationLogs.last;
+    final time = latest.actedAt.toLocal().toString().split('.').first;
+    return '$time｜${latest.actor}';
   }
 }

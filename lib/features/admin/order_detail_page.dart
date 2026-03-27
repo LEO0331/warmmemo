@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
 
 class OrderDetailPage extends StatefulWidget {
@@ -13,18 +14,73 @@ class OrderDetailPage extends StatefulWidget {
 
 class _OrderDetailPageState extends State<OrderDetailPage> {
   late Purchase _editing;
+  late Purchase _original;
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
     _editing = widget.purchase;
+    _original = widget.purchase;
   }
 
   void _save() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pop(
-      _editing.copyWith(status: 'complete'),
+    final actor = AuthService.instance.currentUser?.email ??
+        AuthService.instance.currentUser?.uid ??
+        'admin';
+    final withLog = _buildLoggedPurchase(actor);
+    Navigator.of(context).pop(withLog);
+  }
+
+  Purchase _buildLoggedPurchase(String actor) {
+    final changed = <String>[];
+    if (_original.status != _editing.status) {
+      changed.add('status ${_original.status} -> ${_editing.status}');
+    }
+    if ((_original.paymentStatus ?? '') != (_editing.paymentStatus ?? '')) {
+      changed.add(
+        'payment ${_original.paymentStatus ?? '-'} -> ${_editing.paymentStatus ?? '-'}',
+      );
+    }
+    if ((_original.paymentIntentId ?? '') != (_editing.paymentIntentId ?? '')) {
+      changed.add('paymentIntentId updated');
+    }
+    if ((_original.verificationNote ?? '') != (_editing.verificationNote ?? '')) {
+      changed.add('verificationNote updated');
+    }
+    if ((_original.companyName ?? '') != (_editing.companyName ?? '')) {
+      changed.add('companyName updated');
+    }
+    if ((_original.agentName ?? '') != (_editing.agentName ?? '')) {
+      changed.add('agentName updated');
+    }
+    if ((_original.contactNumber ?? '') != (_editing.contactNumber ?? '')) {
+      changed.add('contactNumber updated');
+    }
+    if ((_original.notes ?? '') != (_editing.notes ?? '')) {
+      changed.add('notes updated');
+    }
+
+    if (changed.isEmpty) return _editing;
+
+    final now = DateTime.now();
+    final log = VerificationLog(
+      actor: actor,
+      actedAt: now,
+      summary: changed.join(' | '),
+      fromStatus: _original.status,
+      toStatus: _editing.status,
+      fromPaymentStatus: _original.paymentStatus,
+      toPaymentStatus: _editing.paymentStatus,
+      note: _editing.verificationNote,
+      paymentIntentId: _editing.paymentIntentId,
+    );
+
+    return _editing.copyWith(
+      verifiedBy: (_editing.verifiedBy == null || _editing.verifiedBy!.isEmpty) ? actor : _editing.verifiedBy,
+      verifiedAt: _editing.verifiedAt ?? now,
+      verificationLogs: [..._editing.verificationLogs, log],
     );
   }
 
@@ -46,7 +102,107 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               Text('用戶：${_editing.userId ?? '-'}'),
               Text('價格：${_editing.priceLabel}'),
               Text('目前狀態：${_editing.status}'),
+              Text('付款狀態：${_editing.paymentStatus ?? '-'}'),
               const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _editing.status,
+                decoration: const InputDecoration(labelText: '案件狀態'),
+                items: const [
+                  DropdownMenuItem(value: 'pending', child: Text('pending')),
+                  DropdownMenuItem(value: 'received', child: Text('received')),
+                  DropdownMenuItem(value: 'complete', child: Text('complete')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _editing = _editing.copyWith(status: value));
+                },
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _editing.paymentStatus ?? 'checkout_created',
+                decoration: const InputDecoration(labelText: '付款狀態'),
+                items: const [
+                  DropdownMenuItem(value: 'awaiting_checkout', child: Text('awaiting_checkout')),
+                  DropdownMenuItem(value: 'checkout_created', child: Text('checkout_created')),
+                  DropdownMenuItem(value: 'paid', child: Text('paid')),
+                  DropdownMenuItem(value: 'failed', child: Text('failed')),
+                  DropdownMenuItem(value: 'cancelled', child: Text('cancelled')),
+                  DropdownMenuItem(value: 'expired', child: Text('expired')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _editing = _editing.copyWith(
+                      paymentStatus: value,
+                      paidAt: value == 'paid' ? DateTime.now() : _editing.paidAt,
+                    );
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: _editing.paymentIntentId,
+                decoration: const InputDecoration(labelText: '交易編號 (paymentIntentId)'),
+                onChanged: (v) => _editing = _editing.copyWith(paymentIntentId: v),
+              ),
+              const SizedBox(height: 8),
+              Text('付款時間：${_editing.paidAt?.toLocal().toString().split('.').first ?? '-'}'),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: _editing.verifiedBy ?? AuthService.instance.currentUser?.email ?? '',
+                decoration: const InputDecoration(labelText: '核對人員 (verifiedBy)'),
+                onChanged: (v) => _editing = _editing.copyWith(verifiedBy: v),
+              ),
+              Text('核對時間：${_editing.verifiedAt?.toLocal().toString().split('.').first ?? '-'}'),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: _editing.verificationNote,
+                decoration: const InputDecoration(labelText: '核對備註 (verificationNote)'),
+                maxLines: 3,
+                onChanged: (v) => _editing = _editing.copyWith(verificationNote: v),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _editing = _editing.copyWith(
+                      verifiedBy: (_editing.verifiedBy == null || _editing.verifiedBy!.isEmpty)
+                          ? AuthService.instance.currentUser?.email
+                          : _editing.verifiedBy,
+                      verifiedAt: DateTime.now(),
+                    );
+                  });
+                },
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('套用核對時間'),
+              ),
+              if (_editing.verificationLogs.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('人工核對操作紀錄', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                ..._editing.verificationLogs.reversed.map(
+                  (log) => Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SelectableText(
+                            '${log.actedAt.toLocal().toString().split('.').first}｜${log.actor}',
+                          ),
+                          SelectableText(log.summary),
+                          if (log.note != null && log.note!.isNotEmpty)
+                            SelectableText('備註：${log.note}'),
+                          if (log.paymentIntentId != null && log.paymentIntentId!.isNotEmpty)
+                            SelectableText('paymentIntentId：${log.paymentIntentId}'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
               TextFormField(
                 initialValue: _editing.companyName,
                 decoration: const InputDecoration(labelText: '禮儀公司名稱'),
@@ -71,7 +227,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               const SizedBox(height: 16),
               FilledButton.icon(
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text('儲存並標記完成'),
+                label: const Text('儲存訂單資料'),
                 onPressed: _save,
               ),
             ],

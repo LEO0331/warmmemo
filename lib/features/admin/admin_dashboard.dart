@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
@@ -26,6 +27,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final ScrollController _scrollController = ScrollController();
   String? _statusFilter;
   String? _planFilter;
+  String? _paymentQuickFilter;
   String? _cursor;
   bool _loadingPage = false;
   bool _initializedForAdmin = false;
@@ -239,6 +241,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   )),
             ],
           ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('全部付款'),
+                selected: _paymentQuickFilter == null,
+                onSelected: (_) => setState(() => _paymentQuickFilter = null),
+              ),
+              ChoiceChip(
+                label: const Text('checkout_created'),
+                selected: _paymentQuickFilter == 'checkout_created',
+                onSelected: (_) => setState(() => _paymentQuickFilter = 'checkout_created'),
+              ),
+              ChoiceChip(
+                label: const Text('expired'),
+                selected: _paymentQuickFilter == 'expired',
+                onSelected: (_) => setState(() => _paymentQuickFilter = 'expired'),
+              ),
+              ChoiceChip(
+                label: const Text('failed'),
+                selected: _paymentQuickFilter == 'failed',
+                onSelected: (_) => setState(() => _paymentQuickFilter = 'failed'),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           if (filtered.isEmpty)
             const Text('目前沒有符合條件的訂單。')
@@ -248,8 +277,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 leading: const Icon(Icons.receipt_long_outlined),
                 title: Text(o.planName),
                 subtitle: Text(
-                  '狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜金額：${o.priceLabel}',
+                  '狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜金額：${o.priceLabel}\n'
+                  '最近核對：${_latestVerificationSummary(o)}',
                 ),
+                isThreeLine: true,
                 trailing: Text(
                   o.createdAt.toLocal().toString().split('.').first,
                   style: const TextStyle(fontSize: 12),
@@ -278,26 +309,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
           return ListTile(
             leading: const Icon(Icons.person_outline),
             title: Text(o.planName),
-            subtitle: Text('狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜用戶：${o.userId ?? '-'}'),
-            trailing: FilledButton(
-              onPressed: () async {
-                final updated = await Navigator.of(context).push<Purchase>(
-                  MaterialPageRoute(
-                    builder: (_) => OrderDetailPage(purchase: o),
+            subtitle: Text(
+              '狀態：${o.status}｜付款：${o.paymentStatus ?? '-'}｜用戶：${o.userId ?? '-'}\n'
+              '最近核對：${_latestVerificationSummary(o)}',
+            ),
+            isThreeLine: true,
+            trailing: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
+                  TextButton(
+                    onPressed: () => _resendCheckoutLink(o),
+                    child: const Text('重送付款連結'),
                   ),
-                );
-                if (updated != null && updated.userId != null) {
-                  await PurchaseService.instance.updateOrder(
-                    uid: updated.userId!,
-                    purchase: updated.copyWith(status: 'complete'),
-                  );
-                  setState(() {
-                    final idx = _allOrders.indexWhere((p) => p.id == updated.id);
-                    if (idx != -1) _allOrders[idx] = updated.copyWith(status: 'complete');
-                  });
-                }
-              },
-              child: const Text('填寫/完成'),
+                FilledButton(
+                  onPressed: () async {
+                    final updated = await Navigator.of(context).push<Purchase>(
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailPage(purchase: o),
+                      ),
+                    );
+                    if (updated != null && updated.userId != null) {
+                      await PurchaseService.instance.updateOrder(
+                        uid: updated.userId!,
+                        purchase: updated,
+                      );
+                      setState(() {
+                        final idx = _allOrders.indexWhere((p) => p.id == updated.id);
+                        if (idx != -1) _allOrders[idx] = updated;
+                      });
+                    }
+                  },
+                  child: const Text('填寫/完成'),
+                ),
+              ],
             ),
           );
         }).toList(),
@@ -309,8 +354,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return source.where((o) {
       final sOk = _statusFilter == null || o.status == _statusFilter;
       final pOk = _planFilter == null || o.planName == _planFilter;
-      return sOk && pOk;
+      final payOk = _paymentQuickFilter == null || o.paymentStatus == _paymentQuickFilter;
+      return sOk && pOk && payOk;
     }).toList();
+  }
+
+  String _latestVerificationSummary(Purchase order) {
+    if (order.verificationLogs.isEmpty) return '尚未人工核對';
+    final latest = order.verificationLogs.last;
+    final time = latest.actedAt.toLocal().toString().split('.').first;
+    return '$time｜${latest.actor}';
+  }
+
+  Future<void> _resendCheckoutLink(Purchase order) async {
+    final url = order.checkoutUrl;
+    if (url == null || url.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: url));
+    final uri = Uri.tryParse(url);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('已重送付款連結（已複製）：$url')),
+    );
   }
 
   Future<void> _loadFirstPage() async {
