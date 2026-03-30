@@ -239,12 +239,34 @@ class LandingPage extends StatelessWidget {
   }
 
   Widget _buildPhotoStrip(bool isWide) {
-    final images = const [
-      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=85',
-      'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=85',
-      'https://images.unsplash.com/photo-1526779259212-939e64788e3c?auto=format&fit=crop&w=1400&q=85',
-      'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1400&q=85',
-      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=85&sat=-20',
+    // Free images via Unsplash CDN (hotlink). If you later want local assets,
+    // replace these with `Image.asset` and add files to `assets/`.
+    final items = const [
+      {
+        'url':
+            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=85',
+        'caption': '把想說的話先寫下來，讓家人不必猜。',
+      },
+      {
+        'url':
+            'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=85',
+        'caption': '流程與費用透明，選擇更踏實。',
+      },
+      {
+        'url':
+            'https://images.unsplash.com/photo-1526779259212-939e64788e3c?auto=format&fit=crop&w=1400&q=85',
+        'caption': '重要通知一鍵整理，送達也能追蹤。',
+      },
+      {
+        'url':
+            'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1400&q=85',
+        'caption': '紀念頁與訃聞草稿，溫柔又清楚。',
+      },
+      {
+        'url':
+            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=85&sat=-20',
+        'caption': '每一步都有記錄，關鍵時刻更安心。',
+      },
     ];
     return SizedBox(
       height: isWide ? 240 : 180,
@@ -252,7 +274,9 @@ class LandingPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final url = images[index % images.length];
+          final item = items[index % items.length];
+          final url = item['url']!;
+          final caption = item['caption']!;
           return ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: Stack(
@@ -262,6 +286,27 @@ class LandingPage extends StatelessWidget {
                   width: isWide ? 360 : 260,
                   height: isWide ? 240 : 180,
                   fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      width: isWide ? 360 : 260,
+                      height: isWide ? 240 : 180,
+                      color: const Color(0xFFEEDFD5),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: isWide ? 360 : 260,
+                    height: isWide ? 240 : 180,
+                    color: const Color(0xFFEEDFD5),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.broken_image_outlined),
+                  ),
                 ),
                 Positioned(
                   bottom: 12,
@@ -272,9 +317,9 @@ class LandingPage extends StatelessWidget {
                       color: Colors.black.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      '尊重・陪伴・安心',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    child: Text(
+                      caption,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -284,7 +329,7 @@ class LandingPage extends StatelessWidget {
         },
         // ignore: unnecessary_underscores
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemCount: images.length,
+        itemCount: items.length,
       ),
     );
   }
