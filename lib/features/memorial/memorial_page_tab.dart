@@ -56,11 +56,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Text(
               '簡易紀念頁（示意原型）',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -168,6 +169,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               ),
             const SizedBox(height: 24),
           ],
+          ),
         ),
       ),
     );

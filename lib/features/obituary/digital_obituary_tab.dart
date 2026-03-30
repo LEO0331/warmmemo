@@ -123,11 +123,12 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
     final theme = Theme.of(context);
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Text(
               '數位訃聞草稿工具',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -348,8 +349,9 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                     ),
                   ],
                 ),
-              ),
+            ),
           ],
+          ),
         ),
       ),
     );

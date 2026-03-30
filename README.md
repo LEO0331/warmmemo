@@ -36,6 +36,18 @@ flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env
 * STRIPE_PAYMENT_LINK_[金額]: 不同方案的 Stripe 支付網址。
 * WARMEMO_AUTH_PERSISTENCE: 登入持久化設定 (LOCAL 或 SESSION)。
 
+### LINE Pay（Sandbox，透過 Cloud Functions / Node.js）
+
+已新增一個最小可測通的 LINE Pay Sandbox 建單 endpoint（`functions/index.js` 的 `linePayRequest`），Flutter 端在 `CheckoutPage` 會以此取得 `checkoutUrl` 後導向。
+
+Functions 端需要設定以下環境變數（或用 Firebase functions config `linepay.*`）：
+
+* LINEPAY_CHANNEL_ID
+* LINEPAY_CHANNEL_SECRET
+* LINEPAY_CONFIRM_URL
+* LINEPAY_CANCEL_URL
+* LINEPAY_BASE_URL（可選，預設為 Sandbox `https://sandbox-api-pay.line.me`）
+
 ------------------------------
 🔒 安全性說明 (針對 Spark 方案優化)
 由於目前採用 Firebase Spark (免費) 方案，無法使用 Cloud Functions Webhooks，因此安全規則（Security Rules）已進行加固：

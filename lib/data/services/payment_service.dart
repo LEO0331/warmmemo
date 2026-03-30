@@ -8,6 +8,7 @@ import '../firebase/auth_service.dart';
 enum PaymentProvider {
   stripe,
   ecpay,
+  linepay,
 }
 
 class PaymentResult {
@@ -43,6 +44,8 @@ class PaymentService {
       String.fromEnvironment('WARMEMO_PAYMENT_BACKEND_URL', defaultValue: _defaultBackend);
   static const _functionName =
       String.fromEnvironment('WARMEMO_PAYMENT_FUNCTION', defaultValue: 'createInvoice');
+  static const _linePayFunctionName =
+      String.fromEnvironment('WARMEMO_LINEPAY_FUNCTION', defaultValue: 'linePayRequest');
   static const _useHostedPaymentLinksRaw =
       String.fromEnvironment('WARMEMO_USE_HOSTED_PAYMENT_LINKS', defaultValue: 'false');
   static final _useHostedPaymentLinks = _useHostedPaymentLinksRaw.toLowerCase() == 'true';
@@ -143,6 +146,64 @@ class PaymentService {
     return PaymentResult(
       provider: providerValue,
       invoiceId: invoiceId,
+      checkoutUrl: checkoutUrl,
+    );
+  }
+
+  Future<PaymentResult> createLinePayCheckout({
+    required int amount,
+    required String orderId,
+    required String description,
+    String currency = 'TWD',
+  }) async {
+    final idToken = await (_idTokenProvider?.call() ??
+        (_authService ?? AuthService.instance).currentUser?.getIdToken());
+    if (idToken == null) {
+      throw StateError('使用者尚未驗證，無法建立付款資訊。');
+    }
+
+    final response = await _client
+        .post(
+          Uri.parse('$_backendHost/$_linePayFunctionName'),
+          headers: {
+            HttpHeaders.contentTypeHeader: 'application/json',
+            HttpHeaders.authorizationHeader: 'Bearer $idToken',
+          },
+          body: jsonEncode({
+            'amount': amount,
+            'currency': currency,
+            'orderId': orderId,
+            'description': description,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+
+    if (response.statusCode >= 400) {
+      String backendCode = 'unknown';
+      String backendError = response.body;
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        backendCode = body['code'] as String? ?? backendCode;
+        backendError = body['error'] as String? ?? backendError;
+      } catch (_) {}
+      throw StateError(
+        '建立 LINE Pay 付款資訊失敗（$backendCode，HTTP ${response.statusCode}）：$backendError',
+      );
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final transactionId = body['invoiceId'] as String?;
+    final checkoutUrl = body['checkoutUrl'] as String?;
+    if (transactionId == null || checkoutUrl == null) {
+      throw StateError('後端未回傳完整 LINE Pay 付款資訊。');
+    }
+    final parsed = Uri.tryParse(checkoutUrl);
+    if (parsed == null || !(parsed.isScheme('https') || parsed.isScheme('http'))) {
+      throw StateError('後端回傳的 checkoutUrl 無效：$checkoutUrl');
+    }
+    return PaymentResult(
+      provider: PaymentProvider.linepay,
+      invoiceId: transactionId,
       checkoutUrl: checkoutUrl,
     );
   }

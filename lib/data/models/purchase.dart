@@ -85,7 +85,7 @@ class Purchase {
   final String? contactNumber;
   final String? agentName;
   final String? notes;
-  final String? paymentProvider; // stripe | ecpay
+  final String? paymentProvider; // stripe | ecpay | linepay
   final String? paymentStatus; // awaiting_checkout | checkout_created | paid | failed | cancelled | expired
   final String? invoiceId;
   final String? checkoutUrl;

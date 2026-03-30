@@ -115,9 +115,11 @@ class _AppShellState extends State<AppShell> {
           children: [
             if (isWide) _buildSidebar(destinations),
             Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: destinations.map((dest) => dest.widget).toList(),
+              child: SelectionArea(
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: destinations.map((dest) => dest.widget).toList(),
+                ),
               ),
             ),
           ],

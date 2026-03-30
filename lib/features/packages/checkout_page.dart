@@ -27,6 +27,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _submitting = false;
   String? _lastInvoiceId;
   String? _lastCheckoutUrl;
+  String? _lastPaymentProvider;
   String? _lastErrorCode;
   String? _lastErrorDetail;
   String? _expectedPaymentLinkKey;
@@ -108,6 +109,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _createdOrder = created;
         _lastInvoiceId = payment.invoiceId;
         _lastCheckoutUrl = payment.checkoutUrl;
+        _lastPaymentProvider = payment.provider.name;
         _lastErrorCode = null;
       });
       ScaffoldMessenger.of(context)
@@ -130,6 +132,117 @@ class _CheckoutPageState extends State<CheckoutPage> {
         tone: FeedbackTone.error,
         actionLabel: '重試',
         onAction: _submitOrder,
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _submitOrderWithLinePay() async {
+    final uid = AuthService.instance.currentUser?.uid;
+    final email = AuthService.instance.currentUser?.email;
+    if (uid == null) {
+      AppFeedback.show(
+        context,
+        message: '請先登入後再結帳',
+        tone: FeedbackTone.error,
+      );
+      return;
+    }
+    if (email == null || email.isEmpty) {
+      AppFeedback.show(
+        context,
+        message: '缺少使用者 Email，無法建立 LINE Pay 結帳連結。',
+        tone: FeedbackTone.error,
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final amount = _parseAmount(widget.priceLabel);
+      const paymentStatus = 'checkout_created';
+
+      // 先建立/更新訂單，使用 purchaseId 當作 LINE Pay 的 orderId，方便對帳。
+      final orderId = _createdOrder?.id ?? 'line_${DateTime.now().millisecondsSinceEpoch}';
+      final purchase = Purchase(
+        planName: widget.planName,
+        priceLabel: widget.priceLabel,
+        priceAmount: amount,
+        status: 'pending',
+        paymentProvider: PaymentProvider.linepay.name,
+        paymentStatus: paymentStatus,
+        invoiceId: orderId,
+        checkoutUrl: null,
+        paymentCurrency: 'twd',
+      );
+
+      Purchase created;
+      if (_createdOrder == null) {
+        created = await PurchaseService.instance.createOrder(uid: uid, purchase: purchase);
+      } else {
+        created = _createdOrder!.copyWith(
+          paymentProvider: purchase.paymentProvider,
+          paymentStatus: purchase.paymentStatus,
+          invoiceId: purchase.invoiceId,
+          checkoutUrl: purchase.checkoutUrl,
+          paymentCurrency: purchase.paymentCurrency,
+        );
+        await PurchaseService.instance.updateOrder(uid: uid, purchase: created);
+      }
+
+      final payment = await PaymentService.instance.createLinePayCheckout(
+        amount: amount,
+        orderId: created.id ?? orderId,
+        description: 'WarmMemo - ${widget.planName} (${widget.priceLabel})',
+        currency: 'TWD',
+      );
+
+      final uri = Uri.parse(payment.checkoutUrl);
+      final updated = created.copyWith(
+        invoiceId: payment.invoiceId,
+        checkoutUrl: payment.checkoutUrl,
+        paymentProvider: payment.provider.name,
+        paymentStatus: paymentStatus,
+        paymentCurrency: 'twd',
+      );
+      await PurchaseService.instance.updateOrder(uid: uid, purchase: updated);
+
+      final opened = await _openCheckoutUri(uri, preferSameTabOnWeb: true);
+      if (!opened && mounted) {
+        AppFeedback.show(
+          context,
+          message: 'LINE Pay 付款頁未成功開啟，請先複製連結再於瀏覽器貼上。',
+          tone: FeedbackTone.error,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _createdOrder = updated;
+        _lastInvoiceId = payment.invoiceId;
+        _lastCheckoutUrl = payment.checkoutUrl;
+        _lastPaymentProvider = payment.provider.name;
+        _lastErrorCode = null;
+      });
+      AppFeedback.show(
+        context,
+        message: '訂單已建立，正在前往 LINE Pay（Sandbox）付款。',
+        tone: FeedbackTone.success,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final errorCode = _extractErrorCode(error.toString());
+      setState(() {
+        _lastErrorCode = errorCode;
+        _lastErrorDetail = error.toString();
+      });
+      AppFeedback.show(
+        context,
+        message: '提交失敗（$errorCode）',
+        tone: FeedbackTone.error,
+        actionLabel: '重試',
+        onAction: _submitOrderWithLinePay,
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -183,13 +296,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
             SelectableText('價格：${widget.priceLabel}', style: theme.textTheme.bodyLarge),
             const SizedBox(height: 16),
             SelectableText(
-              '提交後狀態為 pending，管理員確認後會更新為 received / complete，'
-              '付款狀態會先顯示 checkout_created（Spark 模式可使用固定 Payment Link）。您可於方案列表查看最新狀態。',
+              '提交後狀態為 pending，管理員確認後會更新為 received / complete，您可於方案列表查看最新狀態。',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
             if (_lastInvoiceId != null)
               SelectableText('付款單號：$_lastInvoiceId', style: theme.textTheme.bodySmall),
+            if (_lastPaymentProvider != null)
+              SelectableText('付款方式：$_lastPaymentProvider', style: theme.textTheme.bodySmall),
             if (_lastCheckoutUrl != null) ...[
               SelectableText('Checkout URL：$_lastCheckoutUrl', style: theme.textTheme.bodySmall),
               const SizedBox(height: 8),
@@ -269,12 +383,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
             const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _submitting ? null : _submitOrder,
-                child: Text(_submitting ? '前往中…' : '前往 Stripe 付款'),
-              ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: kIsWeb ? 260 : double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submitOrder,
+                    icon: const Icon(Icons.credit_card),
+                    label: Text(_submitting ? '前往中…' : 'Stripe 付款'),
+                  ),
+                ),
+                SizedBox(
+                  width: kIsWeb ? 260 : double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _submitting ? null : _submitOrderWithLinePay,
+                    icon: const Icon(Icons.qr_code_2_outlined),
+                    label: const Text('LINE Pay（Sandbox）'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

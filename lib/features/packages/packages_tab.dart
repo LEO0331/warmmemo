@@ -18,11 +18,12 @@ class PackagesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Text(
               '固定價格方案設計',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -83,6 +84,7 @@ class PackagesTab extends StatelessWidget {
             const SizedBox(height: 24),
             _OrdersPanel(),
           ],
+          ),
         ),
       ),
     );
