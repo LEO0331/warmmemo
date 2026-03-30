@@ -30,21 +30,23 @@ class _AuthGateState extends State<AuthGate> {
       stream: AuthService.instance.authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Padding(
-              padding: EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 60),
-                  SkeletonBox(height: 26, width: 180),
-                  SizedBox(height: 16),
-                  SkeletonBox(height: 14),
-                  SizedBox(height: 10),
-                  SkeletonBox(height: 14, width: 260),
-                  SizedBox(height: 22),
-                  SkeletonOrderList(count: 3),
-                ],
+          return const SelectionArea(
+            child: Scaffold(
+              body: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 60),
+                    SkeletonBox(height: 26, width: 180),
+                    SizedBox(height: 16),
+                    SkeletonBox(height: 14),
+                    SizedBox(height: 10),
+                    SkeletonBox(height: 14, width: 260),
+                    SizedBox(height: 22),
+                    SkeletonOrderList(count: 3),
+                  ],
+                ),
               ),
             ),
           );
@@ -65,13 +67,15 @@ class _AuthGateState extends State<AuthGate> {
                 );
               });
             }
-            return const LandingPage();
+            return const SelectionArea(child: LandingPage());
           }
           UserRoleService.instance.ensureUserProfile(user);
-          return AppShell(initialIndex: _initialTabIndex);
+          return SelectionArea(
+            child: AppShell(initialIndex: _initialTabIndex),
+          );
         }
 
-        return const LandingPage();
+        return const SelectionArea(child: LandingPage());
       },
     );
   }
