@@ -162,21 +162,33 @@ class PaymentService {
       throw StateError('使用者尚未驗證，無法建立付款資訊。');
     }
 
-    final response = await _client
-        .post(
-          Uri.parse('$_backendHost/$_linePayFunctionName'),
-          headers: {
-            HttpHeaders.contentTypeHeader: 'application/json',
-            HttpHeaders.authorizationHeader: 'Bearer $idToken',
-          },
-          body: jsonEncode({
-            'amount': amount,
-            'currency': currency,
-            'orderId': orderId,
-            'description': description,
-          }),
-        )
-        .timeout(const Duration(seconds: 20));
+    final endpoint = Uri.parse('$_backendHost/$_linePayFunctionName');
+    late final http.Response response;
+    try {
+      response = await _client
+          .post(
+            endpoint,
+            headers: {
+              HttpHeaders.contentTypeHeader: 'application/json',
+              HttpHeaders.authorizationHeader: 'Bearer $idToken',
+            },
+            body: jsonEncode({
+              'amount': amount,
+              'currency': currency,
+              'orderId': orderId,
+              'description': description,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('XMLHttpRequest') || msg.contains('xhr') || msg.contains('CORS')) {
+        throw StateError(
+          '無法連線到付款後端：XMLHttpRequest error（常見原因：CORS 未允許 Authorization、或 HTTPS 網站呼叫 HTTP 後端/mixed content、或前端仍指向 localhost）。請檢查 `WARMEMO_PAYMENT_BACKEND_URL` 是否為公開 HTTPS 網域，且後端允許跨網域請求。',
+        );
+      }
+      rethrow;
+    }
 
     if (response.statusCode >= 400) {
       String backendCode = 'unknown';

@@ -26,6 +26,19 @@ LINEPAY_CANCEL_URL=https://your-host/#/packages?payment=cancel \
 npm run dev
 ```
 
+## Firebase Admin Credentials (important for auth)
+
+The API verifies the user's Firebase ID token. For local dev, make sure Firebase Admin can initialize:
+
+- Set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON from the **same Firebase project** as the Flutter app.
+
+Example:
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json
+```
+
+If you don't have credentials yet, you can temporarily set `ALLOW_INSECURE_LOCAL=true` for local-only testing, but do not enable it in production.
+
 ## Endpoints
 - `POST /api/payments/line/request`
   - Body: `{ amount: number, currency?: "TWD", orderId: string, description: string }`

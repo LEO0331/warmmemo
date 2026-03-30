@@ -5,17 +5,30 @@ import crypto from 'crypto';
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin if credentials are available
+let firebaseAdminReady = false;
 try {
   if (!admin.apps.length) {
     admin.initializeApp();
   }
+  firebaseAdminReady = admin.apps.length > 0;
 } catch (_) {
   // ignore init errors in local without creds
 }
 
 const app = express();
-app.use(cors({ origin: true }));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    // Flutter web 會帶上 Authorization header
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
 app.use(express.json());
+
+// Ensure OPTIONS preflight is handled
+app.options('*', cors());
 
 // Health
 app.get('/health', (_req, res) => {
@@ -31,11 +44,24 @@ async function ensureAuthorized(req, res, next) {
     return res.status(401).json({ error: 'Missing authorization token.' });
   }
   const token = authHeader.substring('Bearer '.length);
+
+  // If Admin is not configured, we should not pretend token is invalid.
+  if (!firebaseAdminReady && !allowInsecure) {
+    return res.status(500).json({
+      error: 'Firebase Admin is not configured.',
+      detail:
+        'Set GOOGLE_APPLICATION_CREDENTIALS to a valid service account JSON from the same Firebase project as the frontend.',
+    });
+  }
+
   try {
     await admin.auth().verifyIdToken(token);
     return next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid authorization token.' });
+    return res.status(401).json({
+      error: 'Invalid authorization token.',
+      detail: String(err?.message || err),
+    });
   }
 }
 
