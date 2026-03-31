@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/services/user_role_service.dart';
 import '../../features/admin/admin_dashboard.dart';
+import '../../features/final_countdown/final_countdown_tab.dart';
 import '../../features/memorial/memorial_page_tab.dart';
 import '../../features/obituary/digital_obituary_tab.dart';
 import '../../features/overview/overview_tab.dart';
@@ -30,6 +31,7 @@ class _NavItem {
 class _AppShellState extends State<AppShell> {
   final List<_NavItem> _baseDestinations = const [
     _NavItem('流程總覽', Icons.map_outlined, OverviewTab()),
+    _NavItem('人生倒數', Icons.hourglass_bottom_outlined, FinalCountdownTab()),
     _NavItem('固定方案', Icons.handshake_outlined, PackagesTab()),
     _NavItem('簡易紀念頁', Icons.person_outline, MemorialPageTab()),
     _NavItem('數位訃聞', Icons.campaign_outlined, DigitalObituaryTab()),
