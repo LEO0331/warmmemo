@@ -16,7 +16,7 @@ class OverviewTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '在失去親人的當下，\n不用邊掉眼淚邊談價格。',
+              '在失去親人的當下，不用邊掉眼淚邊談價格。',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -74,8 +74,6 @@ class OverviewTab extends StatelessWidget {
                   Text('・對禮儀公司：平台收取媒合服務費，幫忙穩定接案'),
                   SizedBox(height: 4),
                   Text('・每一個方案都帶有：標準服務內容 + 可加購項目 + 售後滿意度回饋'),
-                  SizedBox(height: 4),
-                  Text('・可延伸：預立契約、信託合作、保險通路合作'),
                 ],
               ),
             ),

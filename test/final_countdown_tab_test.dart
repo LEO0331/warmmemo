@@ -1,53 +1,97 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:warmmemo/features/final_countdown/final_countdown_tab.dart';
 
 void main() {
-  Widget testApp() {
-    return const MaterialApp(
-      home: Scaffold(body: FinalCountdownTab()),
-    );
+  Widget app() {
+    return const MaterialApp(home: Scaffold(body: FinalCountdownTab()));
   }
 
-  testWidgets('renders key sections and default controls', (tester) async {
-    await tester.pumpWidget(testApp());
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  testWidgets('renders sections and controls', (tester) async {
+    await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    expect(find.byType(FinalCountdownTab), findsOneWidget);
     expect(find.text('人生倒數與零結餘規劃'), findsOneWidget);
     expect(find.text('倒數參數'), findsOneWidget);
     expect(find.text('零結餘結果'), findsOneWidget);
     expect(find.text('新增支出項目'), findsOneWidget);
     expect(find.text('新增資產項目'), findsOneWidget);
+    expect(find.text('退休前'), findsWidgets);
+    expect(find.text('退休後'), findsWidgets);
   });
 
-  testWidgets('recomputes totals when input changes', (tester) async {
-    await tester.pumpWidget(testApp());
+  testWidgets('phase split changes net amount', (tester) async {
+    await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('差額（資產 - 支出）：NT\$ 52,080,000'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextFormField).first, '80');
+    final nowYear = DateTime.now().year;
+    await tester.enterText(find.byKey(const Key('retire_year_field')), '${nowYear + 10}');
     await tester.pumpAndSettle();
+    expect(find.textContaining('差額（資產 - 支出）：NT\$ 16,380,000'), findsOneWidget);
 
-    expect(find.textContaining('剩餘年數：5 年'), findsOneWidget);
-    expect(find.textContaining('差額（資產 - 支出）：NT\$ 14,550,000'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('退休後').last,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('退休後').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('差額（資產 - 支出）：NT\$ 43,380,000'), findsOneWidget);
   });
 
-  testWidgets('supports add and remove item operations', (tester) async {
-    await tester.pumpWidget(testApp());
+  testWidgets('amount formatter and validation', (tester) async {
+    await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.delete_outline), findsNWidgets(6));
-    expect(find.textContaining('總資產：NT\$ 55,500,000'), findsOneWidget);
-
-    await tester.tap(find.text('加入存款'));
+    final amountField = find.widgetWithText(TextFormField, '金額（NT\$）').first;
+    await tester.enterText(amountField, '1234567');
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.delete_outline), findsNWidgets(7));
-    expect(find.textContaining('總資產：NT\$ 56,500,000'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    final widget = tester.widget<TextFormField>(amountField);
+    expect(widget.controller?.text, '1,234,567');
+
+    await tester.enterText(amountField, '');
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.delete_outline), findsNWidgets(6));
+    expect(find.text('請輸入金額'), findsOneWidget);
+  });
+
+  testWidgets('loads saved draft', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'final_countdown_tab_v1': jsonEncode(<String, Object>{
+        'currentAge': '40',
+        'lifeExpectancy': '60',
+        'retireYear': '${DateTime.now().year + 5}',
+        'costItems': <Map<String, Object>>[
+          <String, Object>{
+            'name': '測試支出',
+            'amount': '100',
+            'kind': 'oneTime',
+            'phase': 'allYears',
+          },
+        ],
+        'assetItems': <Map<String, Object>>[
+          <String, Object>{
+            'name': '測試資產',
+            'amount': '500',
+            'kind': 'oneTime',
+            'phase': 'allYears',
+          },
+        ],
+      }),
+    });
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final currentAge = tester.widget<TextFormField>(find.byKey(const Key('current_age_field')));
+    expect(currentAge.controller?.text, '40');
+    expect(find.textContaining('差額（資產 - 支出）：NT\$ 400'), findsOneWidget);
   });
 }
