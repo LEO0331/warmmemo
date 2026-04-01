@@ -43,34 +43,39 @@ class NotificationService {
   Future<List<NotificationEvent>> fetchPending({int limit = 200}) async {
     final snapshot = await _notifications
         .where('status', isEqualTo: 'pending')
-        .orderBy('occurredAt', descending: true)
         .limit(limit)
         .get();
-    return snapshot.docs
+    final items = snapshot.docs
         .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
         .toList();
+    items.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    return items;
   }
 
   Future<List<NotificationEvent>> fetchForUser(String userId, {int limit = 100}) async {
     final snapshot = await _notifications
         .where('userId', isEqualTo: userId)
-        .orderBy('occurredAt', descending: true)
         .limit(limit)
         .get();
-    return snapshot.docs
+    final items = snapshot.docs
         .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
         .toList();
+    items.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    return items;
   }
 
   Stream<List<NotificationEvent>> streamForUser(String userId, {int limit = 12}) {
     return _notifications
         .where('userId', isEqualTo: userId)
-        .orderBy('occurredAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs
+        .map((snapshot) {
+          final items = snapshot.docs
             .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
-            .toList());
+            .toList();
+          items.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+          return items;
+        });
   }
 
   Future<void> logEvent(NotificationEvent event) {
