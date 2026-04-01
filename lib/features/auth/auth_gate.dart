@@ -6,7 +6,6 @@ import '../../core/widgets/app_feedback.dart';
 import '../../core/utils/clear_payment_query_param_stub.dart'
     if (dart.library.html) '../../core/utils/clear_payment_query_param_web.dart';
 import '../../data/firebase/auth_service.dart';
-import '../../data/services/user_role_service.dart';
 import '../../core/layout/app_shell.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../landing/landing_page.dart';
@@ -69,7 +68,6 @@ class _AuthGateState extends State<AuthGate> {
             }
             return const SelectionArea(child: LandingPage());
           }
-          UserRoleService.instance.ensureUserProfile(user);
           return SelectionArea(
             child: AppShell(initialIndex: _initialTabIndex),
           );

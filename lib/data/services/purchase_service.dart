@@ -97,7 +97,8 @@ class PurchaseService {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Purchase.fromMap(doc.data(), id: doc.id, docPath: doc.reference.path))
-            .toList());
+            .toList())
+        .handleError((_) {});
   }
 
   Stream<List<Purchase>> adminOrders() {

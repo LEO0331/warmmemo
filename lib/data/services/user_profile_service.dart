@@ -20,7 +20,7 @@ class UserProfileService {
       _userDoc(uid).collection('topupRequests');
 
   Stream<Map<String, dynamic>?> profileStream(String uid) {
-    return _userDoc(uid).snapshots().map((snapshot) => snapshot.data());
+    return _userDoc(uid).snapshots().map((snapshot) => snapshot.data()).handleError((_) {});
   }
 
   Future<Map<String, dynamic>?> getProfile(String uid) async {

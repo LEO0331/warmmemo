@@ -211,6 +211,9 @@ class _OrdersPanelState extends State<_OrdersPanel> {
       child: StreamBuilder<List<Purchase>>(
         stream: PurchaseService.instance.userOrders(uid),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return SelectableText('讀取訂單失敗：${snapshot.error}');
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const SkeletonOrderList(count: 3);
           }
@@ -409,6 +412,9 @@ class _NotificationCenterCardState extends State<_NotificationCenterCard> {
       child: StreamBuilder<List<NotificationEvent>>(
         stream: NotificationService.instance.streamForUser(widget.uid, limit: 20),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return SelectableText('讀取通知失敗：${snapshot.error}');
+          }
           final events = snapshot.data ?? [];
           final unreadCount = events.where((e) => e.status != 'read').length;
           final filtered = _onlyUnread ? events.where((e) => e.status != 'read').toList() : events;

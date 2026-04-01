@@ -92,7 +92,7 @@ class TokenWalletService {
     return _userDoc(uid).snapshots().map((snapshot) {
       final data = snapshot.data();
       return (data?['tokenBalance'] as num?)?.toInt() ?? 0;
-    });
+    }).handleError((_) {});
   }
 
   Future<int> getBalance(String uid) async {

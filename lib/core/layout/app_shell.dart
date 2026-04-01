@@ -65,25 +65,42 @@ class _AppShellState extends State<AppShell> {
   Future<void> _listenForRole() async {
     final user = AuthService.instance.currentUser;
     if (user == null) return;
-    await UserRoleService.instance.ensureUserProfile(user);
     _roleSub?.cancel();
-    _roleSub = UserRoleService.instance.roleStream(user.uid).listen((role) {
+    _roleSub = UserRoleService.instance.roleStream(user.uid).listen(
+      (role) {
+        if (!mounted) return;
+        setState(() {
+          _isAdmin = role == 'admin';
+          _loadingRole = false;
+          if (_selectedIndex >= _destinations.length) {
+            _selectedIndex = _destinations.length - 1;
+          }
+        });
+        if (!_isAdmin && !_onboardingPrompted) {
+          _onboardingPrompted = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _showOnboardingIfNeeded(user.uid);
+          });
+        }
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _loadingRole = false;
+          _isAdmin = false;
+        });
+      },
+    );
+    try {
+      await UserRoleService.instance.ensureUserProfile(user);
+    } catch (_) {
+      // Keep UI functional even if profile bootstrap is blocked by rules/config.
       if (!mounted) return;
       setState(() {
-        _isAdmin = role == 'admin';
         _loadingRole = false;
-        if (_selectedIndex >= _destinations.length) {
-          _selectedIndex = _destinations.length - 1;
-        }
       });
-      if (!_isAdmin && !_onboardingPrompted) {
-        _onboardingPrompted = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _showOnboardingIfNeeded(user.uid);
-        });
-      }
-    });
+    }
   }
 
   @override
@@ -268,7 +285,12 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _showOnboardingIfNeeded(String uid) async {
-    final profile = await UserProfileService.instance.getProfile(uid);
+    Map<String, dynamic>? profile;
+    try {
+      profile = await UserProfileService.instance.getProfile(uid);
+    } catch (_) {
+      return;
+    }
     final done = UserProfileService.instance.completedStepsCount(profile);
     if (done >= UserProfileService.onboardingTotalSteps || !mounted) return;
 

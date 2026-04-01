@@ -47,24 +47,28 @@ class AuthService {
     return idTokenResult.claims?['admin'] == true;
   }
 
-  Future<UserCredential> signIn({required String email, required String password}) {
-    return _auth.signInWithEmailAndPassword(email: email, password: password).then((credential) {
-      final user = credential.user;
-      if (user != null) {
-        _ensureUserProfile(user);
-      }
-      return credential;
-    });
+  Future<UserCredential> signIn({required String email, required String password}) async {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credential.user;
+    if (user != null) {
+      await _ensureUserProfile(user);
+    }
+    return credential;
   }
 
-  Future<UserCredential> signUp({required String email, required String password}) {
-    return _auth.createUserWithEmailAndPassword(email: email, password: password).then((credential) {
-      final user = credential.user;
-      if (user != null) {
-        _ensureUserProfile(user);
-      }
-      return credential;
-    });
+  Future<UserCredential> signUp({required String email, required String password}) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credential.user;
+    if (user != null) {
+      await _ensureUserProfile(user);
+    }
+    return credential;
   }
 
   Future<void> signOut() => _auth.signOut();
