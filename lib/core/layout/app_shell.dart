@@ -309,15 +309,15 @@ class _AppShellState extends State<AppShell> {
       setState(() {});
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 180));
+    await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
 
     await showGeneralDialog<void>(
       context: context,
       barrierLabel: '首次引導',
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      transitionDuration: const Duration(milliseconds: 220),
+      barrierColor: Colors.black.withValues(alpha: 0.22),
+      transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return StreamBuilder<Map<String, dynamic>?>(
           stream: UserProfileService.instance.profileStream(uid),
@@ -419,11 +419,11 @@ class _AppShellState extends State<AppShell> {
         );
       },
       transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutSine);
         return FadeTransition(
           opacity: curved,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.97, end: 1.0).animate(curved),
+            scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
             child: child,
           ),
         );
