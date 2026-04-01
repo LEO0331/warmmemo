@@ -12,6 +12,7 @@ import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/token_wallet_service.dart';
 
 /// TAB 3 – 簡易紀念頁（One-page life summary）
 class MemorialPageTab extends StatefulWidget {
@@ -73,6 +74,11 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               '填寫親友的故事與回憶後，即可生成預覽，並透過 PDF／圖片快速分享給親友與長輩。',
               style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 8),
+            Text(
+              '進階服務採用點數制，新註冊贈送 5 點，每次生成/匯出會扣 1 點。',
+              style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF7A4C39)),
+            ),
             const SizedBox(height: 12),
             if (_stats != null) _buildStatsCard(theme, _stats!),
             if (_stats != null && AuthService.instance.currentUser?.uid != null)
@@ -128,6 +134,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                         if (!(_formKey.currentState?.validate() ?? false)) {
                           return;
                         }
+                        final ok = await _consumeTokenOrShowTopUp(
+                          AdvancedServiceType.memorialPreview,
+                        );
+                        if (!ok) return;
                         await _saveDraft();
                         setState(() {
                           _showPreview = true;
@@ -153,7 +163,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       child: FilledButton.icon(
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: const Text('匯出 PDF'),
-                        onPressed: _exportMemorialPdf,
+                        onPressed: () async {
+                          final ok = await _consumeTokenOrShowTopUp(
+                            AdvancedServiceType.memorialExportPdf,
+                          );
+                          if (!ok) return;
+                          await _exportMemorialPdf();
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -161,7 +177,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.image_outlined),
                         label: const Text('匯出圖片'),
-                        onPressed: _exportMemorialImage,
+                        onPressed: () async {
+                          final ok = await _consumeTokenOrShowTopUp(
+                            AdvancedServiceType.memorialExportImage,
+                          );
+                          if (!ok) return;
+                          await _exportMemorialImage();
+                        },
                       ),
                     ),
                   ],
@@ -438,6 +460,21 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     } catch (error) {
       _showMessage('匯出失敗：$error');
     }
+  }
+
+  Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) {
+      _showMessage('請先登入再使用進階功能。');
+      return false;
+    }
+    final result = await TokenWalletService.instance.consume(
+      uid: uid,
+      type: type,
+    );
+    if (result.ok) return true;
+    _showMessage('${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）');
+    return false;
   }
 
   Future<void> _exportMemorialImage() async {

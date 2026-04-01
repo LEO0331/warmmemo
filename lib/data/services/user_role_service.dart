@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'token_wallet_service.dart';
+
 class UserRoleService {
   UserRoleService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -15,10 +17,14 @@ class UserRoleService {
     final doc = _users.doc(user.uid);
     final snapshot = await doc.get();
     final currentRole = snapshot.data()?['role'] as String?;
+    final currentTokens = (snapshot.data()?['tokenBalance'] as num?)?.toInt();
     final payload = {
       if (user.email != null) 'email': user.email,
       'updatedAt': FieldValue.serverTimestamp(),
       if (currentRole == null) 'role': 'user',
+      if (currentTokens == null) 'tokenBalance': TokenWalletService.starterTokens,
+      if (currentTokens == null) 'tokenGrantedAt': FieldValue.serverTimestamp(),
+      if (currentTokens == null) 'tokenUpdatedAt': FieldValue.serverTimestamp(),
     };
     if (payload.isEmpty) return;
     await doc.set(payload, SetOptions(merge: true));

@@ -10,6 +10,7 @@ import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
+import '../../data/services/token_wallet_service.dart';
 
 /// TAB 4 – 數位訃聞系統（Digital Obituary）
 class DigitalObituaryTab extends StatefulWidget {
@@ -140,6 +141,11 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
               '協助家屬打造清楚的訃聞內容，完成後可立即生成分享文、PDF、圖片或 QR code，讓通知快速觸達親友。',
               style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 8),
+            Text(
+              '進階服務採用點數制，新註冊贈送 5 點，每次生成/重寫/匯出會扣 1 點。',
+              style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF7A4C39)),
+            ),
             const SizedBox(height: 16),
             Form(
               key: _formKey,
@@ -234,6 +240,10 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                         if (_templateVersion == 'v1' && _tone == '溫和正式') {
                           setState(() => _tone = '極簡通知');
                         }
+                        final ok = await _consumeTokenOrShowTopUp(
+                          AdvancedServiceType.obituaryGenerate,
+                        );
+                        if (!ok) return;
                         _generateObituary();
                         await _saveDraft();
                       },
@@ -316,7 +326,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: OutlinedButton.icon(
-                            onPressed: _rewriteForClarity,
+                            onPressed: () async {
+                              final ok = await _consumeTokenOrShowTopUp(
+                                AdvancedServiceType.obituaryRewrite,
+                              );
+                              if (!ok) return;
+                              _rewriteForClarity();
+                            },
                             icon: const Icon(Icons.auto_fix_high_outlined),
                             label: const Text('一鍵重寫（更清楚）'),
                           ),
@@ -336,7 +352,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                       child: FilledButton.icon(
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: const Text('匯出 PDF'),
-                        onPressed: _exportObituaryPdf,
+                        onPressed: () async {
+                          final ok = await _consumeTokenOrShowTopUp(
+                            AdvancedServiceType.obituaryExportPdf,
+                          );
+                          if (!ok) return;
+                          await _exportObituaryPdf();
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -344,7 +366,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.image_outlined),
                         label: const Text('匯出圖片'),
-                        onPressed: _exportObituaryImage,
+                        onPressed: () async {
+                          final ok = await _consumeTokenOrShowTopUp(
+                            AdvancedServiceType.obituaryExportImage,
+                          );
+                          if (!ok) return;
+                          await _exportObituaryImage();
+                        },
                       ),
                     ),
                   ],
@@ -441,5 +469,20 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) {
+      _showMessage('請先登入再使用進階功能。');
+      return false;
+    }
+    final result = await TokenWalletService.instance.consume(
+      uid: uid,
+      type: type,
+    );
+    if (result.ok) return true;
+    _showMessage('${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）');
+    return false;
   }
 }

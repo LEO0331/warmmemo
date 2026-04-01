@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/firebase/auth_service.dart';
+import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_role_service.dart';
 import '../../features/admin/admin_dashboard.dart';
 import '../../features/final_countdown/final_countdown_tab.dart';
@@ -97,6 +98,7 @@ class _AppShellState extends State<AppShell> {
         title: const Text('暖備 WarmMemo'),
         centerTitle: false,
         actions: [
+          if (!_isAdmin) _buildTokenBalanceChip(),
           IconButton(
             icon: const Icon(Icons.logout_outlined),
             tooltip: '登出',
@@ -232,6 +234,26 @@ class _AppShellState extends State<AppShell> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTokenBalanceChip() {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: StreamBuilder<int>(
+        stream: TokenWalletService.instance.balanceStream(uid),
+        builder: (context, snapshot) {
+          final tokens = snapshot.data ?? 0;
+          return Chip(
+            avatar: const Icon(Icons.toll_outlined, size: 18),
+            label: Text('點數 $tokens'),
+            backgroundColor: const Color(0xFFF8E5D8),
+            side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          );
+        },
       ),
     );
   }

@@ -36,12 +36,36 @@ service cloud.firestore {
       return !(request.resource.data.paymentStatus in ['paid']);
     }
 
+    function ownerUserSafeUpdate(userId) {
+      return isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role',
+          'tokenBalance',
+          'tokenGrantedAt',
+          'tokenUpdatedAt'
+        ]);
+    }
+
+    function ownerTokenConsumeUpdate(userId) {
+      return isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'tokenBalance',
+          'tokenUpdatedAt'
+        ])
+        && request.resource.data.tokenBalance is int
+        && resource.data.tokenBalance is int
+        && request.resource.data.tokenBalance == resource.data.tokenBalance - 1
+        && request.resource.data.tokenBalance >= 0;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.role == 'user';
-      allow update: if (isOwner(userId)
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
-          || isAdmin();
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.tokenBalance == 5;
+      allow update: if ownerUserSafeUpdate(userId)
+        || ownerTokenConsumeUpdate(userId)
+        || isAdmin();
       allow delete: if isAdmin();
 
       match /drafts/{draftId} {
@@ -63,6 +87,15 @@ service cloud.firestore {
             && ownerOrderPaymentStatusAllowed())
           || isAdmin();
         allow delete: if isAdmin();
+      }
+
+      match /tokenLogs/{logId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId)
+            && request.resource.data.type == 'consume'
+            && request.resource.data.cost == 1)
+          || isAdmin();
+        allow update, delete: if isAdmin();
       }
     }
 
