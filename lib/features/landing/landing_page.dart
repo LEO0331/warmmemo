@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_page.dart';
 import '../../core/widgets/common_widgets.dart';
@@ -16,6 +17,7 @@ class LandingPage extends StatelessWidget {
     required String url,
     required double height,
     double? width,
+    String? semanticLabel,
     BorderRadius? borderRadius,
     BoxFit fit = BoxFit.cover,
   }) {
@@ -26,6 +28,8 @@ class LandingPage extends StatelessWidget {
       width: null,
       height: null,
       fit: fit,
+      semanticLabel: semanticLabel,
+      excludeFromSemantics: semanticLabel == null,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(
@@ -63,6 +67,11 @@ class LandingPage extends StatelessWidget {
     );
   }
 
+  Future<void> _openExternal(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.platformDefault);
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -86,7 +95,15 @@ class LandingPage extends StatelessWidget {
                 const SizedBox(height: 24),
                 _buildProofRow(theme),
                 const SizedBox(height: 24),
+                _buildUseCasesSection(theme, isWide),
+                const SizedBox(height: 24),
+                _buildTrustSection(theme),
+                const SizedBox(height: 24),
+                _buildSearchResourceSection(theme),
+                const SizedBox(height: 24),
                 _buildFaqSection(),
+                const SizedBox(height: 24),
+                _buildCrawlableFaqText(theme),
                 const SizedBox(height: 24),
                 _buildFooter(theme, isWide),
                 const SizedBox(height: 32),
@@ -336,6 +353,7 @@ class LandingPage extends StatelessWidget {
                               url: entry.value['image'] as String,
                               width: double.infinity,
                               height: 88,
+                              semanticLabel: '${entry.value['title']} 圖片',
                               borderRadius: BorderRadius.circular(14),
                               fit: BoxFit.cover,
                             ),
@@ -438,6 +456,7 @@ class LandingPage extends StatelessWidget {
                           url: entry.value['image'] as String,
                           width: double.infinity,
                           height: isWide ? 120 : 110,
+                          semanticLabel: '${entry.value['name']} 方案圖片',
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),
                             topRight: Radius.circular(16),
@@ -543,6 +562,8 @@ class LandingPage extends StatelessWidget {
                   width: isWide ? 360 : 260,
                   height: isWide ? 240 : 180,
                   fit: BoxFit.cover,
+                  semanticLabel: caption,
+                  excludeFromSemantics: false,
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(
@@ -618,6 +639,119 @@ class LandingPage extends StatelessWidget {
     );
   }
 
+  Widget _buildUseCasesSection(ThemeData theme, bool isWide) {
+    final cases = const [
+      {
+        'title': '異地家屬協作',
+        'desc': '兄弟姊妹不在同一城市，透過同一份草稿同步內容與通知。',
+      },
+      {
+        'title': '長輩可讀版本',
+        'desc': '把紀念頁匯出成 PDF/圖片，長輩可直接轉傳或列印保存。',
+      },
+      {
+        'title': '客服追蹤案件',
+        'desc': '後台可查看狀態、核對紀錄與通知進度，回覆更即時。',
+      },
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SectionCard(
+        title: '常見使用情境',
+        icon: Icons.people_outline,
+        child: GridView.count(
+          crossAxisCount: isWide ? 3 : 1,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: isWide ? 1.5 : 2.4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: cases
+              .map(
+                (item) => Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF6EF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['title']!,
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(item['desc']!, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrustSection(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SectionCard(
+        title: '資料與信任',
+        icon: Icons.shield_outlined,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '我們重視資料安全與可控性，以下資訊會清楚告知：',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            const Bullet('資料隱私：僅本人與授權管理員可讀取。'),
+            const Bullet('保存期限：依服務方案與設定保留，可申請延長。'),
+            const Bullet('刪除機制：可提出資料刪除申請，並保留必要稽核紀錄。'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResourceSection(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SectionCard(
+        title: '教學與比較',
+        icon: Icons.menu_book_outlined,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '以下主題頁提供更完整內容，方便搜尋與快速理解：',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _openExternal('https://leo0331.github.io/warmmemo/obituary-guide.html'),
+                  icon: const Icon(Icons.campaign_outlined),
+                  label: const Text('數位訃聞教學'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _openExternal('https://leo0331.github.io/warmmemo/package-comparison.html'),
+                  icon: const Icon(Icons.compare_arrows_outlined),
+                  label: const Text('固定方案比較'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFaqSection() {
     final faqs = const [
       {
@@ -647,6 +781,48 @@ class LandingPage extends StatelessWidget {
                     padding: const EdgeInsets.all(8.0),
                     child: Text(faq['a']!),
                   )],
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCrawlableFaqText(ThemeData theme) {
+    const items = [
+      {
+        'q': 'WarmMemo 可以做什麼？',
+        'a': '可建立數位訃聞、簡易紀念頁、追蹤訂單與通知狀態，並匯出 PDF/圖片。'
+      },
+      {
+        'q': '點數如何使用？',
+        'a': '新註冊贈送 5 點，進階功能如生成、重寫、匯出會扣點，點數不足可提交加值申請。'
+      },
+      {
+        'q': '如何確認資料安全？',
+        'a': '系統採 Firebase 權限控管，僅本人與授權管理員可存取相關資料。'
+      },
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SectionCard(
+        title: 'FAQ 文字版（搜尋友善）',
+        icon: Icons.find_in_page_outlined,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: items
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item['q']!, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      SelectableText(item['a']!, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
                 ),
               )
               .toList(),

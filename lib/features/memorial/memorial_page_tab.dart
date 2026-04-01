@@ -13,6 +13,7 @@ import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/token_wallet_service.dart';
+import '../../data/services/user_profile_service.dart';
 
 /// TAB 3 – 簡易紀念頁（One-page life summary）
 class MemorialPageTab extends StatefulWidget {
@@ -139,6 +140,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                         );
                         if (!ok) return;
                         await _saveDraft();
+                        final uid = AuthService.instance.currentUser?.uid;
+                        if (uid != null) {
+                          await UserProfileService.instance.markOnboardingStep(
+                            uid,
+                            UserProfileService.onboardingStepFirstDraft,
+                          );
+                        }
                         setState(() {
                           _showPreview = true;
                         });
@@ -474,7 +482,67 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     );
     if (result.ok) return true;
     _showMessage('${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）');
+    await _showTopUpRequestDialog(uid);
     return false;
+  }
+
+  Future<void> _showTopUpRequestDialog(String uid) async {
+    int selectedTokens = 10;
+    final noteController = TextEditingController();
+    final submit = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('提交加值申請'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('目前點數不足，可先送出加值申請，客服會協助你完成。'),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                initialValue: selectedTokens,
+                decoration: const InputDecoration(labelText: '需求點數'),
+                items: const [
+                  DropdownMenuItem(value: 10, child: Text('10 點')),
+                  DropdownMenuItem(value: 20, child: Text('20 點')),
+                  DropdownMenuItem(value: 50, child: Text('50 點')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setDialogState(() => selectedTokens = value);
+                },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: '備註（可留空）'),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('送出申請'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (submit == true) {
+      await UserProfileService.instance.submitTopUpRequest(
+        uid: uid,
+        requestedTokens: selectedTokens,
+        note: noteController.text,
+      );
+      _showMessage('加值申請已送出，客服將盡快聯繫。');
+    }
+    noteController.dispose();
   }
 
   Future<void> _exportMemorialImage() async {

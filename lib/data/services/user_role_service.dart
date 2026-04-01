@@ -25,6 +25,10 @@ class UserRoleService {
       if (currentTokens == null) 'tokenBalance': TokenWalletService.starterTokens,
       if (currentTokens == null) 'tokenGrantedAt': FieldValue.serverTimestamp(),
       if (currentTokens == null) 'tokenUpdatedAt': FieldValue.serverTimestamp(),
+      if (snapshot.data()?['onboardingSteps'] == null) 'onboardingSteps': <String>[],
+      if (snapshot.data()?['onboardingSelectedService'] == null) 'onboardingSelectedService': null,
+      if (snapshot.data()?['onboardingUpdatedAt'] == null)
+        'onboardingUpdatedAt': FieldValue.serverTimestamp(),
     };
     if (payload.isEmpty) return;
     await doc.set(payload, SetOptions(merge: true));

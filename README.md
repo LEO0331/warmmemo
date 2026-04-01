@@ -6,6 +6,8 @@ WarmMemo is a Flutter Web + Firebase app for memorial drafting, package checkout
 
 ### User
 - Email/password login with role-based access (`user` / `admin`)
+- First-time onboarding (3 steps): select service, generate first draft, confirm token balance
+- Onboarding progress feedback (`X/3`) to improve activation
 - Memorial page draft and obituary draft
 - PDF/image export for memorial and obituary content
 - Package checkout and order status tracking
@@ -29,6 +31,7 @@ WarmMemo is a Flutter Web + Firebase app for memorial drafting, package checkout
   - obituary PDF export
   - obituary image export
 - When tokens are insufficient, users are prompted to top up.
+- Low-friction top-up request dialog can be submitted immediately from insufficient-token flow.
 
 Implementation references:
 - `lib/data/services/token_wallet_service.dart`
@@ -45,6 +48,7 @@ Rules are hardened for client-only mode:
 - Users cannot self-increase token balance.
 - Token deduction is restricted to one-way decrement updates.
 - Token logs are readable by owner/admin; write is constrained for consume behavior.
+- Top-up requests can be created by owner and reviewed by admin.
 - Users cannot set `paymentStatus = paid`; paid is reserved for admin workflows.
 
 Rules file:
@@ -73,3 +77,29 @@ flutter run -d chrome --dart-define-from-file=env/payment.dev.json
 ```bash
 flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env/payment.dev.json
 ```
+
+## SEO Checklist (Publish)
+
+- Ensure these pages are deployed and indexable:
+  - `/`
+  - `/obituary-guide.html`
+  - `/package-comparison.html`
+- Submit sitemap in Google Search Console:
+  - `https://leo0331.github.io/warmmemo/sitemap.xml`
+- Track early metrics weekly:
+  - impressions
+  - clicks
+  - CTR
+  - top queries
+- Landing already includes:
+  - OG/Twitter metadata
+  - FAQ JSON-LD
+  - WebSite/Organization JSON-LD
+  - crawlable FAQ text section
+
+## Image Consistency Notes
+
+- Landing images now include semantic labels for accessibility and SEO-friendly rendering context.
+- If you move from remote URLs to local assets later, use consistent naming such as:
+  - `assets/images/landing-memorial-gentle.jpg`
+  - `assets/images/landing-obituary-guide-clear.jpg`

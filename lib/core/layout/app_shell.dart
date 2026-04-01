@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/firebase/auth_service.dart';
 import '../../data/services/token_wallet_service.dart';
+import '../../data/services/user_profile_service.dart';
 import '../../data/services/user_role_service.dart';
 import '../../features/admin/admin_dashboard.dart';
 import '../../features/final_countdown/final_countdown_tab.dart';
@@ -42,6 +43,7 @@ class _AppShellState extends State<AppShell> {
 
   bool _isAdmin = false;
   bool _loadingRole = true;
+  bool _onboardingPrompted = false;
   int _selectedIndex = 0;
   StreamSubscription<String>? _roleSub;
 
@@ -74,6 +76,13 @@ class _AppShellState extends State<AppShell> {
           _selectedIndex = _destinations.length - 1;
         }
       });
+      if (!_isAdmin && !_onboardingPrompted) {
+        _onboardingPrompted = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showOnboardingIfNeeded(user.uid);
+        });
+      }
     });
   }
 
@@ -255,6 +264,124 @@ class _AppShellState extends State<AppShell> {
           );
         },
       ),
+    );
+  }
+
+  Future<void> _showOnboardingIfNeeded(String uid) async {
+    final profile = await UserProfileService.instance.getProfile(uid);
+    final done = UserProfileService.instance.completedStepsCount(profile);
+    if (done >= UserProfileService.onboardingTotalSteps || !mounted) return;
+
+    Future<void> chooseService(String service) async {
+      await UserProfileService.instance.setSelectedService(uid, service);
+      if (!mounted) return;
+      setState(() {});
+    }
+
+    Future<void> markTokenSeen() async {
+      await UserProfileService.instance.markOnboardingStep(
+        uid,
+        UserProfileService.onboardingStepTokenSeen,
+      );
+      if (!mounted) return;
+      setState(() {});
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StreamBuilder<Map<String, dynamic>?>(
+          stream: UserProfileService.instance.profileStream(uid),
+          builder: (context, snapshot) {
+            final data = snapshot.data ?? profile ?? const <String, dynamic>{};
+            final steps =
+                (data['onboardingSteps'] as List<dynamic>? ?? const []).whereType<String>().toSet();
+            final completed = UserProfileService.instance.completedStepsCount(data);
+            final selectedService = data['onboardingSelectedService'] as String?;
+
+            Widget stepTile({
+              required String title,
+              required bool done,
+              Widget? action,
+            }) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: done ? const Color(0xFFEAF5EC) : const Color(0xFFFFF4EC),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      done ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(title)),
+                    action ?? const SizedBox.shrink(),
+                  ],
+                ),
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('首次引導'),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText('你已完成 $completed/3 步'),
+                      const SizedBox(height: 10),
+                      stepTile(
+                        title: selectedService == null
+                            ? '1) 選擇想優先使用的服務'
+                            : '1) 已選擇服務：$selectedService',
+                        done: steps.contains(UserProfileService.onboardingStepSelectService),
+                        action: selectedService == null
+                            ? PopupMenuButton<String>(
+                                onSelected: chooseService,
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: '固定方案', child: Text('固定方案')),
+                                  PopupMenuItem(value: '簡易紀念頁', child: Text('簡易紀念頁')),
+                                  PopupMenuItem(value: '數位訃聞', child: Text('數位訃聞')),
+                                ],
+                                child: const Text('選擇'),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      stepTile(
+                        title: '2) 生成第一份草稿（在紀念頁或訃聞頁）',
+                        done: steps.contains(UserProfileService.onboardingStepFirstDraft),
+                      ),
+                      const SizedBox(height: 8),
+                      stepTile(
+                        title: '3) 看到剩餘 token',
+                        done: steps.contains(UserProfileService.onboardingStepTokenSeen),
+                        action: steps.contains(UserProfileService.onboardingStepTokenSeen)
+                            ? null
+                            : TextButton(
+                                onPressed: markTokenSeen,
+                                child: const Text('我看到了'),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('關閉'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
