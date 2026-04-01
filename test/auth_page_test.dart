@@ -38,7 +38,15 @@ void main() {
   });
 
   testWidgets('login submit shows fallback unknown error when auth call fails', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: AuthPage()));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AuthPage(
+          signIn: (email, password) async {
+            throw Exception('unexpected');
+          },
+        ),
+      ),
+    );
 
     await tester.enterText(find.byType(TextFormField).first, 'user@test.com');
     await tester.enterText(find.byType(TextFormField).at(1), '123456');

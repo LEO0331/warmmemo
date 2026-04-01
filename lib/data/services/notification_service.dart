@@ -20,16 +20,14 @@ class NotificationService {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
-            .toList())
-        .handleError((_) {});
+            .toList());
   }
 
   Stream<int> pendingCount() {
     return _notifications
         .where('status', isEqualTo: 'pending')
         .snapshots()
-        .map((snapshot) => snapshot.docs.length)
-        .handleError((_) {});
+        .map((snapshot) => snapshot.docs.length);
   }
 
   Future<List<NotificationEvent>> fetchHistory({int limit = 500}) async {
@@ -72,8 +70,7 @@ class NotificationService {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
-            .toList())
-        .handleError((_) {});
+            .toList());
   }
 
   Future<void> logEvent(NotificationEvent event) {

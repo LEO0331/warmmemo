@@ -81,16 +81,26 @@ class _AuthPageState extends State<AuthPage> {
             );
           }
         }
-        if (mounted && Navigator.of(context).canPop()) {
+        if (mounted) {
           AppFeedback.show(
             context,
             message: isLogin ? '登入成功，歡迎回來。' : '註冊成功，歡迎加入 WarmMemo。',
             tone: FeedbackTone.success,
           );
-          Navigator.of(context).pop();
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } on FirebaseAuthException catch (e) {
         final message = _friendlyAuthError(e);
+        setState(() => _error = message);
+        if (mounted) {
+          AppFeedback.show(
+            context,
+            message: message,
+            tone: FeedbackTone.error,
+          );
+        }
+      } on FirebaseException catch (e) {
+        final message = _friendlyFirebaseError(e);
         setState(() => _error = message);
         if (mounted) {
           AppFeedback.show(
@@ -147,6 +157,17 @@ class _AuthPageState extends State<AuthPage> {
         return '嘗試次數過多，請稍後再試。';
       default:
         return e.message ?? '登入失敗，請稍後再試。';
+    }
+  }
+
+  String _friendlyFirebaseError(FirebaseException e) {
+    switch (e.code) {
+      case 'permission-denied':
+        return '登入成功，但資料讀取權限不足（permission-denied）。請稍後重整或聯絡管理員檢查 Firestore 規則。';
+      case 'failed-precondition':
+        return '目前資料庫設定尚未完成（failed-precondition），請先完成必要索引或設定。';
+      default:
+        return e.message ?? '資料服務暫時不可用，請稍後再試。';
     }
   }
 

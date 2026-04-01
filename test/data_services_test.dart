@@ -651,7 +651,7 @@ void main() {
       );
       await service.signIn(email: 'u200@test.com', password: '123456');
       await service.signUp(email: 'u200@test.com', password: '123456');
-      expect(ensuredCount, 2);
+      expect(ensuredCount, 1);
       expect(service.currentUser, isNotNull);
       expect(service.isEmailPasswordUser(service.currentUser!), isTrue);
       await service.signOut();

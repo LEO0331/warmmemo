@@ -45,7 +45,7 @@ class UserRoleService {
     return _users.doc(uid).snapshots().map((snapshot) {
       final data = snapshot.data();
       return (data?['role'] as String?) ?? 'user';
-    }).handleError((_) {});
+    });
   }
 
   Future<void> ensureAdminDoc(String uid) async {

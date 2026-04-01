@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../services/user_role_service.dart';
 
@@ -48,15 +49,10 @@ class AuthService {
   }
 
   Future<UserCredential> signIn({required String email, required String password}) async {
-    final credential = await _auth.signInWithEmailAndPassword(
+    return _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
-    final user = credential.user;
-    if (user != null) {
-      await _ensureUserProfile(user);
-    }
-    return credential;
   }
 
   Future<UserCredential> signUp({required String email, required String password}) async {
@@ -66,7 +62,12 @@ class AuthService {
     );
     final user = credential.user;
     if (user != null) {
-      await _ensureUserProfile(user);
+      try {
+        await _ensureUserProfile(user);
+      } catch (error) {
+        // Keep account creation successful; app shell will retry profile bootstrap later.
+        debugPrint('ensureUserProfile(signUp) skipped: $error');
+      }
     }
     return credential;
   }
