@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/widgets/common_widgets.dart';
 
 /// TAB 1 – 教育 + 流程總覽 + 商業模式說明
 class OverviewTab extends StatelessWidget {
   const OverviewTab({super.key});
+
+  Future<void> _openExternal(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.platformDefault);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +69,39 @@ class OverviewTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            SectionCard(
+              title: '延伸閱讀推薦',
+              icon: Icons.auto_stories_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _BookLinkTile(
+                    title: 'Die With Zero（把人生經驗花在最值得的時刻）',
+                    subtitle: 'Bill Perkins｜建立「時間、金錢、健康」平衡觀。',
+                    onTap: () => _openExternal(
+                      'https://www.diewithzerobook.com/',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _BookLinkTile(
+                    title: 'Being Mortal（當醫療遇見生命終點）',
+                    subtitle: 'Atul Gawande｜理解照護選擇與家屬溝通。',
+                    onTap: () => _openExternal(
+                      'https://atulgawande.com/book/being-mortal/',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _BookLinkTile(
+                    title: 'The Five Invitations（面對無常的五個邀請）',
+                    subtitle: 'Frank Ostaseski｜練習面對失落與告別。',
+                    onTap: () => _openExternal(
+                      'https://fiveinvitations.com/',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             const SectionCard(
               title: '商業模式（B2C + B2B2C）',
               icon: Icons.business_center_outlined,
@@ -98,3 +137,33 @@ class OverviewTab extends StatelessWidget {
   }
 }
 
+class _BookLinkTile extends StatelessWidget {
+  const _BookLinkTile({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFDFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: const Icon(Icons.book_outlined),
+        title: SelectableText(title),
+        subtitle: SelectableText(subtitle),
+        trailing: const Icon(Icons.open_in_new, size: 18),
+        onTap: onTap,
+      ),
+    );
+  }
+}
