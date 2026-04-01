@@ -309,9 +309,16 @@ class _AppShellState extends State<AppShell> {
       setState(() {});
     }
 
-    await showDialog<void>(
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+
+    await showGeneralDialog<void>(
       context: context,
-      builder: (dialogContext) {
+      barrierLabel: '首次引導',
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return StreamBuilder<Map<String, dynamic>?>(
           stream: UserProfileService.instance.profileStream(uid),
           builder: (context, snapshot) {
@@ -346,62 +353,79 @@ class _AppShellState extends State<AppShell> {
               );
             }
 
-            return AlertDialog(
-              title: const Text('首次引導'),
-              content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SelectableText('你已完成 $completed/3 步'),
-                      const SizedBox(height: 10),
-                      stepTile(
-                        title: selectedService == null
-                            ? '1) 選擇想優先使用的服務'
-                            : '1) 已選擇服務：$selectedService',
-                        done: steps.contains(UserProfileService.onboardingStepSelectService),
-                        action: selectedService == null
-                            ? PopupMenuButton<String>(
-                                onSelected: chooseService,
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(value: '固定方案', child: Text('固定方案')),
-                                  PopupMenuItem(value: '簡易紀念頁', child: Text('簡易紀念頁')),
-                                  PopupMenuItem(value: '數位訃聞', child: Text('數位訃聞')),
-                                ],
-                                child: const Text('選擇'),
-                              )
-                            : null,
+            return SafeArea(
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: AlertDialog(
+                    title: const Text('首次引導'),
+                    content: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SelectableText('你已完成 $completed/3 步'),
+                            const SizedBox(height: 10),
+                            stepTile(
+                              title: selectedService == null
+                                  ? '1) 選擇想優先使用的服務'
+                                  : '1) 已選擇服務：$selectedService',
+                              done: steps.contains(UserProfileService.onboardingStepSelectService),
+                              action: selectedService == null
+                                  ? PopupMenuButton<String>(
+                                      onSelected: chooseService,
+                                      itemBuilder: (_) => const [
+                                        PopupMenuItem(value: '固定方案', child: Text('固定方案')),
+                                        PopupMenuItem(value: '簡易紀念頁', child: Text('簡易紀念頁')),
+                                        PopupMenuItem(value: '數位訃聞', child: Text('數位訃聞')),
+                                      ],
+                                      child: const Text('選擇'),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: 8),
+                            stepTile(
+                              title: '2) 生成第一份草稿（在紀念頁或訃聞頁）',
+                              done: steps.contains(UserProfileService.onboardingStepFirstDraft),
+                            ),
+                            const SizedBox(height: 8),
+                            stepTile(
+                              title: '3) 看到剩餘 token',
+                              done: steps.contains(UserProfileService.onboardingStepTokenSeen),
+                              action: steps.contains(UserProfileService.onboardingStepTokenSeen)
+                                  ? null
+                                  : TextButton(
+                                      onPressed: markTokenSeen,
+                                      child: const Text('我看到了'),
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      stepTile(
-                        title: '2) 生成第一份草稿（在紀念頁或訃聞頁）',
-                        done: steps.contains(UserProfileService.onboardingStepFirstDraft),
-                      ),
-                      const SizedBox(height: 8),
-                      stepTile(
-                        title: '3) 看到剩餘 token',
-                        done: steps.contains(UserProfileService.onboardingStepTokenSeen),
-                        action: steps.contains(UserProfileService.onboardingStepTokenSeen)
-                            ? null
-                            : TextButton(
-                                onPressed: markTokenSeen,
-                                child: const Text('我看到了'),
-                              ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('關閉'),
                       ),
                     ],
                   ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('關閉'),
-                ),
-              ],
             );
           },
+        );
+      },
+      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.97, end: 1.0).animate(curved),
+            child: child,
+          ),
         );
       },
     );
