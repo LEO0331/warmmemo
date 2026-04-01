@@ -140,8 +140,12 @@ class WarmMemoApp extends StatelessWidget {
           side: const BorderSide(color: warmOutline),
           backgroundColor: const Color(0xFFFFFCFA),
           selectedColor: const Color(0xFFF8E5D8),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-          labelStyle: const TextStyle(color: Color(0xFF5A3D31)),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          labelStyle: const TextStyle(
+            color: Color(0xFF5A3D31),
+            height: 1.25,
+          ),
         ),
         listTileTheme: const ListTileThemeData(
           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
