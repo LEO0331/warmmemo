@@ -58,12 +58,31 @@ service cloud.firestore {
         && request.resource.data.tokenBalance >= 0;
     }
 
+    function ownerTokenBootstrapUpdate(userId) {
+      return isOwner(userId)
+        && !(resource.data.tokenBalance is int)
+        && request.resource.data.tokenBalance == 5
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'email',
+          'updatedAt',
+          'role',
+          'tokenBalance',
+          'tokenGrantedAt',
+          'tokenUpdatedAt'
+        ])
+        && (
+          (resource.data.role is string && request.resource.data.role == resource.data.role)
+          || (!(resource.data.role is string) && request.resource.data.role == 'user')
+        );
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
         && request.resource.data.role == 'user'
         && request.resource.data.tokenBalance == 5;
       allow update: if ownerUserSafeUpdate(userId)
+        || ownerTokenBootstrapUpdate(userId)
         || ownerTokenConsumeUpdate(userId)
         || isAdmin();
       allow delete: if isAdmin();
