@@ -34,7 +34,7 @@ flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env
 
 * WARMEMO_USE_HOSTED_PAYMENT_LINKS: 是否啟用 Stripe 託管連結。
 * STRIPE_PAYMENT_LINK_[金額]: 不同方案的 Stripe 支付網址。
-* WARMEMO_AUTH_PERSISTENCE: 登入持久化設定 (LOCAL 或 SESSION)。
+* WARMEMO_AUTH_PERSISTENCE: 登入持久化設定 (LOCAL 或 SESSION，預設 SESSION，適合共用裝置)。
 
 ### LINE Pay（Sandbox，透過 Cloud Functions / Node.js）
 
@@ -62,4 +62,3 @@ Functions 端需要設定以下環境變數（或用 Firebase functions config `
 * web/index.html: 包含 Meta 標籤、OG 分享縮圖及 Twitter Card。
 * web/robots.txt: 配置爬蟲政策。
 * web/sitemap.xml: 提供網站地圖導航。
-

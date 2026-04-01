@@ -22,11 +22,12 @@ class AuthService {
 
   Future<void> configurePersistence() async {
     if (!kIsWeb) return;
-    // Default to LOCAL so payment round-trips (Stripe -> app) keep users signed in.
-    // Override with: --dart-define=WARMEMO_AUTH_PERSISTENCE=SESSION
+    // Default to SESSION so shared/public devices won't keep previous user signed in
+    // after the browser tab/window is closed.
+    // Override with: --dart-define=WARMEMO_AUTH_PERSISTENCE=LOCAL
     const mode = String.fromEnvironment(
       'WARMEMO_AUTH_PERSISTENCE',
-      defaultValue: 'LOCAL',
+      defaultValue: 'SESSION',
     );
     final normalized = mode.trim().toUpperCase();
     final persistence =

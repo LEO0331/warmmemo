@@ -258,7 +258,7 @@ class LandingPage extends StatelessWidget {
         'desc': '快速生成，分享給親友與長輩。',
         'icon': Icons.favorite_border,
         'image':
-            'https://images.unsplash.com/photo-1520975958225-2b8f9b82e6b4?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=600&q=80',
       },
       {
         'title': '數位訃聞草稿',
@@ -516,7 +516,7 @@ class LandingPage extends StatelessWidget {
       },
       {
         'url':
-            'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1400&q=85',
+            'https://images.unsplash.com/photo-1476820865390-c52aeebb9891?auto=format&fit=crop&w=1400&q=85',
         'caption': '紀念頁與訃聞草稿，溫柔又清楚。',
       },
       {
