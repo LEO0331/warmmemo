@@ -2,6 +2,15 @@
 
 WarmMemo is a Flutter Web + Firebase app for memorial drafting, package checkout, and admin order operations.
 
+## Release 0.1.0 Readiness
+
+- App version: `0.1.0+1`
+- `flutter analyze`: pass
+- `flutter test --coverage`: pass
+- Latest coverage snapshot:
+  - Overall line coverage: `89.22%`
+  - `lib/data/services/*` line coverage: `86.24%`
+
 ## Key Features
 
 ### User
@@ -77,6 +86,13 @@ flutter run -d chrome --dart-define-from-file=env/payment.dev.json
 ```bash
 flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env/payment.dev.json
 ```
+
+## SOP Templates (Phase 1)
+
+- Customer Support SOP:
+  - `docs/sop/phase1_customer_support_sop.md`
+- Admin Operations SOP:
+  - `docs/sop/phase1_admin_operations_sop.md`
 
 ## SEO Checklist (Publish)
 

@@ -14,6 +14,8 @@ import 'package:warmmemo/data/services/notification_service.dart';
 import 'package:warmmemo/data/services/payment_service.dart';
 import 'package:warmmemo/data/services/purchase_service.dart';
 import 'package:warmmemo/data/services/reminder_service.dart';
+import 'package:warmmemo/data/services/token_wallet_service.dart';
+import 'package:warmmemo/data/services/user_profile_service.dart';
 import 'package:warmmemo/data/services/user_role_service.dart';
 
 void main() {
@@ -114,6 +116,97 @@ void main() {
       expect(result.invoiceId, 'inv_123');
       expect(result.checkoutUrl, 'https://example.com/checkout');
       expect(result.provider, PaymentProvider.ecpay);
+    });
+
+    test('createInvoice maps unknown provider back to stripe', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          return http.Response(
+            '{"invoiceId":"inv_456","checkoutUrl":"https://example.com/checkout","provider":"mystery"}',
+            200,
+          );
+        }),
+      );
+      final result = await service.createInvoice(
+        email: 'a@test.com',
+        name: 'A',
+        amountCents: 120000,
+        description: 'desc',
+        provider: PaymentProvider.stripe,
+      );
+      expect(result.provider, PaymentProvider.stripe);
+    });
+
+    test('createInvoice rejects invalid checkout url from backend', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          return http.Response(
+            '{"invoiceId":"inv_789","checkoutUrl":"javascript:alert(1)","provider":"stripe"}',
+            200,
+          );
+        }),
+      );
+      expect(
+        () => service.createInvoice(
+          email: 'a@test.com',
+          name: 'A',
+          amountCents: 120000,
+          description: 'desc',
+          provider: PaymentProvider.stripe,
+        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('checkoutUrl 無效'))),
+      );
+    });
+
+    test('createLinePayCheckout throws when id token is missing', () async {
+      final service = PaymentService(idTokenProvider: () async => null);
+      expect(
+        () => service.createLinePayCheckout(
+          amount: 120000,
+          orderId: 'order-1',
+          description: 'line pay',
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('createLinePayCheckout maps backend http error', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          return http.Response('{"code":"linepay-error","error":"bad request"}', 400);
+        }),
+      );
+      expect(
+        () => service.createLinePayCheckout(
+          amount: 120000,
+          orderId: 'order-2',
+          description: 'line pay',
+        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('linepay-error'))),
+      );
+    });
+
+    test('createLinePayCheckout returns parsed result', () async {
+      final service = PaymentService(
+        idTokenProvider: () async => 'token',
+        client: MockClient((request) async {
+          return http.Response(
+            '{"invoiceId":"tx123","checkoutUrl":"https://pay.example.com"}',
+            200,
+          );
+        }),
+      );
+      final result = await service.createLinePayCheckout(
+        amount: 120000,
+        orderId: 'order-3',
+        description: 'line pay',
+      );
+      expect(result.provider, PaymentProvider.linepay);
+      expect(result.invoiceId, 'tx123');
+      expect(result.checkoutUrl, 'https://pay.example.com');
     });
   });
 
@@ -216,6 +309,22 @@ void main() {
       expect(doc.data()?['status'], 'complete');
     });
 
+    test('PurchaseService updateOrder returns early when id is null', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+      await purchaseService.updateOrder(
+        uid: 'u1',
+        purchase: Purchase(
+          planName: 'NoId',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+        ),
+      );
+      final docs = await db.collection('users').doc('u1').collection('orders').get();
+      expect(docs.docs, isEmpty);
+    });
+
     test('PurchaseService batch update returns skipped reasons and updates', () async {
       final db = FakeFirebaseFirestore();
       final purchaseService = PurchaseService(firestore: db);
@@ -265,6 +374,34 @@ void main() {
       final updatedDoc = await db.doc(ok.docPath!).get();
       expect(updatedDoc.data()?['status'], 'received');
       expect(updatedDoc.data()?['paymentStatus'], 'paid');
+    });
+
+    test('PurchaseService batch update handles empty selection', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+      final report = await purchaseService.adminBatchUpdate(purchases: const []);
+      expect(report.selectedCount, 0);
+      expect(report.updatedCount, 0);
+      expect(report.skippedCount, 0);
+    });
+
+    test('OrderWorkflow transitions enforce allowed states', () {
+      expect(
+        OrderWorkflow.canChangeCaseStatus(from: 'pending', to: 'received'),
+        isTrue,
+      );
+      expect(
+        OrderWorkflow.canChangeCaseStatus(from: 'pending', to: 'complete'),
+        isFalse,
+      );
+      expect(
+        OrderWorkflow.canChangePaymentStatus(from: 'failed', to: 'checkout_created'),
+        isTrue,
+      );
+      expect(
+        OrderWorkflow.canChangePaymentStatus(from: 'paid', to: 'checkout_created'),
+        isFalse,
+      );
     });
 
     test('NotificationService and ReminderService create reminder once per user', () async {
@@ -519,6 +656,117 @@ void main() {
       expect(service.isEmailPasswordUser(service.currentUser!), isTrue);
       await service.signOut();
       expect(service.currentUser, isNull);
+    });
+
+    test('TokenWalletService consumes token and writes token log', () async {
+      final db = FakeFirebaseFirestore();
+      final service = TokenWalletService(firestore: db);
+      await db.collection('users').doc('u-token').set({'tokenBalance': 3});
+
+      final result = await service.consume(
+        uid: 'u-token',
+        type: AdvancedServiceType.obituaryGenerate,
+        note: 'test run',
+      );
+
+      expect(result.ok, isTrue);
+      expect(result.balanceAfter, 2);
+      expect(await service.getBalance('u-token'), 2);
+
+      final logs = await db.collection('users').doc('u-token').collection('tokenLogs').get();
+      expect(logs.docs.length, 1);
+      expect(logs.docs.first.data()['type'], 'consume');
+      expect(logs.docs.first.data()['service'], AdvancedServiceType.obituaryGenerate.name);
+    });
+
+    test('TokenWalletService consume fails when balance is insufficient', () async {
+      final db = FakeFirebaseFirestore();
+      final service = TokenWalletService(firestore: db);
+      await db.collection('users').doc('u-token-low').set({'tokenBalance': 0});
+
+      final result = await service.consume(
+        uid: 'u-token-low',
+        type: AdvancedServiceType.memorialPreview,
+      );
+
+      expect(result.ok, isFalse);
+      expect(result.balanceAfter, 0);
+      expect(result.message, contains('點數不足'));
+      final logs = await db.collection('users').doc('u-token-low').collection('tokenLogs').get();
+      expect(logs.docs, isEmpty);
+    });
+
+    test('TokenWalletService balance stream defaults to zero', () async {
+      final db = FakeFirebaseFirestore();
+      final service = TokenWalletService(firestore: db);
+      expect(await service.balanceStream('u-none').first, 0);
+    });
+
+    test('UserProfileService onboarding methods update profile correctly', () async {
+      final db = FakeFirebaseFirestore();
+      final service = UserProfileService(firestore: db);
+      const uid = 'u-profile';
+
+      await service.setSelectedService(uid, 'memorial');
+      await service.markOnboardingStep(uid, UserProfileService.onboardingStepFirstDraft);
+      // Re-marking an existing step should not duplicate it.
+      await service.markOnboardingStep(uid, UserProfileService.onboardingStepFirstDraft);
+
+      final profile = await service.getProfile(uid);
+      expect(
+        service.completedStepsCount(profile),
+        2,
+      );
+      final steps = (profile?['onboardingSteps'] as List<dynamic>).whereType<String>().toList();
+      expect(
+        steps.where((s) => s == UserProfileService.onboardingStepFirstDraft).length,
+        1,
+      );
+    });
+
+    test('UserProfileService profile stream emits null then value', () async {
+      final db = FakeFirebaseFirestore();
+      final service = UserProfileService(firestore: db);
+      const uid = 'u-stream';
+
+      expect(await service.profileStream(uid).first, isNull);
+
+      await db.collection('users').doc(uid).set({'role': 'user'});
+      final next = await service.profileStream(uid).first;
+      expect(next?['role'], 'user');
+    });
+
+    test('UserProfileService submits top up request with pending status', () async {
+      final db = FakeFirebaseFirestore();
+      final service = UserProfileService(firestore: db);
+
+      await service.submitTopUpRequest(
+        uid: 'u-topup',
+        requestedTokens: 20,
+        note: '  need more for family  ',
+      );
+
+      final docs = await db.collection('users').doc('u-topup').collection('topupRequests').get();
+      expect(docs.docs.length, 1);
+      final data = docs.docs.first.data();
+      expect(data['requestedTokens'], 20);
+      expect(data['status'], 'pending');
+      expect(data['note'], 'need more for family');
+      expect(data['createdAt'], isNotNull);
+      expect(data['updatedAt'], isNotNull);
+    });
+
+    test('UserProfileService completed steps ignores unknown values', () {
+      final service = UserProfileService(firestore: FakeFirebaseFirestore());
+      final profile = {
+        'onboardingSteps': [
+          UserProfileService.onboardingStepSelectService,
+          'unknown-step',
+          123,
+        ],
+      };
+      expect(service.completedStepsCount(profile), 1);
+      expect(service.completedStepsCount(null), 0);
     });
 
     test('UserComplianceSnapshot serializes summary fields', () {
