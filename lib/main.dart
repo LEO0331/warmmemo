@@ -1,15 +1,14 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'core/theme/motion_tokens.dart';
 import 'data/firebase/auth_service.dart';
 import 'firebase_options.dart';
 import 'features/auth/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await AuthService.instance.configurePersistence();
   runApp(const WarmMemoApp());
 }
@@ -34,11 +33,40 @@ class WarmMemoApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
     );
+    final textTheme = base.textTheme.copyWith(
+      displaySmall: base.textTheme.displaySmall?.copyWith(
+        fontSize: 30,
+        height: 1.15,
+        letterSpacing: -0.3,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        fontSize: 24,
+        height: 1.2,
+        fontWeight: FontWeight.w700,
+      ),
+      titleLarge: base.textTheme.titleLarge?.copyWith(
+        fontSize: 22,
+        height: 1.22,
+        fontWeight: FontWeight.w700,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontSize: 18,
+        height: 1.28,
+        fontWeight: FontWeight.w700,
+      ),
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.55),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        fontSize: 15,
+        height: 1.58,
+      ),
+    );
 
     return MaterialApp(
       title: '暖備 WarmMemo',
       debugShowCheckedModeBanner: false,
       theme: base.copyWith(
+        textTheme: textTheme,
         scaffoldBackgroundColor: warmSurface,
         visualDensity: VisualDensity.comfortable,
         materialTapTargetSize: MaterialTapTargetSize.padded,
@@ -61,7 +89,10 @@ class WarmMemoApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFFFFFDFB),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: warmOutline),
@@ -77,10 +108,14 @@ class WarmMemoApp extends StatelessWidget {
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: ButtonStyle(
-            animationDuration: const Duration(milliseconds: 160),
+            animationDuration: MotionTokens.button,
             backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.pressed)) return const Color(0xFFA45A39);
-              if (states.contains(WidgetState.hovered)) return const Color(0xFFB96543);
+              if (states.contains(WidgetState.pressed)) {
+                return const Color(0xFFA45A39);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFFB96543);
+              }
               return warmPrimary;
             }),
             foregroundColor: const WidgetStatePropertyAll(Colors.white),
@@ -94,8 +129,12 @@ class WarmMemoApp extends StatelessWidget {
               return null;
             }),
             elevation: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.pressed)) return 1;
-              if (states.contains(WidgetState.hovered)) return 3;
+              if (states.contains(WidgetState.pressed)) {
+                return 1;
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return 3;
+              }
               return 2;
             }),
             shape: WidgetStatePropertyAll(
@@ -109,10 +148,11 @@ class WarmMemoApp extends StatelessWidget {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: ButtonStyle(
-            animationDuration: const Duration(milliseconds: 160),
+            animationDuration: MotionTokens.button,
             foregroundColor: const WidgetStatePropertyAll(Color(0xFF7A4C39)),
             side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)) {
+              if (states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.pressed)) {
                 return const BorderSide(color: Color(0xFFCF9B79));
               }
               return const BorderSide(color: warmOutline);
@@ -136,16 +176,15 @@ class WarmMemoApp extends StatelessWidget {
           ),
         ),
         chipTheme: base.chipTheme.copyWith(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           side: const BorderSide(color: warmOutline),
           backgroundColor: const Color(0xFFFFFCFA),
           selectedColor: const Color(0xFFF8E5D8),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           labelPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-          labelStyle: const TextStyle(
-            color: Color(0xFF5A3D31),
-            height: 1.25,
-          ),
+          labelStyle: const TextStyle(color: Color(0xFF5A3D31), height: 1.25),
         ),
         listTileTheme: const ListTileThemeData(
           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),

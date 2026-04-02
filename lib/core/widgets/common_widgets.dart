@@ -1,11 +1,70 @@
 import 'package:flutter/material.dart';
 
-class AppearMotion extends StatefulWidget {
-  const AppearMotion({
+import '../theme/motion_tokens.dart';
+
+class WarmBackdrop extends StatelessWidget {
+  const WarmBackdrop({
     super.key,
     required this.child,
-    this.delayMs = 0,
+    this.padding = EdgeInsets.zero,
   });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF9F4), Color(0xFFFFF3EA), Color(0xFFFFF7F1)],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -80,
+                  right: -50,
+                  child: Container(
+                    width: 230,
+                    height: 230,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFFFDFC7).withValues(alpha: 0.38),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: -90,
+                  bottom: -110,
+                  child: Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFFFD7BE).withValues(alpha: 0.32),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(padding: padding, child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class AppearMotion extends StatefulWidget {
+  const AppearMotion({super.key, required this.child, this.delayMs = 0});
 
   final Widget child;
   final int delayMs;
@@ -29,15 +88,36 @@ class _AppearMotionState extends State<AppearMotion> {
   @override
   Widget build(BuildContext context) {
     return AnimatedSlide(
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
+      duration: MotionTokens.reveal,
+      curve: MotionTokens.enterCurve,
       offset: _visible ? Offset.zero : const Offset(0, 0.04),
       child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
+        duration: MotionTokens.reveal,
+        curve: MotionTokens.enterCurve,
         opacity: _visible ? 1 : 0,
         child: widget.child,
       ),
+    );
+  }
+}
+
+class StaggeredReveal extends StatelessWidget {
+  const StaggeredReveal({
+    super.key,
+    required this.index,
+    required this.child,
+    this.startDelayMs = MotionTokens.listStartDelayMs,
+  });
+
+  final int index;
+  final int startDelayMs;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppearMotion(
+      delayMs: MotionTokens.staggerDelay(index, start: startDelayMs),
+      child: child,
     );
   }
 }
@@ -61,7 +141,7 @@ class SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AppearMotion(
-      delayMs: motionDelayMs,
+      delayMs: motionDelayMs == 0 ? MotionTokens.sectionDelayMs : motionDelayMs,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
@@ -114,6 +194,126 @@ class SectionCard extends StatelessWidget {
   }
 }
 
+class PageHero extends StatelessWidget {
+  const PageHero({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.eyebrow,
+    this.icon = Icons.auto_awesome_outlined,
+    this.badges = const <String>[],
+  });
+
+  final String title;
+  final String subtitle;
+  final String? eyebrow;
+  final IconData icon;
+  final List<String> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppearMotion(
+      delayMs: MotionTokens.heroDelayMs,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFFDF9), Color(0xFFFFF3E8)],
+          ),
+          border: Border.all(color: const Color(0xFFE7D5C8)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A8A5D46),
+              blurRadius: 24,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (eyebrow != null && eyebrow!.trim().isNotEmpty)
+              Text(
+                eyebrow!,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF8A5A45),
+                ),
+              ),
+            if (eyebrow != null && eyebrow!.trim().isNotEmpty)
+              const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE7D4),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: const Color(0xFFB76643)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF4A3227),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: const Color(0xFF6B4B3C),
+              ),
+            ),
+            if (badges.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: badges
+                    .map(
+                      (label) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF8F0),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFE8D9CD)),
+                        ),
+                        child: Text(
+                          label,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: const Color(0xFF7A503E),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class Bullet extends StatelessWidget {
   const Bullet(this.text, {super.key});
 
@@ -157,8 +357,9 @@ class LabeledTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         TextFormField(
@@ -207,9 +408,10 @@ class _SkeletonBoxState extends State<SkeletonBox>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(begin: 0.55, end: 0.95).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      ),
+      opacity: Tween<double>(
+        begin: 0.55,
+        end: 0.95,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
       child: Container(
         width: widget.width,
         height: widget.height,

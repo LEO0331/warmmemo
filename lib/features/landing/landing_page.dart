@@ -8,9 +8,9 @@ class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
 
   void _openAuth(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AuthPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AuthPage()));
   }
 
   Widget _networkImage({
@@ -56,11 +56,7 @@ class LandingPage extends StatelessWidget {
         final resolvedW = (requested == null || requested.isInfinite)
             ? (maxW ?? 320.0)
             : requested;
-        final sized = SizedBox(
-          width: resolvedW,
-          height: height,
-          child: image,
-        );
+        final sized = SizedBox(width: resolvedW, height: height, child: image);
         if (borderRadius == null) return sized;
         return ClipRRect(borderRadius: borderRadius, child: sized);
       },
@@ -80,34 +76,36 @@ class LandingPage extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: SelectionArea(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHero(context, isWide),
-                const SizedBox(height: 24),
-                _buildFeatureRow(theme, isWide),
-                const SizedBox(height: 24),
-                _buildPhotoStrip(isWide),
-                const SizedBox(height: 24),
-                _buildPackageRow(theme, isWide),
-                const SizedBox(height: 24),
-                _buildProofRow(theme),
-                const SizedBox(height: 24),
-                _buildUseCasesSection(theme, isWide),
-                const SizedBox(height: 24),
-                _buildTrustSection(theme),
-                const SizedBox(height: 24),
-                _buildSearchResourceSection(theme),
-                const SizedBox(height: 24),
-                _buildFaqSection(),
-                const SizedBox(height: 24),
-                _buildCrawlableFaqText(theme),
-                const SizedBox(height: 24),
-                _buildFooter(theme, isWide),
-                const SizedBox(height: 32),
-              ],
+        child: WarmBackdrop(
+          child: SelectionArea(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHero(context, isWide),
+                  const SizedBox(height: 24),
+                  _buildFeatureRow(theme, isWide),
+                  const SizedBox(height: 24),
+                  _buildPhotoStrip(isWide),
+                  const SizedBox(height: 24),
+                  _buildPackageRow(theme, isWide),
+                  const SizedBox(height: 24),
+                  _buildProofRow(theme),
+                  const SizedBox(height: 24),
+                  _buildUseCasesSection(theme, isWide),
+                  const SizedBox(height: 24),
+                  _buildTrustSection(theme),
+                  const SizedBox(height: 24),
+                  _buildSearchResourceSection(theme),
+                  const SizedBox(height: 24),
+                  _buildFaqSection(),
+                  const SizedBox(height: 24),
+                  _buildCrawlableFaqText(theme),
+                  const SizedBox(height: 24),
+                  _buildFooter(theme, isWide),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           ),
         ),
@@ -131,12 +129,16 @@ class LandingPage extends StatelessWidget {
             children: [
               Text(
                 'WarmMemo 暖備',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 '提前整理重要資訊與通知草稿，讓家人在需要時能更快、更安心地完成安排。',
-                style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF5A3D31)),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF5A3D31),
+                ),
               ),
               const SizedBox(height: 14),
               Wrap(
@@ -148,7 +150,12 @@ class LandingPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('聯絡方式', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          '聯絡方式',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         const Bullet('客服信箱：support@warmmemo.example'),
                         const Bullet('服務時間：週一至週五 10:00–18:00'),
@@ -160,7 +167,12 @@ class LandingPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('功能與輸出', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          '功能與輸出',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         const Bullet('固定方案對照：清楚的項目與參考費用'),
                         const Bullet('紀念頁/訃聞草稿：分享連結與匯出圖片'),
@@ -173,7 +185,12 @@ class LandingPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('提醒', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          '提醒',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         const Bullet('本頁價格與方案為示意，實際以合作單位與地區條件為準。'),
                         const Bullet('請於重要決策前，與家人充分討論並保留書面紀錄。'),
@@ -187,7 +204,9 @@ class LandingPage extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 '© 2026 WarmMemo. All rights reserved.',
-                style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF6A4A3B)),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF6A4A3B),
+                ),
               ),
             ],
           ),
@@ -217,7 +236,12 @@ class LandingPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('WarmMemo', style: theme.textTheme.titleLarge?.copyWith(color: Colors.white)),
+              Text(
+                'WarmMemo',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                ),
+              ),
               TextButton(
                 onPressed: () => _openAuth(context),
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
@@ -228,13 +252,18 @@ class LandingPage extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             '提前建立完整身後通知計劃，讓親友在需要時能快速找到你想要的方式。',
-            style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             '暖備 WarmMemo 結合固定方案、數位訃聞與紀念頁創建，讓您在關鍵時刻把握清楚、懂得聲明意圖，\n'
             '並進一步透過通知追蹤與點擊統計確認訊息是否送達。',
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.92),
+            ),
           ),
           const SizedBox(height: 24),
           Wrap(
@@ -313,64 +342,66 @@ class LandingPage extends StatelessWidget {
                   (entry) => AppearMotion(
                     delayMs: 50 * entry.key,
                     child: Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8E5D8),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  entry.value['icon'] as IconData,
-                                  color: theme.colorScheme.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  entry.value['title'] as String,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8E5D8),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  child: Icon(
+                                    entry.value['icon'] as IconData,
+                                    color: theme.colorScheme.primary,
+                                    size: 20,
+                                  ),
                                 ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    entry.value['title'] as String,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Expanded(
+                              child: _networkImage(
+                                url: entry.value['image'] as String,
+                                width: double.infinity,
+                                height: 88,
+                                semanticLabel: '${entry.value['title']} 圖片',
+                                borderRadius: BorderRadius.circular(14),
+                                fit: BoxFit.cover,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: _networkImage(
-                              url: entry.value['image'] as String,
-                              width: double.infinity,
-                              height: 88,
-                              semanticLabel: '${entry.value['title']} 圖片',
-                              borderRadius: BorderRadius.circular(14),
-                              fit: BoxFit.cover,
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            entry.value['desc'] as String,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF5A3D31),
+                            const SizedBox(height: 10),
+                            Text(
+                              entry.value['desc'] as String,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: const Color(0xFF5A3D31),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                   ),
                 )
                 .toList(),
@@ -431,7 +462,9 @@ class LandingPage extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '依不同需求提供可對照的方案組合：清楚的服務範圍、參考價格與適用情境，方便家屬快速討論與決策。',
-            style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF5A3D31)),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF5A3D31),
+            ),
           ),
           const SizedBox(height: 12),
           GridView.count(
@@ -447,64 +480,69 @@ class LandingPage extends StatelessWidget {
                   (entry) => AppearMotion(
                     delayMs: 70 * entry.key,
                     child: Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _networkImage(
-                          url: entry.value['image'] as String,
-                          width: double.infinity,
-                          height: isWide ? 120 : 110,
-                          semanticLabel: '${entry.value['name']} 方案圖片',
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _networkImage(
+                            url: entry.value['image'] as String,
+                            width: double.infinity,
+                            height: isWide ? 120 : 110,
+                            semanticLabel: '${entry.value['name']} 方案圖片',
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              topRight: Radius.circular(16),
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      entry.value['name'] as String,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        entry.value['name'] as String,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    entry.value['price'] as String,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      entry.value['price'] as String,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: theme.colorScheme.primary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                entry.value['target'] as String,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFF5A3D31),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 10),
-                              ...((entry.value['bullets'] as List<dynamic>)
-                                  .cast<String>()
-                                  .map((text) => Bullet(text))),
-                            ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  entry.value['target'] as String,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF5A3D31),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                ...((entry.value['bullets'] as List<dynamic>)
+                                    .cast<String>()
+                                    .map((text) => Bullet(text))),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 )
                 .toList(),
@@ -590,14 +628,20 @@ class LandingPage extends StatelessWidget {
                   bottom: 12,
                   left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       caption,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -613,7 +657,13 @@ class LandingPage extends StatelessWidget {
   }
 
   Widget _buildProofRow(ThemeData theme) {
-    final logos = const ['CloudMetrics', 'Orbit', 'Vita Health', 'PetDesk', 'Notion'];
+    final logos = const [
+      'CloudMetrics',
+      'Orbit',
+      'Vita Health',
+      'PetDesk',
+      'Notion',
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SectionCard(
@@ -627,10 +677,13 @@ class LandingPage extends StatelessWidget {
             Wrap(
               spacing: 12,
               children: logos
-                  .map((logo) => Chip(
-                        label: Text(logo),
-                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                      ))
+                  .map(
+                    (logo) => Chip(
+                      label: Text(logo),
+                      backgroundColor:
+                          theme.colorScheme.surfaceContainerHighest,
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -641,18 +694,9 @@ class LandingPage extends StatelessWidget {
 
   Widget _buildUseCasesSection(ThemeData theme, bool isWide) {
     final cases = const [
-      {
-        'title': '異地家屬協作',
-        'desc': '兄弟姊妹不在同一城市，透過同一份草稿同步內容與通知。',
-      },
-      {
-        'title': '長輩可讀版本',
-        'desc': '把紀念頁匯出成 PDF/圖片，長輩可直接轉傳或列印保存。',
-      },
-      {
-        'title': '客服追蹤案件',
-        'desc': '後台可查看狀態、核對紀錄與通知進度，回覆更即時。',
-      },
+      {'title': '異地家屬協作', 'desc': '兄弟姊妹不在同一城市，透過同一份草稿同步內容與通知。'},
+      {'title': '長輩可讀版本', 'desc': '把紀念頁匯出成 PDF/圖片，長輩可直接轉傳或列印保存。'},
+      {'title': '客服追蹤案件', 'desc': '後台可查看狀態、核對紀錄與通知進度，回覆更即時。'},
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -679,7 +723,9 @@ class LandingPage extends StatelessWidget {
                     children: [
                       Text(
                         item['title']!,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(item['desc']!, style: theme.textTheme.bodySmall),
@@ -702,10 +748,7 @@ class LandingPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '我們重視資料安全與可控性，以下資訊會清楚告知：',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text('我們重視資料安全與可控性，以下資訊會清楚告知：', style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
             const Bullet('資料隱私：僅本人與授權管理員可讀取。'),
             const Bullet('保存期限：依服務方案與設定保留，可申請延長。'),
@@ -725,22 +768,23 @@ class LandingPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '以下主題頁提供更完整內容，方便搜尋與快速理解：',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text('以下主題頁提供更完整內容，方便搜尋與快速理解：', style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => _openExternal('https://leo0331.github.io/warmmemo/obituary-guide.html'),
+                  onPressed: () => _openExternal(
+                    'https://leo0331.github.io/warmmemo/obituary-guide.html',
+                  ),
                   icon: const Icon(Icons.campaign_outlined),
                   label: const Text('數位訃聞教學'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => _openExternal('https://leo0331.github.io/warmmemo/package-comparison.html'),
+                  onPressed: () => _openExternal(
+                    'https://leo0331.github.io/warmmemo/package-comparison.html',
+                  ),
                   icon: const Icon(Icons.compare_arrows_outlined),
                   label: const Text('固定方案比較'),
                 ),
@@ -754,18 +798,9 @@ class LandingPage extends StatelessWidget {
 
   Widget _buildFaqSection() {
     final faqs = const [
-      {
-        'q': '我可以更改語氣與渠道嗎？',
-        'a': '可以，在數位訃聞與通知設定中選擇語氣、渠道與額外說明，系統會跟著更新草稿與通知紀錄。'
-      },
-      {
-        'q': '匯出紀錄可以留給家人嗎？',
-        'a': '管理端可匯出 PDF/CSV、草稿與通知歷史作記錄，合規與保存都由您掌握。'
-      },
-      {
-        'q': '有專人協助我設定嗎？',
-        'a': '不論您是個人家庭還是禮儀團隊，我們都有方案與客服協助啟動與 FAQ 解答。'
-      },
+      {'q': '我可以更改語氣與渠道嗎？', 'a': '可以，在數位訃聞與通知設定中選擇語氣、渠道與額外說明，系統會跟著更新草稿與通知紀錄。'},
+      {'q': '匯出紀錄可以留給家人嗎？', 'a': '管理端可匯出 PDF/CSV、草稿與通知歷史作記錄，合規與保存都由您掌握。'},
+      {'q': '有專人協助我設定嗎？', 'a': '不論您是個人家庭還是禮儀團隊，我們都有方案與客服協助啟動與 FAQ 解答。'},
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -777,10 +812,12 @@ class LandingPage extends StatelessWidget {
               .map(
                 (faq) => ExpansionTile(
                   title: Text(faq['q']!),
-                  children: [Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(faq['a']!),
-                  )],
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(faq['a']!),
+                    ),
+                  ],
                 ),
               )
               .toList(),
@@ -791,18 +828,9 @@ class LandingPage extends StatelessWidget {
 
   Widget _buildCrawlableFaqText(ThemeData theme) {
     const items = [
-      {
-        'q': 'WarmMemo 可以做什麼？',
-        'a': '可建立數位訃聞、簡易紀念頁、追蹤訂單與通知狀態，並匯出 PDF/圖片。'
-      },
-      {
-        'q': '點數如何使用？',
-        'a': '新註冊贈送 5 點，進階功能如生成、重寫、匯出會扣點，點數不足可提交加值申請。'
-      },
-      {
-        'q': '如何確認資料安全？',
-        'a': '系統採 Firebase 權限控管，僅本人與授權管理員可存取相關資料。'
-      },
+      {'q': 'WarmMemo 可以做什麼？', 'a': '可建立數位訃聞、簡易紀念頁、追蹤訂單與通知狀態，並匯出 PDF/圖片。'},
+      {'q': '點數如何使用？', 'a': '新註冊贈送 5 點，進階功能如生成、重寫、匯出會扣點，點數不足可提交加值申請。'},
+      {'q': '如何確認資料安全？', 'a': '系統採 Firebase 權限控管，僅本人與授權管理員可存取相關資料。'},
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -818,9 +846,17 @@ class LandingPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item['q']!, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        item['q']!,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      SelectableText(item['a']!, style: theme.textTheme.bodySmall),
+                      SelectableText(
+                        item['a']!,
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),

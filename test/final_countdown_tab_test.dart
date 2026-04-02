@@ -94,4 +94,33 @@ void main() {
     expect(currentAge.controller?.text, '40');
     expect(find.textContaining('差額（資產 - 支出）：NT\$ 400'), findsOneWidget);
   });
+
+  testWidgets('quick add and delete item updates list', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final beforeDeleteButtons = find.byTooltip('刪除');
+    final beforeCount = tester.widgetList<IconButton>(beforeDeleteButtons).length;
+
+    await tester.scrollUntilVisible(
+      find.text('加入旅行'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('加入旅行'));
+    await tester.pumpAndSettle();
+
+    final afterAddCount = tester.widgetList<IconButton>(find.byTooltip('刪除')).length;
+    expect(afterAddCount, greaterThan(beforeCount));
+
+    await tester.scrollUntilVisible(
+      find.byTooltip('刪除').last,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byTooltip('刪除').last);
+    await tester.pumpAndSettle();
+    final afterDeleteCount = tester.widgetList<IconButton>(find.byTooltip('刪除')).length;
+    expect(afterDeleteCount, afterAddCount - 1);
+  });
 }

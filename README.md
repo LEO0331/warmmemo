@@ -8,8 +8,8 @@ WarmMemo is a Flutter Web + Firebase app for memorial drafting, package checkout
 - `flutter analyze`: pass
 - `flutter test --coverage`: pass
 - Latest coverage snapshot:
-  - Overall line coverage: `89.22%`
-  - `lib/data/services/*` line coverage: `86.24%`
+  - Overall line coverage: `90.46%`
+  - `lib/data/services/*` line coverage: `86.37%`
 
 ## Key Features
 

@@ -60,4 +60,31 @@ void main() {
     await tester.pump();
     expect(find.text('完成'), findsOneWidget);
   });
+
+  testWidgets('AppFeedback info tone works without action', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: FilledButton(
+                onPressed: () {
+                  AppFeedback.show(
+                    context,
+                    message: '資訊提示',
+                    tone: FeedbackTone.info,
+                  );
+                },
+                child: const Text('show3'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('show3'));
+    await tester.pump();
+    expect(find.text('資訊提示'), findsOneWidget);
+  });
 }

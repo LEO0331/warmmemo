@@ -309,6 +309,35 @@ void main() {
       expect(doc.data()?['status'], 'complete');
     });
 
+    test('PurchaseService adminOrdersPage returns items and cursor', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+
+      await purchaseService.createOrder(
+        uid: 'u-page',
+        purchase: Purchase(
+          planName: 'PageA',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+        ),
+      );
+      await purchaseService.createOrder(
+        uid: 'u-page',
+        purchase: Purchase(
+          planName: 'PageB',
+          priceLabel: 'NT\$ 150,000',
+          priceAmount: 150000,
+          status: 'pending',
+        ),
+      );
+
+      final page = await purchaseService.adminOrdersPage(limit: 1);
+      expect(page.items, isNotEmpty);
+      expect(page.cursor, isNotNull);
+      expect(page.items.first.userId, 'u-page');
+    });
+
     test('PurchaseService updateOrder returns early when id is null', () async {
       final db = FakeFirebaseFirestore();
       final purchaseService = PurchaseService(firestore: db);
@@ -656,6 +685,68 @@ void main() {
       expect(service.isEmailPasswordUser(service.currentUser!), isTrue);
       await service.signOut();
       expect(service.currentUser, isNull);
+    });
+
+    test('AuthService isAdmin returns false when no current user', () async {
+      final auth = MockFirebaseAuth(signedIn: false);
+      final service = AuthService(
+        auth: auth,
+        ensureUserProfile: (_) async {},
+      );
+      expect(await service.isAdmin, isFalse);
+    });
+
+    test('AuthService isAdmin reflects id token admin claim', () async {
+      final adminAuth = MockFirebaseAuth(
+        mockUser: MockUser(uid: 'admin1', customClaim: {'admin': true}),
+        signedIn: true,
+      );
+      final adminService = AuthService(
+        auth: adminAuth,
+        ensureUserProfile: (_) async {},
+      );
+      expect(await adminService.isAdmin, isTrue);
+
+      final userAuth = MockFirebaseAuth(
+        mockUser: MockUser(uid: 'user1', customClaim: {'admin': false}),
+        signedIn: true,
+      );
+      final userService = AuthService(
+        auth: userAuth,
+        ensureUserProfile: (_) async {},
+      );
+      expect(await userService.isAdmin, isFalse);
+    });
+
+    test('AuthService signUp does not fail when ensure profile throws', () async {
+      final auth = MockFirebaseAuth(
+        mockUser: MockUser(uid: 'u-throw', email: 'u-throw@test.com'),
+      );
+      final service = AuthService(
+        auth: auth,
+        ensureUserProfile: (_) async {
+          throw Exception('permission-denied');
+        },
+      );
+      final credential = await service.signUp(
+        email: 'u-throw@test.com',
+        password: '123456',
+      );
+      expect(credential.user, isNotNull);
+      expect(service.currentUser, isNotNull);
+    });
+
+    test('AuthService authStateChanges stream emits signed in user', () async {
+      final auth = MockFirebaseAuth(
+        mockUser: MockUser(uid: 'u-stream', email: 'u-stream@test.com'),
+        signedIn: true,
+      );
+      final service = AuthService(
+        auth: auth,
+        ensureUserProfile: (_) async {},
+      );
+      final user = await service.authStateChanges.firstWhere((u) => u != null);
+      expect(user?.uid, 'u-stream');
     });
 
     test('TokenWalletService consumes token and writes token log', () async {

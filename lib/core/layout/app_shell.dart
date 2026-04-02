@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../theme/motion_tokens.dart';
+import '../widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_profile_service.dart';
@@ -30,7 +32,8 @@ class _NavItem {
   final Widget widget;
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell>
+    with SingleTickerProviderStateMixin {
   final List<_NavItem> _baseDestinations = const [
     _NavItem('流程總覽', Icons.map_outlined, OverviewTab()),
     _NavItem('人生倒數', Icons.hourglass_bottom_outlined, FinalCountdownTab()),
@@ -38,14 +41,20 @@ class _AppShellState extends State<AppShell> {
     _NavItem('簡易紀念頁', Icons.person_outline, MemorialPageTab()),
     _NavItem('數位訃聞', Icons.campaign_outlined, DigitalObituaryTab()),
   ];
-  static const _adminDestination =
-      _NavItem('Admin', Icons.admin_panel_settings, AdminDashboard());
+  static const _adminDestination = _NavItem(
+    'Admin',
+    Icons.admin_panel_settings,
+    AdminDashboard(),
+  );
 
   bool _isAdmin = false;
   bool _loadingRole = true;
   bool _onboardingPrompted = false;
   int _selectedIndex = 0;
   StreamSubscription<String>? _roleSub;
+  int? _queuedTabIndex;
+  bool _isSwitchingTab = false;
+  late final AnimationController _tabFadeController;
 
   List<_NavItem> get _destinations {
     if (_isAdmin) {
@@ -59,6 +68,11 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex < 0 ? 0 : widget.initialIndex;
+    _tabFadeController = AnimationController(
+      vsync: this,
+      duration: MotionTokens.button,
+      value: 1,
+    );
     _listenForRole();
   }
 
@@ -66,32 +80,34 @@ class _AppShellState extends State<AppShell> {
     final user = AuthService.instance.currentUser;
     if (user == null) return;
     _roleSub?.cancel();
-    _roleSub = UserRoleService.instance.roleStream(user.uid).listen(
-      (role) {
-        if (!mounted) return;
-        setState(() {
-          _isAdmin = role == 'admin';
-          _loadingRole = false;
-          if (_selectedIndex >= _destinations.length) {
-            _selectedIndex = _destinations.length - 1;
-          }
-        });
-        if (!_isAdmin && !_onboardingPrompted) {
-          _onboardingPrompted = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+    _roleSub = UserRoleService.instance
+        .roleStream(user.uid)
+        .listen(
+          (role) {
             if (!mounted) return;
-            _showOnboardingIfNeeded(user.uid);
-          });
-        }
-      },
-      onError: (_) {
-        if (!mounted) return;
-        setState(() {
-          _loadingRole = false;
-          _isAdmin = false;
-        });
-      },
-    );
+            setState(() {
+              _isAdmin = role == 'admin';
+              _loadingRole = false;
+              if (_selectedIndex >= _destinations.length) {
+                _selectedIndex = _destinations.length - 1;
+              }
+            });
+            if (!_isAdmin && !_onboardingPrompted) {
+              _onboardingPrompted = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                _showOnboardingIfNeeded(user.uid);
+              });
+            }
+          },
+          onError: (_) {
+            if (!mounted) return;
+            setState(() {
+              _loadingRole = false;
+              _isAdmin = false;
+            });
+          },
+        );
     try {
       await UserRoleService.instance.ensureUserProfile(user);
     } catch (_) {
@@ -105,6 +121,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _tabFadeController.dispose();
     _roleSub?.cancel();
     super.dispose();
   }
@@ -112,9 +129,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     if (_loadingRole) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final destinations = _destinations;
@@ -133,22 +148,32 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
       drawer: isWide ? null : Drawer(child: _buildDrawerContent(destinations)),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFBF8), Color(0xFFFFF4EC)],
-          ),
-        ),
+      body: WarmBackdrop(
         child: Row(
           children: [
             if (isWide) _buildSidebar(destinations),
             Expanded(
               child: SelectionArea(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: destinations.map((dest) => dest.widget).toList(),
+                child: AnimatedBuilder(
+                  animation: _tabFadeController,
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: destinations.map((dest) => dest.widget).toList(),
+                  ),
+                  builder: (context, child) {
+                    final curved = CurvedAnimation(
+                      parent: _tabFadeController,
+                      curve: MotionTokens.gentleCurve,
+                    );
+                    final dy = (1 - curved.value) * 8;
+                    return FadeTransition(
+                      opacity: curved,
+                      child: Transform.translate(
+                        offset: Offset(0, dy),
+                        child: child,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -168,7 +193,9 @@ class _AppShellState extends State<AppShell> {
           colors: [Color(0xFFFFF6EF), Color(0xFFFFEFE2)],
         ),
         border: Border(
-          right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          right: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
       ),
       child: Column(
@@ -178,11 +205,17 @@ class _AppShellState extends State<AppShell> {
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
-                  Icon(Icons.fireplace, size: 48, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.fireplace,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'WarmMemo',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -198,14 +231,21 @@ class _AppShellState extends State<AppShell> {
                 final item = destinations[index];
                 final selected = index == _selectedIndex;
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   child: ListTile(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    tileColor: selected ? const Color(0xFFF8E5D8) : Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    tileColor: selected
+                        ? const Color(0xFFF8E5D8)
+                        : Colors.transparent,
                     leading: Icon(item.icon),
                     title: Text(item.label),
                     selected: selected,
-                    onTap: () => setState(() => _selectedIndex = index),
+                    onTap: () => _switchTab(index),
                   ),
                 );
               },
@@ -243,9 +283,11 @@ class _AppShellState extends State<AppShell> {
               leading: Icon(item.icon),
               title: Text(item.label),
               selected: index == _selectedIndex,
-              onTap: () {
-                setState(() => _selectedIndex = index);
-                Navigator.of(context).maybePop();
+              onTap: () async {
+                final navigator = Navigator.of(context);
+                await _switchTab(index);
+                if (!mounted) return;
+                navigator.maybePop();
               },
             );
           }),
@@ -277,7 +319,9 @@ class _AppShellState extends State<AppShell> {
             avatar: const Icon(Icons.toll_outlined, size: 18),
             label: Text('點數 $tokens'),
             backgroundColor: const Color(0xFFF8E5D8),
-            side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           );
         },
       ),
@@ -309,7 +353,7 @@ class _AppShellState extends State<AppShell> {
       setState(() {});
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 280));
+    await Future<void>.delayed(MotionTokens.button);
     if (!mounted) return;
 
     await showGeneralDialog<void>(
@@ -317,16 +361,21 @@ class _AppShellState extends State<AppShell> {
       barrierLabel: '首次引導',
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.22),
-      transitionDuration: const Duration(milliseconds: 320),
+      transitionDuration: MotionTokens.dialog,
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return StreamBuilder<Map<String, dynamic>?>(
           stream: UserProfileService.instance.profileStream(uid),
           builder: (context, snapshot) {
             final data = snapshot.data ?? profile ?? const <String, dynamic>{};
             final steps =
-                (data['onboardingSteps'] as List<dynamic>? ?? const []).whereType<String>().toSet();
-            final completed = UserProfileService.instance.completedStepsCount(data);
-            final selectedService = data['onboardingSelectedService'] as String?;
+                (data['onboardingSteps'] as List<dynamic>? ?? const [])
+                    .whereType<String>()
+                    .toSet();
+            final completed = UserProfileService.instance.completedStepsCount(
+              data,
+            );
+            final selectedService =
+                data['onboardingSelectedService'] as String?;
 
             Widget stepTile({
               required String title,
@@ -334,15 +383,22 @@ class _AppShellState extends State<AppShell> {
               Widget? action,
             }) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: done ? const Color(0xFFEAF5EC) : const Color(0xFFFFF4EC),
+                  color: done
+                      ? const Color(0xFFEAF5EC)
+                      : const Color(0xFFFFF4EC),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      done ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+                      done
+                          ? Icons.check_circle_outline
+                          : Icons.radio_button_unchecked,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -372,14 +428,25 @@ class _AppShellState extends State<AppShell> {
                               title: selectedService == null
                                   ? '1) 選擇想優先使用的服務'
                                   : '1) 已選擇服務：$selectedService',
-                              done: steps.contains(UserProfileService.onboardingStepSelectService),
+                              done: steps.contains(
+                                UserProfileService.onboardingStepSelectService,
+                              ),
                               action: selectedService == null
                                   ? PopupMenuButton<String>(
                                       onSelected: chooseService,
                                       itemBuilder: (_) => const [
-                                        PopupMenuItem(value: '固定方案', child: Text('固定方案')),
-                                        PopupMenuItem(value: '簡易紀念頁', child: Text('簡易紀念頁')),
-                                        PopupMenuItem(value: '數位訃聞', child: Text('數位訃聞')),
+                                        PopupMenuItem(
+                                          value: '固定方案',
+                                          child: Text('固定方案'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: '簡易紀念頁',
+                                          child: Text('簡易紀念頁'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: '數位訃聞',
+                                          child: Text('數位訃聞'),
+                                        ),
                                       ],
                                       child: const Text('選擇'),
                                     )
@@ -388,13 +455,20 @@ class _AppShellState extends State<AppShell> {
                             const SizedBox(height: 8),
                             stepTile(
                               title: '2) 生成第一份草稿（在紀念頁或訃聞頁）',
-                              done: steps.contains(UserProfileService.onboardingStepFirstDraft),
+                              done: steps.contains(
+                                UserProfileService.onboardingStepFirstDraft,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             stepTile(
                               title: '3) 看到剩餘 token',
-                              done: steps.contains(UserProfileService.onboardingStepTokenSeen),
-                              action: steps.contains(UserProfileService.onboardingStepTokenSeen)
+                              done: steps.contains(
+                                UserProfileService.onboardingStepTokenSeen,
+                              ),
+                              action:
+                                  steps.contains(
+                                    UserProfileService.onboardingStepTokenSeen,
+                                  )
                                   ? null
                                   : TextButton(
                                       onPressed: markTokenSeen,
@@ -419,7 +493,10 @@ class _AppShellState extends State<AppShell> {
         );
       },
       transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutSine);
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: MotionTokens.gentleCurve,
+        );
         return FadeTransition(
           opacity: curved,
           child: ScaleTransition(
@@ -429,5 +506,28 @@ class _AppShellState extends State<AppShell> {
         );
       },
     );
+  }
+
+  Future<void> _switchTab(int index) async {
+    if (index == _selectedIndex) return;
+    if (index < 0 || index >= _destinations.length) return;
+    if (_isSwitchingTab) {
+      _queuedTabIndex = index;
+      return;
+    }
+    _isSwitchingTab = true;
+    try {
+      await _tabFadeController.reverse();
+      if (!mounted) return;
+      setState(() => _selectedIndex = index);
+      await _tabFadeController.forward();
+    } finally {
+      _isSwitchingTab = false;
+      final queued = _queuedTabIndex;
+      _queuedTabIndex = null;
+      if (queued != null && queued != _selectedIndex && mounted) {
+        await _switchTab(queued);
+      }
+    }
   }
 }

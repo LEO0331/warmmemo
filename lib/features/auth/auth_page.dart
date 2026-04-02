@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/widgets/app_feedback.dart';
+import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({
-    super.key,
-    this.signIn,
-    this.signUp,
-  });
+  const AuthPage({super.key, this.signIn, this.signUp});
 
   final Future<void> Function(String email, String password)? signIn;
   final Future<void> Function(String email, String password)? signUp;
@@ -46,7 +43,9 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _submit({required bool isLogin}) async {
-    final form = isLogin ? _loginFormKey.currentState : _registerFormKey.currentState;
+    final form = isLogin
+        ? _loginFormKey.currentState
+        : _registerFormKey.currentState;
     if (form == null || !form.validate()) {
       setState(() => _error = '請先修正欄位錯誤後再送出。');
       return;
@@ -57,73 +56,55 @@ class _AuthPageState extends State<AuthPage> {
       _error = null;
     });
 
-      try {
-        if (isLogin) {
-          final email = _loginEmail.text.trim();
-          final password = _loginPassword.text.trim();
-          if (widget.signIn != null) {
-            await widget.signIn!(email, password);
-          } else {
-            await AuthService.instance.signIn(
-              email: email,
-              password: password,
-            );
-          }
+    try {
+      if (isLogin) {
+        final email = _loginEmail.text.trim();
+        final password = _loginPassword.text.trim();
+        if (widget.signIn != null) {
+          await widget.signIn!(email, password);
         } else {
-          final email = _registerEmail.text.trim();
-          final password = _registerPassword.text.trim();
-          if (widget.signUp != null) {
-            await widget.signUp!(email, password);
-          } else {
-            await AuthService.instance.signUp(
-              email: email,
-              password: password,
-            );
-          }
+          await AuthService.instance.signIn(email: email, password: password);
         }
-        if (mounted) {
-          AppFeedback.show(
-            context,
-            message: isLogin ? '登入成功，歡迎回來。' : '註冊成功，歡迎加入 WarmMemo。',
-            tone: FeedbackTone.success,
-          );
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-      } on FirebaseAuthException catch (e) {
-        final message = _friendlyAuthError(e);
-        setState(() => _error = message);
-        if (mounted) {
-          AppFeedback.show(
-            context,
-            message: message,
-            tone: FeedbackTone.error,
-          );
-        }
-      } on FirebaseException catch (e) {
-        final message = _friendlyFirebaseError(e);
-        setState(() => _error = message);
-        if (mounted) {
-          AppFeedback.show(
-            context,
-            message: message,
-            tone: FeedbackTone.error,
-          );
-        }
-      } catch (_) {
-        const message = '發生未知錯誤，請稍後再試。';
-        setState(() => _error = message);
-        if (mounted) {
-          AppFeedback.show(
-            context,
-            message: message,
-            tone: FeedbackTone.error,
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isProcessing = false);
+      } else {
+        final email = _registerEmail.text.trim();
+        final password = _registerPassword.text.trim();
+        if (widget.signUp != null) {
+          await widget.signUp!(email, password);
+        } else {
+          await AuthService.instance.signUp(email: email, password: password);
         }
       }
+      if (mounted) {
+        AppFeedback.show(
+          context,
+          message: isLogin ? '登入成功，歡迎回來。' : '註冊成功，歡迎加入 WarmMemo。',
+          tone: FeedbackTone.success,
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } on FirebaseAuthException catch (e) {
+      final message = _friendlyAuthError(e);
+      setState(() => _error = message);
+      if (mounted) {
+        AppFeedback.show(context, message: message, tone: FeedbackTone.error);
+      }
+    } on FirebaseException catch (e) {
+      final message = _friendlyFirebaseError(e);
+      setState(() => _error = message);
+      if (mounted) {
+        AppFeedback.show(context, message: message, tone: FeedbackTone.error);
+      }
+    } catch (_) {
+      const message = '發生未知錯誤，請稍後再試。';
+      setState(() => _error = message);
+      if (mounted) {
+        AppFeedback.show(context, message: message, tone: FeedbackTone.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
   String? _validateEmail(String? value) {
@@ -224,55 +205,72 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: DefaultTabController(
-          length: 2,
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                'WarmMemo 登入',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              TabBar(
-                tabs: const [Tab(text: '登入'), Tab(text: '註冊')],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildForm(
-                      formKey: _loginFormKey,
-                      emailController: _loginEmail,
-                      passwordController: _loginPassword,
-                      emailFocus: _loginEmailFocus,
-                      passwordFocus: _loginPasswordFocus,
-                      title: '登入',
-                      onSubmit: () => _submit(isLogin: true),
-                    ),
-                    _buildForm(
-                      formKey: _registerFormKey,
-                      emailController: _registerEmail,
-                      passwordController: _registerPassword,
-                      emailFocus: _registerEmailFocus,
-                      passwordFocus: _registerPasswordFocus,
-                      title: '註冊',
-                      onSubmit: () => _submit(isLogin: false),
-                    ),
+      body: WarmBackdrop(
+        child: SafeArea(
+          child: DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: PageHero(
+                    eyebrow: 'Account',
+                    icon: Icons.lock_outline,
+                    title: 'WarmMemo 登入',
+                    subtitle: '使用 Email / Password 登入，繼續你的草稿、方案與通知狀態。',
+                    badges: ['安全登入', '角色分流', '跨裝置可用'],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TabBar(
+                  tabs: const [
+                    Tab(text: '登入'),
+                    Tab(text: '註冊'),
                   ],
                 ),
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildForm(
+                        formKey: _loginFormKey,
+                        emailController: _loginEmail,
+                        passwordController: _loginPassword,
+                        emailFocus: _loginEmailFocus,
+                        passwordFocus: _loginPasswordFocus,
+                        title: '登入',
+                        onSubmit: () => _submit(isLogin: true),
+                      ),
+                      _buildForm(
+                        formKey: _registerFormKey,
+                        emailController: _registerEmail,
+                        passwordController: _registerPassword,
+                        emailFocus: _registerEmailFocus,
+                        passwordFocus: _registerPasswordFocus,
+                        title: '註冊',
+                        onSubmit: () => _submit(isLogin: false),
+                      ),
+                    ],
+                  ),
                 ),
-              if (_isProcessing)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: CircularProgressIndicator(),
-                ),
-            ],
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                if (_isProcessing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: CircularProgressIndicator(),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

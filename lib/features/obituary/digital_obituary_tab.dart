@@ -90,11 +90,7 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
 
   List<String> _scanQualityWarnings(String text) {
     final warnings = <String>[];
-    final bannedWords = <String>[
-      '保證',
-      '最便宜',
-      '立刻成交',
-    ];
+    final bannedWords = <String>['保證', '最便宜', '立刻成交'];
     for (final word in bannedWords) {
       if (text.contains(word)) {
         warnings.add('文案含敏感商業字詞：$word');
@@ -113,7 +109,10 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
     if (_generatedText.trim().isEmpty) return;
     final compact = _generatedText
         .replaceAll('，誠摯邀請曾與他（她）有緣的朋友，一同以祝福與思念送他（她）最後一程。', '誠摯邀請親友出席，一同追思與祝福。')
-        .replaceAll('敬請以祝福代替過多關心，讓家屬有空間整理心情。感謝您與我們一同紀念他（她）的一生。', '敬請以祝福代替奠儀，感謝關心。');
+        .replaceAll(
+          '敬請以祝福代替過多關心，讓家屬有空間整理心情。感謝您與我們一同紀念他（她）的一生。',
+          '敬請以祝福代替奠儀，感謝關心。',
+        );
     setState(() {
       _generatedText = compact;
       _qualityWarnings = _scanQualityWarnings(compact);
@@ -124,269 +123,276 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      child: SelectionArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            Text(
-              '數位訃聞草稿工具',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '協助家屬打造清楚的訃聞內容，完成後可立即生成分享文、PDF、圖片或 QR code，讓通知快速觸達親友。',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '進階服務採用點數制，新註冊贈送 5 點，每次生成/重寫/匯出會扣 1 點。',
-              style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF7A4C39)),
-            ),
-            const SizedBox(height: 16),
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  LabeledTextField(
-                    label: '往生者姓名（必填）',
-                    controller: _deceasedNameController,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? '請輸入姓名' : null,
-                  ),
-                  const SizedBox(height: 8),
-                  LabeledTextField(
-                    label: '發文人身分（例如：家屬、長子、長女…）',
-                    controller: _relationshipController,
-                  ),
-                  const SizedBox(height: 8),
-                  LabeledTextField(
-                    label: '告別／追思儀式地點',
-                    controller: _locationController,
-                  ),
-                  const SizedBox(height: 8),
-                  LabeledTextField(
-                    label: '日期與時間（例如：4/20（日）上午 10:00）',
-                    controller: _serviceDateController,
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '希望的語氣',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
+    return WarmBackdrop(
+      child: SafeArea(
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const PageHero(
+                  eyebrow: 'Obituary',
+                  icon: Icons.campaign_outlined,
+                  title: '數位訃聞草稿工具',
+                  subtitle: '協助家屬打造清楚訃聞內容，完成後可生成分享文、PDF、圖片或 QR code，快速通知親友。',
+                  badges: ['清楚通知', '語氣模板', '多格式輸出'],
+                ),
+                const SizedBox(height: 16),
+                Form(
+                  key: _formKey,
+                  child: Column(
                     children: [
-                      ChoiceChip(
-                        label: const Text('模板 v2（推薦）'),
-                        selected: _templateVersion == 'v2',
-                        onSelected: (_) => setState(() => _templateVersion = 'v2'),
+                      LabeledTextField(
+                        label: '往生者姓名（必填）',
+                        controller: _deceasedNameController,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? '請輸入姓名' : null,
                       ),
-                      ChoiceChip(
-                        label: const Text('模板 v1（簡潔）'),
-                        selected: _templateVersion == 'v1',
-                        onSelected: (_) => setState(() => _templateVersion = 'v1'),
+                      const SizedBox(height: 8),
+                      LabeledTextField(
+                        label: '發文人身分（例如：家屬、長子、長女…）',
+                        controller: _relationshipController,
+                      ),
+                      const SizedBox(height: 8),
+                      LabeledTextField(
+                        label: '告別／追思儀式地點',
+                        controller: _locationController,
+                      ),
+                      const SizedBox(height: 8),
+                      LabeledTextField(
+                        label: '日期與時間（例如：4/20（日）上午 10:00）',
+                        controller: _serviceDateController,
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '希望的語氣',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('模板 v2（推薦）'),
+                            selected: _templateVersion == 'v2',
+                            onSelected: (_) =>
+                                setState(() => _templateVersion = 'v2'),
+                          ),
+                          ChoiceChip(
+                            label: const Text('模板 v1（簡潔）'),
+                            selected: _templateVersion == 'v1',
+                            onSelected: (_) =>
+                                setState(() => _templateVersion = 'v1'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('溫和正式'),
+                            selected: _tone == '溫和正式',
+                            onSelected: (_) {
+                              setState(() => _tone = '溫和正式');
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('宗教色彩'),
+                            selected: _tone == '宗教色彩',
+                            onSelected: (_) {
+                              setState(() => _tone = '宗教色彩');
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('極簡通知'),
+                            selected: _tone == '極簡通知',
+                            onSelected: (_) {
+                              setState(() => _tone = '極簡通知');
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      LabeledTextField(
+                        label: '額外想補充的說明（例如：不收奠儀、改以捐款⋯）',
+                        controller: _customNoteController,
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.auto_fix_high_outlined),
+                          label: const Text('產生訃聞文案'),
+                          onPressed: () async {
+                            if (_templateVersion == 'v1' && _tone == '溫和正式') {
+                              setState(() => _tone = '極簡通知');
+                            }
+                            final ok = await _consumeTokenOrShowTopUp(
+                              AdvancedServiceType.obituaryGenerate,
+                            );
+                            if (!ok) return;
+                            _generateObituary();
+                            await _saveDraft();
+                            final uid = AuthService.instance.currentUser?.uid;
+                            if (uid != null) {
+                              await UserProfileService.instance
+                                  .markOnboardingStep(
+                                    uid,
+                                    UserProfileService.onboardingStepFirstDraft,
+                                  );
+                            }
+                          },
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      ChoiceChip(
-                        label: const Text('溫和正式'),
-                        selected: _tone == '溫和正式',
-                        onSelected: (_) {
-                          setState(() => _tone = '溫和正式');
-                        },
+                ),
+                const SizedBox(height: 24),
+                if (_generatedText.isNotEmpty)
+                  RepaintBoundary(
+                    key: _previewKey,
+                    child: Card(
+                      elevation: 0,
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      ChoiceChip(
-                        label: const Text('宗教色彩'),
-                        selected: _tone == '宗教色彩',
-                        onSelected: (_) {
-                          setState(() => _tone = '宗教色彩');
-                        },
-                      ),
-                      ChoiceChip(
-                        label: const Text('極簡通知'),
-                        selected: _tone == '極簡通知',
-                        onSelected: (_) {
-                          setState(() => _tone = '極簡通知');
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  LabeledTextField(
-                    label: '額外想補充的說明（例如：不收奠儀、改以捐款⋯）',
-                    controller: _customNoteController,
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.auto_fix_high_outlined),
-                      label: const Text('產生訃聞文案'),
-                      onPressed: () async {
-                        if (_templateVersion == 'v1' && _tone == '溫和正式') {
-                          setState(() => _tone = '極簡通知');
-                        }
-                        final ok = await _consumeTokenOrShowTopUp(
-                          AdvancedServiceType.obituaryGenerate,
-                        );
-                        if (!ok) return;
-                        _generateObituary();
-                        await _saveDraft();
-                        final uid = AuthService.instance.currentUser?.uid;
-                        if (uid != null) {
-                          await UserProfileService.instance.markOnboardingStep(
-                            uid,
-                            UserProfileService.onboardingStepFirstDraft,
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_generatedText.isNotEmpty)
-              RepaintBoundary(
-                key: _previewKey,
-                child: Card(
-                  elevation: 0,
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.campaign_outlined,
-                              color: theme.colorScheme.primary,
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.campaign_outlined,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '可直接貼到通訊軟體的訃聞文字',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  tooltip: '一鍵複製',
+                                  icon: const Icon(Icons.copy_all_outlined),
+                                  onPressed: () async {
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+                                    await Clipboard.setData(
+                                      ClipboardData(text: _generatedText),
+                                    );
+                                    if (!mounted) return;
+                                    messenger.showSnackBar(
+                                      const SnackBar(content: Text('文案已複製')),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '可直接貼到通訊軟體的訃聞文字',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                            const SizedBox(height: 12),
+                            SelectableText(
+                              _generatedText,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            if (_qualityWarnings.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '文案檢查建議',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ..._qualityWarnings.map(
+                                      (item) => SelectableText('• $item'),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              tooltip: '一鍵複製',
-                              icon: const Icon(Icons.copy_all_outlined),
-                              onPressed: () async {
-                                final messenger = ScaffoldMessenger.of(context);
-                                await Clipboard.setData(ClipboardData(text: _generatedText));
-                                if (!mounted) return;
-                                messenger.showSnackBar(
-                                  const SnackBar(content: Text('文案已複製')),
-                                );
-                              },
+                            ],
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  final ok = await _consumeTokenOrShowTopUp(
+                                    AdvancedServiceType.obituaryRewrite,
+                                  );
+                                  if (!ok) return;
+                                  _rewriteForClarity();
+                                },
+                                icon: const Icon(Icons.auto_fix_high_outlined),
+                                label: const Text('一鍵重寫（更清楚）'),
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        SelectableText(
-                          _generatedText,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        if (_qualityWarnings.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '文案檢查建議',
-                                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 6),
-                                ..._qualityWarnings.map((item) => SelectableText('• $item')),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: OutlinedButton.icon(
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                if (_generatedText.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.picture_as_pdf_outlined),
+                            label: const Text('匯出 PDF'),
                             onPressed: () async {
                               final ok = await _consumeTokenOrShowTopUp(
-                                AdvancedServiceType.obituaryRewrite,
+                                AdvancedServiceType.obituaryExportPdf,
                               );
                               if (!ok) return;
-                              _rewriteForClarity();
+                              await _exportObituaryPdf();
                             },
-                            icon: const Icon(Icons.auto_fix_high_outlined),
-                            label: const Text('一鍵重寫（更清楚）'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.image_outlined),
+                            label: const Text('匯出圖片'),
+                            onPressed: () async {
+                              final ok = await _consumeTokenOrShowTopUp(
+                                AdvancedServiceType.obituaryExportImage,
+                              );
+                              if (!ok) return;
+                              await _exportObituaryImage();
+                            },
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-            const SizedBox(height: 24),
-            if (_generatedText.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
-                        label: const Text('匯出 PDF'),
-                        onPressed: () async {
-                          final ok = await _consumeTokenOrShowTopUp(
-                            AdvancedServiceType.obituaryExportPdf,
-                          );
-                          if (!ok) return;
-                          await _exportObituaryPdf();
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.image_outlined),
-                        label: const Text('匯出圖片'),
-                        onPressed: () async {
-                          final ok = await _consumeTokenOrShowTopUp(
-                            AdvancedServiceType.obituaryExportImage,
-                          );
-                          if (!ok) return;
-                          await _exportObituaryImage();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+              ],
             ),
-          ],
           ),
         ),
       ),
@@ -427,13 +433,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   }
 
   ObituaryDraft get _currentObituaryDraft => ObituaryDraft(
-        deceasedName: _deceasedNameController.text.trim(),
-        relationship: _relationshipController.text.trim(),
-        location: _locationController.text.trim(),
-        serviceDate: _serviceDateController.text.trim(),
-        tone: _tone,
-        customNote: _customNoteController.text.trim(),
-      );
+    deceasedName: _deceasedNameController.text.trim(),
+    relationship: _relationshipController.text.trim(),
+    location: _locationController.text.trim(),
+    serviceDate: _serviceDateController.text.trim(),
+    tone: _tone,
+    customNote: _customNoteController.text.trim(),
+  );
 
   Future<void> _exportObituaryPdf() async {
     try {
@@ -451,16 +457,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       return;
     }
 
-    await Share.shareXFiles(
-      [
-        XFile.fromData(
-          bytes,
-          mimeType: 'image/png',
-          name: 'warmmemo_obituary.png',
-        ),
-      ],
-      text: 'WarmMemo 訃聞圖片',
-    );
+    await Share.shareXFiles([
+      XFile.fromData(
+        bytes,
+        mimeType: 'image/png',
+        name: 'warmmemo_obituary.png',
+      ),
+    ], text: 'WarmMemo 訃聞圖片');
     _showMessage('圖片已準備好');
   }
 
@@ -476,7 +479,9 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
