@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,8 +7,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/export/pdf_exporter.dart';
+import '../../core/utils/download_bytes_stub.dart'
+    if (dart.library.html) '../../core/utils/download_bytes_web.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
@@ -56,12 +60,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
 
   void _generateObituary() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    _normalizeInputs();
 
-    final name = _deceasedNameController.text.trim();
-    final rel = _relationshipController.text.trim();
-    final loc = _locationController.text.trim();
-    final date = _serviceDateController.text.trim();
-    final note = _customNoteController.text.trim();
+    final name = _safeName;
+    final rel = _safeRelationship;
+    final loc = _safeLocation;
+    final date = _safeServiceDate;
+    final note = _safeNote;
 
     String base;
     switch (_tone) {
@@ -110,15 +115,20 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
 
   void _rewriteForClarity() {
     if (_generatedText.trim().isEmpty) return;
-    final compact = _generatedText
-        .replaceAll('，誠摯邀請曾與他（她）有緣的朋友，一同以祝福與思念送他（她）最後一程。', '誠摯邀請親友出席，一同追思與祝福。')
-        .replaceAll(
-          '敬請以祝福代替過多關心，讓家屬有空間整理心情。感謝您與我們一同紀念他（她）的一生。',
-          '敬請以祝福代替奠儀，感謝關心。',
-        );
+    _normalizeInputs();
+    final compact = StringBuffer()
+      ..writeln('各位親友您好：')
+      ..writeln()
+      ..writeln('$_safeRelationship在此通知，我們摯愛的「$_safeName」已安息。')
+      ..writeln(
+        '追思儀式時間：${_safeServiceDate.isEmpty ? '待補充' : _safeServiceDate}。',
+      )
+      ..writeln('地點：${_safeLocation.isEmpty ? '待補充' : _safeLocation}。')
+      ..writeln()
+      ..writeln(_safeNote.isEmpty ? '感謝大家的關心與陪伴。' : _safeNote);
     setState(() {
-      _generatedText = compact;
-      _qualityWarnings = _scanQualityWarnings(compact);
+      _generatedText = compact.toString().trim();
+      _qualityWarnings = _scanQualityWarnings(_generatedText);
     });
   }
 
@@ -149,8 +159,14 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                       LabeledTextField(
                         label: '往生者姓名（必填）',
                         controller: _deceasedNameController,
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? '請輸入姓名' : null,
+                        validator: (v) {
+                          final safe = _sanitizeOpenText(
+                            v ?? '',
+                            maxLength: 40,
+                          );
+                          if (safe.isEmpty) return '請輸入姓名';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
@@ -166,6 +182,16 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                       LabeledTextField(
                         label: '日期與時間（例如：4/20（日）上午 10:00）',
                         controller: _serviceDateController,
+                        validator: (v) {
+                          final raw = (v ?? '').trim();
+                          if (raw.isEmpty) return null;
+                          final safe = _sanitizeDateText(raw);
+                          if (safe.isEmpty) return '請輸入有效日期或時間';
+                          if (!RegExp(r'[0-9一二三四五六七八九十]').hasMatch(safe)) {
+                            return '請包含可辨識日期資訊';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       Align(
@@ -390,8 +416,15 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '可直接分享文字，或出示 QR 摘要給現場親友掃描查看。',
+                          '可直接分享連結或文字，親友掃描 QR 後可開啟公開訃聞頁。',
                           style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 10),
+                        SelectableText(
+                          _obituaryShareUrl,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -399,14 +432,34 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                           runSpacing: 12,
                           children: [
                             FilledButton.icon(
-                              onPressed: _shareObituaryText,
+                              onPressed: _shareObituaryLink,
                               icon: const Icon(Icons.ios_share_outlined),
-                              label: const Text('分享訃聞文字'),
+                              label: const Text('分享訃聞連結'),
                             ),
                             OutlinedButton.icon(
-                              onPressed: _copyQrSummaryText,
+                              onPressed: _copyObituaryLink,
                               icon: const Icon(Icons.copy_all_outlined),
-                              label: const Text('複製 QR 摘要文字'),
+                              label: const Text('複製連結'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _openObituaryLink,
+                              icon: const Icon(Icons.open_in_new_outlined),
+                              label: const Text('開啟連結'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _shareToFacebook,
+                              icon: const Icon(Icons.facebook_outlined),
+                              label: const Text('分享到 Facebook'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _shareToLine,
+                              icon: const Icon(Icons.send_outlined),
+                              label: const Text('分享到 LINE'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _shareByEmail,
+                              icon: const Icon(Icons.email_outlined),
+                              label: const Text('寄送 Email'),
                             ),
                             OutlinedButton.icon(
                               onPressed: _downloadQrImage,
@@ -432,13 +485,13 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   QrImageView(
-                                    data: _qrSummaryText,
+                                    data: _obituaryShareUrl,
                                     size: 168,
                                     backgroundColor: Colors.white,
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '訃聞摘要 QR',
+                                    '訃聞連結 QR',
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -521,14 +574,15 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   Future<void> _saveDraft() async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
+    _normalizeInputs();
 
     final draft = ObituaryDraft(
-      deceasedName: _deceasedNameController.text.trim(),
-      relationship: _relationshipController.text.trim(),
-      location: _locationController.text.trim(),
-      serviceDate: _serviceDateController.text.trim(),
+      deceasedName: _safeName,
+      relationship: _safeRelationship,
+      location: _safeLocation,
+      serviceDate: _safeServiceDate,
       tone: _tone,
-      customNote: _customNoteController.text.trim(),
+      customNote: _safeNote,
     );
 
     try {
@@ -539,12 +593,12 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   }
 
   ObituaryDraft get _currentObituaryDraft => ObituaryDraft(
-    deceasedName: _deceasedNameController.text.trim(),
-    relationship: _relationshipController.text.trim(),
-    location: _locationController.text.trim(),
-    serviceDate: _serviceDateController.text.trim(),
+    deceasedName: _safeName,
+    relationship: _safeRelationship,
+    location: _safeLocation,
+    serviceDate: _safeServiceDate,
     tone: _tone,
-    customNote: _customNoteController.text.trim(),
+    customNote: _safeNote,
   );
 
   Future<void> _exportObituaryPdf() async {
@@ -615,29 +669,87 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
     return false;
   }
 
-  String get _qrSummaryText {
-    final lines = <String>[
-      'WarmMemo 訃聞摘要',
-      '往生者：${_deceasedNameController.text.trim().isEmpty ? '-' : _deceasedNameController.text.trim()}',
-      '家屬：${_relationshipController.text.trim().isEmpty ? '-' : _relationshipController.text.trim()}',
-      '時間：${_serviceDateController.text.trim().isEmpty ? '-' : _serviceDateController.text.trim()}',
-      '地點：${_locationController.text.trim().isEmpty ? '-' : _locationController.text.trim()}',
-    ];
-    return lines.join('\n');
+  String get _obituaryShareUrl {
+    final payload = <String, String>{
+      'name': _safeName,
+      'relationship': _safeRelationship,
+      'location': _safeLocation,
+      'date': _safeServiceDate,
+      'note': _safeNote,
+      'tone': _tone,
+    };
+    final encoded = base64UrlEncode(utf8.encode(jsonEncode(payload)));
+    return '$_publicBaseUrl/#/o?d=${Uri.encodeComponent(encoded)}';
   }
 
-  Future<void> _shareObituaryText() async {
-    if (_generatedText.trim().isEmpty) return;
+  String get _publicBaseUrl {
+    const envBaseUrl = String.fromEnvironment('PUBLIC_BASE_URL');
+    if (envBaseUrl.isNotEmpty) {
+      return envBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    }
+    final origin = Uri.base.origin;
+    final segments = Uri.base.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.isNotEmpty) {
+      return '$origin/${segments.first}';
+    }
+    return origin;
+  }
+
+  Future<void> _shareObituaryLink() async {
     try {
-      await Share.share(_generatedText, subject: 'WarmMemo 訃聞通知');
+      await Share.share(_obituaryShareUrl, subject: 'WarmMemo 訃聞通知');
     } catch (error) {
       _showMessage(_friendlyErrorMessage(error, fallback: '分享失敗，請稍後再試。'));
     }
   }
 
-  Future<void> _copyQrSummaryText() async {
-    await Clipboard.setData(ClipboardData(text: _qrSummaryText));
-    _showMessage('QR 摘要文字已複製。');
+  Future<void> _copyObituaryLink() async {
+    await Clipboard.setData(ClipboardData(text: _obituaryShareUrl));
+    _showMessage('連結已複製。');
+  }
+
+  Future<void> _openObituaryLink() async {
+    final uri = Uri.tryParse(_obituaryShareUrl);
+    if (uri == null) {
+      _showMessage('連結格式有誤。');
+      return;
+    }
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      _showMessage('目前無法開啟連結。');
+    }
+  }
+
+  Future<void> _shareToFacebook() async {
+    final url = Uri.encodeComponent(_obituaryShareUrl);
+    final uri = Uri.parse('https://www.facebook.com/sharer/sharer.php?u=$url');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      _showMessage('無法啟動 Facebook 分享，已改用一般分享。');
+      await _shareObituaryLink();
+    }
+  }
+
+  Future<void> _shareToLine() async {
+    final url = Uri.encodeComponent(_obituaryShareUrl);
+    final uri = Uri.parse(
+      'https://social-plugins.line.me/lineit/share?url=$url',
+    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      _showMessage('無法啟動 LINE 分享，已改用一般分享。');
+      await _shareObituaryLink();
+    }
+  }
+
+  Future<void> _shareByEmail() async {
+    final subject = Uri.encodeComponent('WarmMemo 訃聞通知');
+    final body = Uri.encodeComponent('訃聞連結：$_obituaryShareUrl');
+    final uri = Uri.parse('mailto:?subject=$subject&body=$body');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      _showMessage('無法啟動 Email 應用程式。');
+    }
   }
 
   Future<void> _downloadQrImage() async {
@@ -647,17 +759,82 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       return;
     }
     try {
-      await Share.shareXFiles([
-        XFile.fromData(
-          bytes,
-          mimeType: 'image/png',
-          name: 'warmmemo_obituary_qr.png',
-        ),
-      ], text: 'WarmMemo 訃聞摘要 QR');
-      _showMessage('QR 圖片已準備好。');
+      await downloadPngBytes(
+        bytes: bytes,
+        filename: 'warmmemo_obituary_qr.png',
+      );
+      _showMessage('QR 圖片已下載。');
     } catch (error) {
-      _showMessage(_friendlyErrorMessage(error, fallback: '分享 QR 失敗，請稍後再試。'));
+      _showMessage(_friendlyErrorMessage(error, fallback: '下載 QR 失敗，請稍後再試。'));
     }
+  }
+
+  String get _safeName =>
+      _sanitizeOpenText(_deceasedNameController.text, maxLength: 40);
+  String get _safeRelationship =>
+      _sanitizeOpenText(_relationshipController.text, maxLength: 24);
+  String get _safeLocation =>
+      _sanitizeOpenText(_locationController.text, maxLength: 80);
+  String get _safeServiceDate => _sanitizeDateText(_serviceDateController.text);
+  String get _safeNote => _sanitizeOpenText(
+    _customNoteController.text,
+    maxLength: 240,
+    keepLineBreaks: true,
+  );
+
+  void _normalizeInputs() {
+    final nextName = _safeName;
+    final nextRelationship = _safeRelationship.isEmpty
+        ? '家屬'
+        : _safeRelationship;
+    final nextLocation = _safeLocation;
+    final nextDate = _safeServiceDate;
+    final nextNote = _safeNote;
+    if (_deceasedNameController.text != nextName) {
+      _deceasedNameController.text = nextName;
+    }
+    if (_relationshipController.text != nextRelationship) {
+      _relationshipController.text = nextRelationship;
+    }
+    if (_locationController.text != nextLocation) {
+      _locationController.text = nextLocation;
+    }
+    if (_serviceDateController.text != nextDate) {
+      _serviceDateController.text = nextDate;
+    }
+    if (_customNoteController.text != nextNote) {
+      _customNoteController.text = nextNote;
+    }
+  }
+
+  String _sanitizeDateText(String input) {
+    final sanitized = _sanitizeOpenText(input, maxLength: 48);
+    if (sanitized.isEmpty) return '';
+    return sanitized.replaceAll(RegExp(r'\s{2,}'), ' ');
+  }
+
+  String _sanitizeOpenText(
+    String input, {
+    int maxLength = 120,
+    bool keepLineBreaks = false,
+  }) {
+    var text = input;
+    text = text.replaceAll(
+      RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F]'),
+      '',
+    );
+    text = text.replaceAll('<', '＜').replaceAll('>', '＞');
+    if (!keepLineBreaks) {
+      text = text.replaceAll(RegExp(r'[\r\n]+'), ' ');
+    } else {
+      text = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+      text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    }
+    text = text.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
+    if (text.length > maxLength) {
+      text = text.substring(0, maxLength);
+    }
+    return text;
   }
 
   Future<Uint8List?> _captureQrImage() async {
