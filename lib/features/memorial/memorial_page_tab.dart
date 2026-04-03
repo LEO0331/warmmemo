@@ -16,10 +16,11 @@ import '../../data/firebase/draft_service.dart';
 import '../../data/models/material_catalog.dart';
 import '../../data/models/draft_models.dart';
 import '../../data/models/purchase.dart';
+import '../../data/repositories/order_repository.dart';
 import '../../data/services/notification_service.dart';
-import '../../data/services/purchase_service.dart';
 import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_profile_service.dart';
+import '../../features/memorial/controllers/proposal_controller.dart';
 
 class MemorialPageTab extends StatefulWidget {
   const MemorialPageTab({super.key});
@@ -54,10 +55,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   String? _proposalMaterialCode;
   DraftStats? _stats;
   Timer? _slugCheckDebounce;
+  late final ProposalController _proposalController;
 
   @override
   void initState() {
     super.initState();
+    _proposalController = ProposalController();
     _loadDraft();
   }
 
@@ -74,6 +77,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     _proposalVendorController.dispose();
     _proposalScheduleController.dispose();
     _proposalNoteController.dispose();
+    _proposalController.dispose();
     super.dispose();
   }
 
@@ -202,7 +206,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       title: 'V2 商業作業區',
       icon: Icons.business_center_outlined,
       child: StreamBuilder<List<Purchase>>(
-        stream: PurchaseService.instance.userOrders(uid),
+        stream: OrderRepository.instance.watchOrders(uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Padding(
@@ -442,7 +446,11 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           submittedAt: DateTime.now(),
         ),
       );
-      await PurchaseService.instance.updateOrder(uid: uid, purchase: updated);
+      await _proposalController.submit(
+        uid: uid,
+        previous: order,
+        next: updated,
+      );
       _showMessage('提案已送出，Admin 會進一步審核與指派。');
     } catch (error) {
       _showMessage('提案送出失敗：$error');

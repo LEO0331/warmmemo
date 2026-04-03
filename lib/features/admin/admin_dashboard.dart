@@ -3,14 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/data/debouncer.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
 import '../../data/models/vendor.dart';
+import '../../data/repositories/order_repository.dart';
+import '../../data/repositories/vendor_repository.dart';
 import '../../data/services/purchase_service.dart';
 import '../../data/services/user_role_service.dart';
-import '../../data/services/vendor_service.dart';
+import 'controllers/admin_vendor_controller.dart';
 import 'order_detail_page.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -50,7 +53,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _vendorContactController = TextEditingController();
   final _vendorPhoneController = TextEditingController();
   final _vendorRegionController = TextEditingController();
+  final _keywordDebouncer = Debouncer(delay: const Duration(milliseconds: 350));
+  late final AdminVendorController _vendorController;
   bool _savingVendor = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _vendorController = AdminVendorController();
+  }
 
   @override
   void dispose() {
@@ -59,6 +70,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _vendorContactController.dispose();
     _vendorPhoneController.dispose();
     _vendorRegionController.dispose();
+    _keywordDebouncer.dispose();
+    _vendorController.dispose();
     super.dispose();
   }
 
@@ -280,8 +293,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
               labelText: '搜尋（方案 / userId / 公司 / 聯絡）',
               prefixIcon: Icon(Icons.search),
             ),
-            onChanged: (value) =>
-                setState(() => _keyword = value.trim().toLowerCase()),
+            onChanged: (value) {
+              _keywordDebouncer.run(() {
+                if (!mounted) return;
+                setState(() => _keyword = value.trim().toLowerCase());
+              });
+            },
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -562,9 +579,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               ),
                             );
                         if (updated != null && updated.userId != null) {
-                          await PurchaseService.instance.updateOrder(
+                          await OrderRepository.instance.updateOrderOptimistic(
                             uid: updated.userId!,
-                            purchase: updated,
+                            previous: o,
+                            next: updated,
                           );
                           setState(() {
                             final idx = _allOrders.indexWhere(
@@ -712,7 +730,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 12),
           StreamBuilder<List<Vendor>>(
-            stream: VendorService.instance.streamVendors(),
+            stream: VendorRepository.instance.watchVendors(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Padding(
@@ -747,9 +765,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             ? null
                             : (value) async {
                                 try {
-                                  await VendorService.instance.setVendorActive(
-                                    vendorId: vendor.id!,
-                                    isActive: value,
+                                  await _vendorController.toggleVendorActive(
+                                    vendor: vendor,
+                                    nextActive: value,
                                   );
                                 } catch (error) {
                                   if (!context.mounted) return;
@@ -833,7 +851,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
     setState(() => _savingVendor = true);
     try {
-      final exists = await VendorService.instance.nameExists(name);
+      final exists = await VendorRepository.instance.nameExists(name);
       if (exists) {
         if (!mounted) return;
         AppFeedback.show(
@@ -843,7 +861,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         );
         return;
       }
-      await VendorService.instance.createVendor(
+      await _vendorController.createVendor(
         Vendor(
           name: name,
           contactName: _vendorContactController.text.trim(),

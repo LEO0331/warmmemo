@@ -6,8 +6,9 @@ import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/draft_models.dart';
 import '../../data/models/purchase.dart';
-import '../../data/services/notification_service.dart';
-import '../../data/services/purchase_service.dart';
+import '../../data/repositories/notification_repository.dart';
+import '../../data/repositories/order_repository.dart';
+import 'controllers/notification_action_controller.dart';
 import 'checkout_page.dart';
 
 /// TAB 2 – 固定價格方案媒合
@@ -212,7 +213,7 @@ class _OrdersPanelState extends State<_OrdersPanel> {
       title: '我的方案與狀態',
       icon: Icons.receipt_long_outlined,
       child: StreamBuilder<List<Purchase>>(
-        stream: PurchaseService.instance.userOrders(uid),
+        stream: OrderRepository.instance.watchOrders(uid),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return SelectableText('讀取訂單失敗：${snapshot.error}');
@@ -500,6 +501,19 @@ class _NotificationCenterCard extends StatefulWidget {
 
 class _NotificationCenterCardState extends State<_NotificationCenterCard> {
   bool _onlyUnread = false;
+  late final NotificationActionController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = NotificationActionController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -507,7 +521,7 @@ class _NotificationCenterCardState extends State<_NotificationCenterCard> {
       title: '通知中心',
       icon: Icons.notifications_active_outlined,
       child: StreamBuilder<List<NotificationEvent>>(
-        stream: NotificationService.instance.streamForUser(
+        stream: NotificationRepository.instance.watchForUser(
           widget.uid,
           limit: 20,
         ),
@@ -568,9 +582,7 @@ class _NotificationCenterCardState extends State<_NotificationCenterCard> {
                         if (event.status != 'read' && event.id != null)
                           TextButton(
                             onPressed: () async {
-                              await NotificationService.instance.markRead(
-                                event.id!,
-                              );
+                              await _controller.markRead(event.id!);
                               if (!context.mounted) return;
                               AppFeedback.show(
                                 context,
