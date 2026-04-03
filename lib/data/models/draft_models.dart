@@ -8,6 +8,10 @@ class MemorialDraft {
       this.bio,
       this.highlights,
       this.willNote,
+      this.slug,
+      this.isPublished,
+      this.qrEnabled,
+      this.publicUpdatedAt,
       DateTime? updatedAt})
       : updatedAt = updatedAt ?? DateTime.now();
 
@@ -17,6 +21,10 @@ class MemorialDraft {
   final String? bio;
   final String? highlights;
   final String? willNote;
+  final String? slug;
+  final bool? isPublished;
+  final bool? qrEnabled;
+  final DateTime? publicUpdatedAt;
   final DateTime updatedAt;
 
   Map<String, Object?> toMap() => {
@@ -26,6 +34,11 @@ class MemorialDraft {
         'bio': bio,
         'highlights': highlights,
         'willNote': willNote,
+        'slug': slug,
+        'isPublished': isPublished,
+        'qrEnabled': qrEnabled,
+        'publicUpdatedAt':
+            publicUpdatedAt == null ? null : Timestamp.fromDate(publicUpdatedAt!),
         'updatedAt': Timestamp.fromDate(updatedAt),
       };
 
@@ -36,6 +49,75 @@ class MemorialDraft {
         bio: map['bio'] as String?,
         highlights: map['highlights'] as String?,
         willNote: map['willNote'] as String?,
+        slug: map['slug'] as String?,
+        isPublished: map['isPublished'] as bool?,
+        qrEnabled: map['qrEnabled'] as bool?,
+        publicUpdatedAt: _parseNullableDate(map['publicUpdatedAt']),
+        updatedAt: _parseDate(map['updatedAt']),
+      );
+}
+
+class PublicMemorialProfile {
+  PublicMemorialProfile({
+    required this.slug,
+    required this.ownerUid,
+    this.name,
+    this.nickname,
+    this.motto,
+    this.bio,
+    this.highlights,
+    this.willNote,
+    this.obituaryRelationship,
+    this.obituaryLocation,
+    this.obituaryServiceDate,
+    this.obituaryCustomNote,
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now();
+
+  final String slug;
+  final String ownerUid;
+  final String? name;
+  final String? nickname;
+  final String? motto;
+  final String? bio;
+  final String? highlights;
+  final String? willNote;
+  final String? obituaryRelationship;
+  final String? obituaryLocation;
+  final String? obituaryServiceDate;
+  final String? obituaryCustomNote;
+  final DateTime updatedAt;
+
+  Map<String, Object?> toMap() => {
+        'slug': slug,
+        'ownerUid': ownerUid,
+        'name': name,
+        'nickname': nickname,
+        'motto': motto,
+        'bio': bio,
+        'highlights': highlights,
+        'willNote': willNote,
+        'obituaryRelationship': obituaryRelationship,
+        'obituaryLocation': obituaryLocation,
+        'obituaryServiceDate': obituaryServiceDate,
+        'obituaryCustomNote': obituaryCustomNote,
+        'updatedAt': Timestamp.fromDate(updatedAt),
+      };
+
+  factory PublicMemorialProfile.fromMap(Map<String, dynamic> map) =>
+      PublicMemorialProfile(
+        slug: map['slug'] as String? ?? '',
+        ownerUid: map['ownerUid'] as String? ?? '',
+        name: map['name'] as String?,
+        nickname: map['nickname'] as String?,
+        motto: map['motto'] as String?,
+        bio: map['bio'] as String?,
+        highlights: map['highlights'] as String?,
+        willNote: map['willNote'] as String?,
+        obituaryRelationship: map['obituaryRelationship'] as String?,
+        obituaryLocation: map['obituaryLocation'] as String?,
+        obituaryServiceDate: map['obituaryServiceDate'] as String?,
+        obituaryCustomNote: map['obituaryCustomNote'] as String?,
         updatedAt: _parseDate(map['updatedAt']),
       );
 }
@@ -155,4 +237,9 @@ DateTime _parseDate(Object? value) {
     if (parsed != null) return parsed;
   }
   return DateTime.now();
+}
+
+DateTime? _parseNullableDate(Object? value) {
+  if (value == null) return null;
+  return _parseDate(value);
 }

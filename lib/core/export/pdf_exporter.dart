@@ -8,8 +8,13 @@ import '../../data/models/draft_models.dart';
 class PdfExporter {
   PdfExporter._();
 
-  static Future<void> exportMemorial(MemorialDraft draft) async {
-    final bytes = await _pdfBytes(await _buildMemorialPage(draft));
+  static Future<void> exportMemorial(
+    MemorialDraft draft, {
+    String? publicUrl,
+  }) async {
+    final bytes = await _pdfBytes(
+      await _buildMemorialPage(draft, publicUrl: publicUrl),
+    );
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_memorial.pdf');
   }
 
@@ -18,31 +23,60 @@ class PdfExporter {
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_obituary.pdf');
   }
 
-  static Future<pw.Page> _buildMemorialPage(MemorialDraft draft) async {
-    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
-    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
+  static Future<pw.Page> _buildMemorialPage(
+    MemorialDraft draft, {
+    String? publicUrl,
+  }) async {
+    final fontData = await rootBundle.load(
+      'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
+    );
+    final boldData = await rootBundle.load('assets/fonts/NotoSansTC-Bold.ttf');
     final myFont = pw.Font.ttf(fontData);
     final fontBold = pw.Font.ttf(boldData);
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
-      theme: pw.ThemeData.withFont(
-        base: myFont,
-        bold: fontBold
-      ),
+      theme: pw.ThemeData.withFont(base: myFont, bold: fontBold),
       build: (context) => pw.Padding(
         padding: const pw.EdgeInsets.all(24),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('WarmMemo 紀念頁草稿', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            pw.Text(
+              'WarmMemo 紀念頁',
+              style: pw.TextStyle(
+                fontSize: 24,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
             pw.SizedBox(height: 12),
             _labelValue('姓名', draft.name ?? ''),
             _labelValue('暱稱', draft.nickname ?? ''),
-            _labelValue('座右銘', draft.motto ?? ''),
-            _section('生命故事', draft.bio),
-            _section('人生片段', draft.highlights),
-            _section('留給家人', draft.willNote),
+            _labelValue('一句話', draft.motto ?? ''),
+            _section('生平摘要', draft.bio),
+            _section('人生亮點', draft.highlights),
+            _section('給後人的話', draft.willNote),
+            if (publicUrl != null && publicUrl.trim().isNotEmpty) ...[
+              pw.SizedBox(height: 16),
+              pw.Text(
+                '公開紀念頁',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Text(publicUrl),
+              pw.SizedBox(height: 10),
+              pw.SizedBox(
+                width: 112,
+                height: 112,
+                child: pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: publicUrl,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -50,30 +84,35 @@ class PdfExporter {
   }
 
   static Future<pw.Page> _buildObituaryPage(ObituaryDraft draft) async {
-    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
-    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
+    final fontData = await rootBundle.load(
+      'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
+    );
+    final boldData = await rootBundle.load('assets/fonts/NotoSansTC-Bold.ttf');
     final myFont = pw.Font.ttf(fontData);
     final fontBold = pw.Font.ttf(boldData);
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
-      theme: pw.ThemeData.withFont(
-        base: myFont,
-        bold: fontBold
-      ),
+      theme: pw.ThemeData.withFont(base: myFont, bold: fontBold),
       build: (context) => pw.Padding(
         padding: const pw.EdgeInsets.all(24),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('WarmMemo 訃聞草稿', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            pw.Text(
+              'WarmMemo 訃聞',
+              style: pw.TextStyle(
+                fontSize: 24,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
             pw.SizedBox(height: 12),
-            _labelValue('往生者', draft.deceasedName ?? ''),
+            _labelValue('逝者姓名', draft.deceasedName ?? ''),
             _labelValue('關係', draft.relationship ?? ''),
             _labelValue('地點', draft.location ?? ''),
-            _labelValue('日期', draft.serviceDate ?? ''),
+            _labelValue('時間', draft.serviceDate ?? ''),
             _labelValue('語氣', draft.tone ?? ''),
-            _section('備註', draft.customNote),
+            _section('補充註記', draft.customNote),
           ],
         ),
       ),
@@ -88,11 +127,14 @@ class PdfExporter {
 
   static pw.Widget _labelValue(String label, String value) {
     return pw.Padding(
-      padding: pw.EdgeInsets.symmetric(vertical: 4),
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text('$label：', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            '$label：',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
           pw.Expanded(child: pw.Text(value)),
         ],
       ),
@@ -102,7 +144,7 @@ class PdfExporter {
   static pw.Widget _section(String title, String? body) {
     if (body == null || body.isEmpty) return pw.SizedBox.shrink();
     return pw.Padding(
-      padding: pw.EdgeInsets.only(top: 12, bottom: 4),
+      padding: const pw.EdgeInsets.only(top: 12, bottom: 4),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [

@@ -9,6 +9,7 @@ import '../../data/firebase/auth_service.dart';
 import '../../core/layout/app_shell.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../landing/landing_page.dart';
+import '../memorial/public_memorial_page.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -24,6 +25,10 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final publicSlug = _resolvePublicMemorialSlug();
+    if (publicSlug != null) {
+      return PublicMemorialPage(slug: publicSlug);
+    }
     _handlePaymentQueryHint(context);
     return StreamBuilder<User?>(
       stream: AuthService.instance.authStateChanges,
@@ -117,5 +122,14 @@ class _AuthGateState extends State<AuthGate> {
       return 1;
     }
     return 0;
+  }
+
+  String? _resolvePublicMemorialSlug() {
+    if (!kIsWeb) return null;
+    final segments = Uri.base.pathSegments;
+    if (segments.length < 2) return null;
+    if (segments.first.toLowerCase() != 'm') return null;
+    final slug = segments[1].trim().toLowerCase();
+    return slug.isEmpty ? null : slug;
   }
 }

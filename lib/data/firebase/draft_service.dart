@@ -17,6 +17,9 @@ class FirebaseDraftService {
   CollectionReference<Map<String, dynamic>> get _notifications =>
       _firestore.collection('notifications');
 
+  CollectionReference<Map<String, dynamic>> get _publicMemorials =>
+      _firestore.collection('public_memorials');
+
   DocumentReference<Map<String, dynamic>> _memorialDoc(String uid) =>
       _users.doc(uid).collection('drafts').doc('memorial');
 
@@ -25,6 +28,9 @@ class FirebaseDraftService {
 
   DocumentReference<Map<String, dynamic>> _statsDoc(String uid) =>
       _users.doc(uid).collection('meta').doc('stats');
+
+  DocumentReference<Map<String, dynamic>> _publicMemorialDoc(String slug) =>
+      _publicMemorials.doc(slug);
 
   Future<MemorialDraft?> loadMemorial(String uid) async {
     final snapshot = await _memorialDoc(uid).get();
@@ -36,6 +42,64 @@ class FirebaseDraftService {
     return _memorialDoc(uid)
         .set(draft.toMap(), SetOptions(merge: true))
         .then((_) => _touchUserDoc(uid));
+  }
+
+  Future<PublicMemorialProfile?> loadPublicMemorialBySlug(String slug) async {
+    final snapshot = await _publicMemorialDoc(slug).get();
+    if (!snapshot.exists) return null;
+    return PublicMemorialProfile.fromMap(snapshot.data()!);
+  }
+
+  Future<bool> isMemorialSlugAvailable(
+    String slug, {
+    String? excludingUid,
+  }) async {
+    final normalized = slug.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    final snapshot = await _publicMemorialDoc(normalized).get();
+    if (!snapshot.exists) return true;
+    if (excludingUid == null) return false;
+    return snapshot.data()?['ownerUid'] == excludingUid;
+  }
+
+  Future<PublicMemorialProfile> publishMemorial(
+    String uid,
+    MemorialDraft draft,
+  ) async {
+    final slug = draft.slug?.trim().toLowerCase();
+    if (slug == null || slug.isEmpty) {
+      throw ArgumentError('Memorial slug is required for publishMemorial.');
+    }
+
+    final obituary = await loadObituary(uid);
+    final profile = PublicMemorialProfile(
+      slug: slug,
+      ownerUid: uid,
+      name: draft.name,
+      nickname: draft.nickname,
+      motto: draft.motto,
+      bio: draft.bio,
+      highlights: draft.highlights,
+      willNote: draft.willNote,
+      obituaryRelationship: obituary?.relationship,
+      obituaryLocation: obituary?.location,
+      obituaryServiceDate: obituary?.serviceDate,
+      obituaryCustomNote: obituary?.customNote,
+      updatedAt: draft.publicUpdatedAt ?? DateTime.now(),
+    );
+
+    await _publicMemorialDoc(slug).set(profile.toMap(), SetOptions(merge: true));
+    return profile;
+  }
+
+  Future<void> unpublishMemorial(String uid, String slug) async {
+    final normalized = slug.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    final snapshot = await _publicMemorialDoc(normalized).get();
+    if (!snapshot.exists) return;
+    final ownerUid = snapshot.data()?['ownerUid'] as String?;
+    if (ownerUid != null && ownerUid != uid) return;
+    await _publicMemorialDoc(normalized).delete();
   }
 
   Future<ObituaryDraft?> loadObituary(String uid) async {

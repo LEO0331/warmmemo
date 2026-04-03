@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/widgets/common_widgets.dart';
 import '../../core/export/pdf_exporter.dart';
+import '../../core/utils/download_bytes_stub.dart'
+    if (dart.library.html) '../../core/utils/download_bytes_web.dart';
+import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
@@ -15,7 +18,6 @@ import '../../data/services/notification_service.dart';
 import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_profile_service.dart';
 
-/// TAB 3 – 簡易紀念頁（One-page life summary）
 class MemorialPageTab extends StatefulWidget {
   const MemorialPageTab({super.key});
 
@@ -25,6 +27,8 @@ class MemorialPageTab extends StatefulWidget {
 
 class _MemorialPageTabState extends State<MemorialPageTab> {
   final _formKey = GlobalKey<FormState>();
+  final _previewKey = GlobalKey();
+  final _qrKey = GlobalKey();
 
   final _nameController = TextEditingController();
   final _nicknameController = TextEditingController();
@@ -32,10 +36,15 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   final _bioController = TextEditingController();
   final _highlightsController = TextEditingController();
   final _willNoteController = TextEditingController();
+  final _slugController = TextEditingController();
 
   bool _showPreview = false;
-  final _previewKey = GlobalKey();
+  bool _isPublished = false;
+  bool _isCheckingSlug = false;
+  String _slugStatus = 'Create a public link for QR memorial access.';
+  String? _publishedSlug;
   DraftStats? _stats;
+  Timer? _slugCheckDebounce;
 
   @override
   void initState() {
@@ -45,18 +54,21 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   @override
   void dispose() {
+    _slugCheckDebounce?.cancel();
     _nameController.dispose();
     _nicknameController.dispose();
     _mottoController.dispose();
     _bioController.dispose();
     _highlightsController.dispose();
     _willNoteController.dispose();
+    _slugController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return WarmBackdrop(
       child: SafeArea(
         child: SelectionArea(
@@ -68,56 +80,56 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 const PageHero(
                   eyebrow: 'Memorial',
                   icon: Icons.person_outline,
-                  title: '簡易紀念頁（示意原型）',
-                  subtitle: '填寫親友故事與回憶後，可生成預覽並透過 PDF／圖片快速分享給親友與長輩。',
-                  badges: ['故事整理', '一鍵匯出', '分享友善'],
+                  title: 'Memorial Page + QR',
+                  subtitle:
+                      'Build a memorial page, publish a public link, and download a QR image for a gravestone, plaque, or remembrance card.',
+                  badges: ['Public page', 'QR code', 'Download PNG'],
                 ),
                 const SizedBox(height: 12),
-                if (_stats != null) _buildStatsCard(theme, _stats!),
+                if (_stats != null) _buildStatsCard(theme),
                 if (_stats != null &&
-                    AuthService.instance.currentUser?.uid != null)
+                    AuthService.instance.currentUser?.uid != null) ...[
                   const SizedBox(height: 12),
-                if (_stats != null &&
-                    AuthService.instance.currentUser?.uid != null)
-                  _buildUserNotificationCard(
-                    AuthService.instance.currentUser!.uid,
-                  ),
+                  _buildNotificationCard(AuthService.instance.currentUser!.uid),
+                ],
                 const SizedBox(height: 16),
                 Form(
                   key: _formKey,
                   child: Column(
                     children: [
                       LabeledTextField(
-                        label: '本名（必填）',
+                        label: 'Name',
                         controller: _nameController,
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? '請輸入姓名' : null,
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'Please enter a name.'
+                                : null,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: '暱稱／大家怎麼叫他（她）',
+                        label: 'Nickname',
                         controller: _nicknameController,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: '一句話座右銘／代表他的話',
+                        label: 'Motto',
                         controller: _mottoController,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: '生命故事簡介（100–300 字）',
+                        label: 'Life Summary',
                         controller: _bioController,
                         maxLines: 5,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: '人生幾個重要片段（學業、工作、家庭、興趣…）',
+                        label: 'Highlights',
                         controller: _highlightsController,
                         maxLines: 4,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: '想留下給家人／朋友的一段話（可作為遺言雛形）',
+                        label: 'Message to Family',
                         controller: _willNoteController,
                         maxLines: 4,
                       ),
@@ -126,75 +138,43 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           icon: const Icon(Icons.visibility_outlined),
-                          label: const Text('產生紀念頁預覽'),
-                          onPressed: () async {
-                            if (!(_formKey.currentState?.validate() ?? false)) {
-                              return;
-                            }
-                            final ok = await _consumeTokenOrShowTopUp(
-                              AdvancedServiceType.memorialPreview,
-                            );
-                            if (!ok) return;
-                            await _saveDraft();
-                            final uid = AuthService.instance.currentUser?.uid;
-                            if (uid != null) {
-                              await UserProfileService.instance
-                                  .markOnboardingStep(
-                                    uid,
-                                    UserProfileService.onboardingStepFirstDraft,
-                                  );
-                            }
-                            setState(() {
-                              _showPreview = true;
-                            });
-                          },
+                          label: const Text('Preview Memorial'),
+                          onPressed: _handlePreview,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                _buildQrSection(theme),
                 const SizedBox(height: 24),
                 if (_showPreview)
                   RepaintBoundary(
                     key: _previewKey,
                     child: _buildPreviewCard(theme),
                   ),
-                if (_showPreview)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            icon: const Icon(Icons.picture_as_pdf_outlined),
-                            label: const Text('匯出 PDF'),
-                            onPressed: () async {
-                              final ok = await _consumeTokenOrShowTopUp(
-                                AdvancedServiceType.memorialExportPdf,
-                              );
-                              if (!ok) return;
-                              await _exportMemorialPdf();
-                            },
-                          ),
+                if (_showPreview) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('Export PDF'),
+                          onPressed: _exportMemorialPdf,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.image_outlined),
-                            label: const Text('匯出圖片'),
-                            onPressed: () async {
-                              final ok = await _consumeTokenOrShowTopUp(
-                                AdvancedServiceType.memorialExportImage,
-                              );
-                              if (!ok) return;
-                              await _exportMemorialImage();
-                            },
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.image_outlined),
+                          label: const Text('Export Image'),
+                          onPressed: _exportMemorialImage,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 24),
+                ],
               ],
             ),
           ),
@@ -203,66 +183,281 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     );
   }
 
-  Widget _buildStatsCard(ThemeData theme, DraftStats stats) {
+  Widget _buildStatsCard(ThemeData theme) {
+    final stats = _stats!;
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _statColumn(theme, '閱讀次數', stats.readCount),
-            _statColumn(theme, '點擊次數', stats.clickCount),
+            _statColumn(theme, 'Reads', stats.readCount),
+            _statColumn(theme, 'Clicks', stats.clickCount),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildUserNotificationCard(String uid) {
+  Widget _buildNotificationCard(String uid) {
     return StreamBuilder<List<NotificationEvent>>(
       stream: NotificationService.instance.streamForUser(uid),
       builder: (context, snapshot) {
-        final events = snapshot.data ?? [];
-        final preview = events.take(4).toList();
+        final events = snapshot.data ?? const <NotificationEvent>[];
         if (events.isEmpty) {
           return const SectionCard(
-            title: '我的通知狀態',
+            title: 'Recent Notifications',
             icon: Icons.notifications_outlined,
-            child: Text('尚未有通知紀錄，系統會自動追蹤閱讀與點擊。'),
+            child: Text('No recent memorial notifications.'),
           );
         }
         return SectionCard(
-          title: '我的通知狀態',
+          title: 'Recent Notifications',
           icon: Icons.notifications_outlined,
           child: Column(
-            children: List.generate(preview.length, (index) {
-              final event = preview[index];
-              return StaggeredReveal(
-                index: index,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    event.status == 'read'
-                        ? Icons.mark_email_read_outlined
-                        : Icons.circle_outlined,
-                    size: 20,
-                  ),
-                  title: Text(event.draftType ?? '草稿'),
-                  subtitle: Text(
-                    '${event.channel} · ${event.status}${event.tone != null ? ' · ${event.tone}' : ''}',
-                  ),
-                  trailing: Text(
-                    event.occurredAt.toLocal().toString().split('.').first,
-                    style: const TextStyle(fontSize: 12),
-                  ),
+            children: List.generate(events.take(4).length, (index) {
+              final event = events[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  event.status == 'read'
+                      ? Icons.mark_email_read_outlined
+                      : Icons.circle_outlined,
+                  size: 20,
+                ),
+                title: Text(event.draftType ?? 'Memorial'),
+                subtitle: Text('${event.channel} · ${event.status}'),
+                trailing: Text(
+                  event.occurredAt.toLocal().toString().split('.').first,
+                  style: const TextStyle(fontSize: 12),
                 ),
               );
             }),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQrSection(ThemeData theme) {
+    final publicUrl = _currentPublicUrl;
+    final ready = _isPublished && publicUrl != null;
+
+    return SectionCard(
+      title: 'QR Memorial',
+      icon: Icons.qr_code_2_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: _isPublished,
+            title: const Text('Publish public memorial page'),
+            subtitle: const Text(
+              'When published, visitors can scan the QR code and open a read-only memorial page.',
+            ),
+            onChanged: (value) async {
+              if (value) {
+                await _publishPublicPage();
+              } else {
+                await _unpublishPublicPage();
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Public slug',
+            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          TextFormField(
+            controller: _slugController,
+            inputFormatters: <TextInputFormatter>[
+              LengthLimitingTextInputFormatter(48),
+            ],
+            decoration: InputDecoration(
+              hintText: 'family-memory',
+              suffixIcon: _isCheckingSlug
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: _checkSlugAvailability,
+                      icon: const Icon(Icons.verified_outlined),
+                    ),
+            ),
+            onChanged: _handleSlugChanged,
+          ),
+          const SizedBox(height: 6),
+          Text(_slugStatus, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 12),
+          Text(
+            'Public URL',
+            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            publicUrl ?? 'No public URL yet',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: publicUrl == null ? const Color(0xFF8D6B5C) : theme.colorScheme.primary,
+            ),
+          ),
+          if (publicUrl != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: RepaintBoundary(
+                key: _qrKey,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE8D7CC)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      QrImageView(
+                        data: publicUrl,
+                        size: 180,
+                        backgroundColor: Colors.white,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Scan to remember',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(_displayName, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.icon(
+                onPressed: _publishPublicPage,
+                icon: Icon(_isPublished ? Icons.refresh_outlined : Icons.public_outlined),
+                label: Text(_isPublished ? 'Update Public Page' : 'Publish Now'),
+              ),
+              OutlinedButton.icon(
+                onPressed: ready ? _copyPublicLink : null,
+                icon: const Icon(Icons.copy_all_outlined),
+                label: const Text('Copy Link'),
+              ),
+              OutlinedButton.icon(
+                onPressed: ready ? _downloadQrPng : null,
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Download QR PNG'),
+              ),
+              if (_isPublished)
+                OutlinedButton.icon(
+                  onPressed: _unpublishPublicPage,
+                  icon: const Icon(Icons.public_off_outlined),
+                  label: const Text('Unpublish'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Bullet('Use strong contrast: dark QR on a light background.'),
+          Bullet('Leave enough physical size for real-world scanning.'),
+          Bullet('Avoid flowers, frames, or decorations covering the code.'),
+          Bullet('Test a printed sample before final installation.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewCard(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _displayName,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Copy preview text',
+                  icon: const Icon(Icons.copy_all_outlined),
+                  onPressed: _copyPreviewText,
+                ),
+              ],
+            ),
+            if (_mottoController.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                '"${_mottoController.text.trim()}"',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (_bioController.text.trim().isNotEmpty)
+              _previewSection(theme, 'Life Summary', _bioController.text.trim()),
+            if (_highlightsController.text.trim().isNotEmpty)
+              _previewSection(theme, 'Highlights', _highlightsController.text.trim()),
+            if (_willNoteController.text.trim().isNotEmpty)
+              _previewSection(
+                theme,
+                'Message to Family',
+                _willNoteController.text.trim(),
+              ),
+            const Divider(),
+            Text(
+              _currentPublicUrl ?? 'No public URL yet',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: _currentPublicUrl == null
+                    ? const Color(0xFF8D6B5C)
+                    : theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _previewSection(ThemeData theme, String title, String body) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(body),
+        ],
+      ),
     );
   }
 
@@ -282,161 +477,46 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     );
   }
 
-  Widget _buildPreviewCard(ThemeData theme) {
-    final displayName = _nicknameController.text.trim().isEmpty
-        ? _nameController.text
-        : _nicknameController.text;
-    final motto = _mottoController.text.trim();
-    final fakeLinkId = _nameController.text.isEmpty
-        ? 'example1234'
-        : _nameController.text.hashCode.toRadixString(16);
+  String get _displayName {
+    final nickname = _nicknameController.text.trim();
+    if (nickname.isNotEmpty) return nickname;
+    final name = _nameController.text.trim();
+    return name.isEmpty ? 'Untitled memorial' : name;
+  }
 
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    displayName,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '一鍵複製全文',
-                  icon: const Icon(Icons.copy_all_outlined),
-                  onPressed: () async {
-                    final fullText = [
-                      displayName,
-                      if (motto.isNotEmpty) '「$motto」',
-                      if (_bioController.text.trim().isNotEmpty)
-                        _bioController.text,
-                      if (_highlightsController.text.trim().isNotEmpty)
-                        _highlightsController.text,
-                      if (_willNoteController.text.trim().isNotEmpty)
-                        _willNoteController.text,
-                    ].join('\n');
-                    await Clipboard.setData(ClipboardData(text: fullText));
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('紀念頁內容已複製')));
-                  },
-                ),
-              ],
-            ),
-            if (motto.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                '「$motto」',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            if (_bioController.text.trim().isNotEmpty) ...[
-              Text(
-                '生命故事',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              SelectableText(_bioController.text),
-              const SizedBox(height: 12),
-            ],
-            if (_highlightsController.text.trim().isNotEmpty) ...[
-              Text(
-                '人生片段',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              SelectableText(_highlightsController.text),
-              const SizedBox(height: 12),
-            ],
-            if (_willNoteController.text.trim().isNotEmpty) ...[
-              Text(
-                '留給大家的話',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              SelectableText(_willNoteController.text),
-              const SizedBox(height: 12),
-            ],
-            const Divider(),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.link_outlined,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      final url = Uri.parse(
-                        'https://warmmemo.tw/m/$fakeLinkId',
-                      );
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
-                      }
-                    },
-                    onLongPress: () {
-                      // 長按自動複製到剪貼簿
-                      Clipboard.setData(
-                        ClipboardData(
-                          text: 'https://warmmemo.tw/m/$fakeLinkId',
-                        ),
-                      );
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(const SnackBar(content: Text('已複製連結')));
-                    },
-                    child: Text(
-                      'https://warmmemo.tw/m/$fakeLinkId',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        decoration: TextDecoration.underline, // 增加底線讓它看起來像連結
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '示意：正式服務中，此連結將於建立後 14 天內可供瀏覽，逾期可付費延長保存。',
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
+  String? get _currentPublicUrl {
+    final slug = _slugController.text.trim();
+    if (slug.isEmpty) return null;
+    return 'https://warmmemo.tw/m/$slug';
+  }
+
+  Future<void> _handlePreview() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final ok = await _consumeTokenOrShowTopUp(
+      AdvancedServiceType.memorialPreview,
     );
+    if (!ok) return;
+    await _saveDraft();
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid != null) {
+      await UserProfileService.instance.markOnboardingStep(
+        uid,
+        UserProfileService.onboardingStepFirstDraft,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _showPreview = true);
   }
 
   Future<void> _loadDraft() async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
-
     final draft = await FirebaseDraftService.instance.loadMemorial(uid);
     await _refreshStats(uid);
-    if (draft == null) return;
+    if (draft == null) {
+      _ensureSlugIfNeeded();
+      return;
+    }
 
     setState(() {
       _nameController.text = draft.name ?? '';
@@ -445,7 +525,19 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       _bioController.text = draft.bio ?? '';
       _highlightsController.text = draft.highlights ?? '';
       _willNoteController.text = draft.willNote ?? '';
+      _slugController.text = draft.slug ?? '';
+      _isPublished = draft.isPublished ?? false;
+      _publishedSlug = draft.isPublished == true ? draft.slug : null;
+      if (draft.slug != null && draft.slug!.isNotEmpty) {
+        _slugStatus = 'Current slug: ${draft.slug}';
+      }
     });
+
+    if (_slugController.text.trim().isEmpty) {
+      _ensureSlugIfNeeded();
+    } else {
+      await _checkSlugAvailability(silent: true);
+    }
   }
 
   Future<void> _refreshStats(String uid) async {
@@ -454,9 +546,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     setState(() => _stats = stats);
   }
 
-  Future<void> _saveDraft() async {
+  Future<void> _saveDraft({
+    bool? isPublished,
+    DateTime? publicUpdatedAt,
+  }) async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
+    _ensureSlugIfNeeded();
 
     final draft = MemorialDraft(
       name: _nameController.text.trim(),
@@ -465,120 +561,199 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       bio: _bioController.text.trim(),
       highlights: _highlightsController.text.trim(),
       willNote: _willNoteController.text.trim(),
+      slug: _slugController.text.trim(),
+      isPublished: isPublished ?? _isPublished,
+      qrEnabled: isPublished ?? _isPublished,
+      publicUpdatedAt: publicUpdatedAt,
     );
-
     await FirebaseDraftService.instance.saveMemorial(uid, draft);
     await _refreshStats(uid);
   }
 
-  MemorialDraft get _currentMemorialDraft => MemorialDraft(
-    name: _nameController.text.trim(),
-    nickname: _nicknameController.text.trim(),
-    motto: _mottoController.text.trim(),
-    bio: _bioController.text.trim(),
-    highlights: _highlightsController.text.trim(),
-    willNote: _willNoteController.text.trim(),
-  );
+  Future<void> _publishPublicPage() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    _ensureSlugIfNeeded();
+    final available = await _checkSlugAvailability();
+    if (!available) return;
+
+    final slug = _slugController.text.trim();
+    final draft = MemorialDraft(
+      name: _nameController.text.trim(),
+      nickname: _nicknameController.text.trim(),
+      motto: _mottoController.text.trim(),
+      bio: _bioController.text.trim(),
+      highlights: _highlightsController.text.trim(),
+      willNote: _willNoteController.text.trim(),
+      slug: slug,
+      isPublished: true,
+      qrEnabled: true,
+      publicUpdatedAt: DateTime.now(),
+    );
+
+    if (_publishedSlug != null &&
+        _publishedSlug != slug &&
+        _publishedSlug!.trim().isNotEmpty) {
+      await FirebaseDraftService.instance.unpublishMemorial(uid, _publishedSlug!);
+    }
+
+    await FirebaseDraftService.instance.saveMemorial(uid, draft);
+    await FirebaseDraftService.instance.publishMemorial(uid, draft);
+    if (!mounted) return;
+    setState(() {
+      _isPublished = true;
+      _publishedSlug = slug;
+      _slugStatus = 'Public memorial page is live.';
+    });
+    _showMessage('Public memorial page published.');
+  }
+
+  Future<void> _unpublishPublicPage() async {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    final slug = (_publishedSlug ?? _slugController.text).trim();
+    if (slug.isNotEmpty) {
+      await FirebaseDraftService.instance.unpublishMemorial(uid, slug);
+    }
+    await _saveDraft(isPublished: false, publicUpdatedAt: DateTime.now());
+    if (!mounted) return;
+    setState(() {
+      _isPublished = false;
+      _publishedSlug = null;
+      _slugStatus = 'Public memorial page is unpublished.';
+    });
+    _showMessage('Public memorial page unpublished.');
+  }
+
+  void _handleSlugChanged(String rawValue) {
+    final sanitized = _sanitizeSlug(rawValue);
+    if (sanitized != rawValue) {
+      _slugController.value = TextEditingValue(
+        text: sanitized,
+        selection: TextSelection.collapsed(offset: sanitized.length),
+      );
+    }
+    setState(() {
+      _slugStatus = sanitized.isEmpty
+          ? 'Please enter a slug.'
+          : 'Slug not checked yet.';
+    });
+    _slugCheckDebounce?.cancel();
+    if (sanitized.isEmpty) return;
+    _slugCheckDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _checkSlugAvailability(silent: true),
+    );
+  }
+
+  Future<bool> _checkSlugAvailability({bool silent = false}) async {
+    final uid = AuthService.instance.currentUser?.uid;
+    final slug = _slugController.text.trim();
+    if (uid == null || slug.isEmpty) return false;
+
+    if (mounted) setState(() => _isCheckingSlug = true);
+    final available = await FirebaseDraftService.instance.isMemorialSlugAvailable(
+      slug,
+      excludingUid: uid,
+    );
+    if (!mounted) return available;
+    setState(() {
+      _isCheckingSlug = false;
+      _slugStatus = available ? 'Slug is available.' : 'Slug is already taken.';
+    });
+    if (!available && !silent) {
+      _showMessage('Slug is already taken.');
+    }
+    return available;
+  }
+
+  Future<void> _copyPublicLink() async {
+    final url = _currentPublicUrl;
+    if (url == null) return;
+    await Clipboard.setData(ClipboardData(text: url));
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid != null) {
+      await FirebaseDraftService.instance.incrementStats(uid, clickDelta: 1);
+    }
+    _showMessage('Public link copied.');
+  }
+
+  Future<void> _downloadQrPng() async {
+    final bytes = await _captureQrImage();
+    if (bytes == null) {
+      _showMessage('Unable to capture QR image right now.');
+      return;
+    }
+    final slug = _slugController.text.trim().isEmpty
+        ? 'memorial-qr'
+        : _slugController.text.trim();
+    await downloadPngBytes(bytes: bytes, filename: 'warmmemo_$slug.png');
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid != null) {
+      await FirebaseDraftService.instance.incrementStats(uid, clickDelta: 1);
+    }
+    _showMessage('QR image prepared.');
+  }
+
+  Future<Uint8List?> _captureQrImage() async {
+    final context = _qrKey.currentContext;
+    if (context == null) return null;
+    final boundary = context.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 3);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
+  }
+
+  Future<void> _copyPreviewText() async {
+    final lines = <String>[
+      _displayName,
+      if (_mottoController.text.trim().isNotEmpty) _mottoController.text.trim(),
+      if (_bioController.text.trim().isNotEmpty) _bioController.text.trim(),
+      if (_highlightsController.text.trim().isNotEmpty)
+        _highlightsController.text.trim(),
+      if (_willNoteController.text.trim().isNotEmpty)
+        _willNoteController.text.trim(),
+    ];
+    await Clipboard.setData(ClipboardData(text: lines.join('\n\n')));
+    _showMessage('Preview text copied.');
+  }
 
   Future<void> _exportMemorialPdf() async {
+    final ok = await _consumeTokenOrShowTopUp(
+      AdvancedServiceType.memorialExportPdf,
+    );
+    if (!ok) return;
     try {
-      await PdfExporter.exportMemorial(_currentMemorialDraft);
-      _showMessage('PDF 已準備好');
-    } catch (error) {
-      _showMessage('匯出失敗：$error');
-    }
-  }
-
-  Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
-    final uid = AuthService.instance.currentUser?.uid;
-    if (uid == null) {
-      _showMessage('請先登入再使用進階功能。');
-      return false;
-    }
-    final result = await TokenWalletService.instance.consume(
-      uid: uid,
-      type: type,
-    );
-    if (result.ok) return true;
-    _showMessage('${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）');
-    await _showTopUpRequestDialog(uid);
-    return false;
-  }
-
-  Future<void> _showTopUpRequestDialog(String uid) async {
-    int selectedTokens = 10;
-    final noteController = TextEditingController();
-    final submit = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('提交加值申請'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('目前點數不足，可先送出加值申請，客服會協助你完成。'),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<int>(
-                initialValue: selectedTokens,
-                decoration: const InputDecoration(labelText: '需求點數'),
-                items: const [
-                  DropdownMenuItem(value: 10, child: Text('10 點')),
-                  DropdownMenuItem(value: 20, child: Text('20 點')),
-                  DropdownMenuItem(value: 50, child: Text('50 點')),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setDialogState(() => selectedTokens = value);
-                },
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: noteController,
-                decoration: const InputDecoration(labelText: '備註（可留空）'),
-                maxLines: 2,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('送出申請'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (submit == true) {
-      await UserProfileService.instance.submitTopUpRequest(
-        uid: uid,
-        requestedTokens: selectedTokens,
-        note: noteController.text,
+      await PdfExporter.exportMemorial(
+        _currentMemorialDraft,
+        publicUrl: _isPublished ? _currentPublicUrl : null,
       );
-      _showMessage('加值申請已送出，客服將盡快聯繫。');
+      _showMessage('PDF exported.');
+    } catch (error) {
+      _showMessage('PDF export failed: $error');
     }
-    noteController.dispose();
   }
 
   Future<void> _exportMemorialImage() async {
+    final ok = await _consumeTokenOrShowTopUp(
+      AdvancedServiceType.memorialExportImage,
+    );
+    if (!ok) return;
     final bytes = await _capturePreviewImage();
     if (bytes == null) {
-      _showMessage('無法擷取畫面');
+      _showMessage('Unable to export image right now.');
       return;
     }
-
     await Share.shareXFiles([
       XFile.fromData(
         bytes,
         mimeType: 'image/png',
         name: 'warmmemo_memorial.png',
       ),
-    ], text: 'WarmMemo 紀念頁圖片');
-    _showMessage('圖片已準備好');
+    ], text: 'WarmMemo memorial');
+    _showMessage('Preview image exported.');
   }
 
   Future<Uint8List?> _capturePreviewImage() async {
@@ -591,10 +766,116 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     return bytes?.buffer.asUint8List();
   }
 
+  MemorialDraft get _currentMemorialDraft => MemorialDraft(
+        name: _nameController.text.trim(),
+        nickname: _nicknameController.text.trim(),
+        motto: _mottoController.text.trim(),
+        bio: _bioController.text.trim(),
+        highlights: _highlightsController.text.trim(),
+        willNote: _willNoteController.text.trim(),
+        slug: _slugController.text.trim(),
+        isPublished: _isPublished,
+        qrEnabled: _isPublished,
+        publicUpdatedAt: DateTime.now(),
+      );
+
+  Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) {
+      _showMessage('Please sign in first.');
+      return false;
+    }
+    final result = await TokenWalletService.instance.consume(uid: uid, type: type);
+    if (result.ok) return true;
+    _showMessage('${result.message ?? 'Insufficient tokens.'} Balance: ${result.balanceAfter}.');
+    await _showTopUpRequestDialog(uid);
+    return false;
+  }
+
+  Future<void> _showTopUpRequestDialog(String uid) async {
+    int selectedTokens = 10;
+    final noteController = TextEditingController();
+    final submit = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Request Tokens'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Submit a quick token request if you need more credits.'),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                initialValue: selectedTokens,
+                decoration: const InputDecoration(labelText: 'Token amount'),
+                items: const [
+                  DropdownMenuItem(value: 10, child: Text('10')),
+                  DropdownMenuItem(value: 20, child: Text('20')),
+                  DropdownMenuItem(value: 50, child: Text('50')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setDialogState(() => selectedTokens = value);
+                },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Note'),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (submit == true) {
+      await UserProfileService.instance.submitTopUpRequest(
+        uid: uid,
+        requestedTokens: selectedTokens,
+        note: noteController.text,
+      );
+      _showMessage('Token request sent.');
+    }
+    noteController.dispose();
+  }
+
+  void _ensureSlugIfNeeded() {
+    if (_slugController.text.trim().isNotEmpty) return;
+    final fallback = _slugify(_nameController.text.trim());
+    final base = fallback.isEmpty ? 'memorial' : fallback;
+    final raw = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final suffix = raw.length > 5 ? raw.substring(raw.length - 5) : raw;
+    _slugController.text = '$base-$suffix';
+  }
+
+  String _sanitizeSlug(String input) {
+    final slug = _slugify(input);
+    return slug.length > 48 ? slug.substring(0, 48) : slug;
+  }
+
+  String _slugify(String value) {
+    var slug = value.toLowerCase().trim();
+    slug = slug.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    slug = slug.replaceAll(RegExp(r'-+'), '-');
+    slug = slug.replaceAll(RegExp(r'^-+'), '');
+    slug = slug.replaceAll(RegExp(r'-+$'), '');
+    return slug;
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
