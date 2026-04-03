@@ -31,6 +31,9 @@ class MemorialPageTab extends StatefulWidget {
 }
 
 class _MemorialPageTabState extends State<MemorialPageTab> {
+  static final RegExp _controlChars = RegExp(
+    r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]',
+  );
   final _formKey = GlobalKey<FormState>();
   final _previewKey = GlobalKey();
   final _qrKey = GlobalKey();
@@ -118,10 +121,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       LabeledTextField(
                         label: '姓名',
                         controller: _nameController,
-                        validator: (value) =>
-                            (value == null || value.trim().isEmpty)
-                            ? '請輸入姓名。'
-                            : null,
+                        validator: (value) {
+                          final sanitized = _sanitizeSingleLine(
+                            value ?? '',
+                            maxLength: 40,
+                          );
+                          return sanitized.isEmpty ? '請輸入姓名。' : null;
+                        },
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
@@ -286,12 +292,18 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   setState(() {
                     _proposalOrderId = value;
                     _proposalMaterialCode = _materialCodeFromOrder(nextOrder);
-                    _proposalVendorController.text =
-                        nextOrder.proposal?.vendorPreference ?? '';
-                    _proposalScheduleController.text =
-                        nextOrder.proposal?.schedulePreference ?? '';
-                    _proposalNoteController.text =
-                        nextOrder.proposal?.note ?? '';
+                    _proposalVendorController.text = _sanitizeSingleLine(
+                      nextOrder.proposal?.vendorPreference ?? '',
+                      maxLength: 60,
+                    );
+                    _proposalScheduleController.text = _sanitizeDateOrOpenText(
+                      nextOrder.proposal?.schedulePreference ?? '',
+                      maxLength: 80,
+                    );
+                    _proposalNoteController.text = _sanitizeMultiline(
+                      nextOrder.proposal?.note ?? '',
+                      maxLength: 240,
+                    );
                   });
                 },
               ),
@@ -380,9 +392,18 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (_proposalOrderId == order.id) return;
     _proposalOrderId = order.id;
     _proposalMaterialCode = _materialCodeFromOrder(order);
-    _proposalVendorController.text = order.proposal?.vendorPreference ?? '';
-    _proposalScheduleController.text = order.proposal?.schedulePreference ?? '';
-    _proposalNoteController.text = order.proposal?.note ?? '';
+    _proposalVendorController.text = _sanitizeSingleLine(
+      order.proposal?.vendorPreference ?? '',
+      maxLength: 60,
+    );
+    _proposalScheduleController.text = _sanitizeDateOrOpenText(
+      order.proposal?.schedulePreference ?? '',
+      maxLength: 80,
+    );
+    _proposalNoteController.text = _sanitizeMultiline(
+      order.proposal?.note ?? '',
+      maxLength: 240,
+    );
   }
 
   String? _materialCodeFromOrder(Purchase order) {
@@ -452,10 +473,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       }
       final updated = order.copyWith(
         proposal: OrderProposal(
-          vendorPreference: _proposalVendorController.text.trim(),
+          vendorPreference: _proposalVendorValue,
           materialChoice: material?.label,
-          schedulePreference: _proposalScheduleController.text.trim(),
-          note: _proposalNoteController.text.trim(),
+          schedulePreference: _proposalScheduleValue,
+          note: _proposalNoteValue,
           submittedAt: DateTime.now(),
         ),
       );
@@ -473,10 +494,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   bool _hasProposalInput() {
-    return _proposalVendorController.text.trim().isNotEmpty ||
+    return _proposalVendorValue.isNotEmpty ||
         _proposalMaterialCode != null ||
-        _proposalScheduleController.text.trim().isNotEmpty ||
-        _proposalNoteController.text.trim().isNotEmpty;
+        _proposalScheduleValue.isNotEmpty ||
+        _proposalNoteValue.isNotEmpty;
   }
 
   bool _isProposalUnchanged(Purchase order) {
@@ -490,12 +511,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         selectedMaterial = matched.first.label;
       }
     }
-    return (old?.vendorPreference ?? '').trim() ==
-            _proposalVendorController.text.trim() &&
+    return (old?.vendorPreference ?? '').trim() == _proposalVendorValue &&
         (old?.materialChoice ?? '').trim() == (selectedMaterial ?? '').trim() &&
-        (old?.schedulePreference ?? '').trim() ==
-            _proposalScheduleController.text.trim() &&
-        (old?.note ?? '').trim() == _proposalNoteController.text.trim();
+        (old?.schedulePreference ?? '').trim() == _proposalScheduleValue &&
+        (old?.note ?? '').trim() == _proposalNoteValue;
   }
 
   Widget _buildStatsCard(ThemeData theme) {
@@ -736,22 +755,21 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 ),
               ],
             ),
-            if (_mottoController.text.trim().isNotEmpty) ...[
+            if (_mottoValue.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
-                '"${_mottoController.text.trim()}"',
+                '"$_mottoValue"',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontStyle: FontStyle.italic,
                 ),
               ),
             ],
             const SizedBox(height: 12),
-            if (_bioController.text.trim().isNotEmpty)
-              _previewSection(theme, '簡易自傳', _bioController.text.trim()),
-            if (_highlightsController.text.trim().isNotEmpty)
-              _previewSection(theme, '人生重點', _highlightsController.text.trim()),
-            if (_willNoteController.text.trim().isNotEmpty)
-              _previewSection(theme, '給家人的話', _willNoteController.text.trim()),
+            if (_bioValue.isNotEmpty) _previewSection(theme, '簡易自傳', _bioValue),
+            if (_highlightsValue.isNotEmpty)
+              _previewSection(theme, '人生重點', _highlightsValue),
+            if (_willNoteValue.isNotEmpty)
+              _previewSection(theme, '給家人的話', _willNoteValue),
             const Divider(),
             Text(
               _currentPublicUrl ?? '尚未產生公開網址',
@@ -803,9 +821,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   String get _displayName {
-    final nickname = _nicknameController.text.trim();
+    final nickname = _nicknameValue;
     if (nickname.isNotEmpty) return nickname;
-    final name = _nameController.text.trim();
+    final name = _nameValue;
     return name.isEmpty ? '未命名紀念頁' : name;
   }
 
@@ -819,9 +837,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   String get _effectiveSlug {
     final published = (_publishedSlug ?? '').trim();
     if (_isPublished && published.isNotEmpty) {
-      return published;
+      return _sanitizeSlug(published);
     }
-    return _slugController.text.trim();
+    return _sanitizeSlug(_slugController.text);
   }
 
   String? get _effectivePublicUrl {
@@ -846,6 +864,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   Future<void> _handlePreview() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    _normalizeMemorialInputs();
     final ok = await _consumeTokenOrShowTopUp(
       AdvancedServiceType.memorialPreview,
     );
@@ -873,13 +892,31 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     }
 
     setState(() {
-      _nameController.text = draft.name ?? '';
-      _nicknameController.text = draft.nickname ?? '';
-      _mottoController.text = draft.motto ?? '';
-      _bioController.text = draft.bio ?? '';
-      _highlightsController.text = draft.highlights ?? '';
-      _willNoteController.text = draft.willNote ?? '';
-      _slugController.text = draft.slug ?? '';
+      _nameController.text = _sanitizeSingleLine(
+        draft.name ?? '',
+        maxLength: 40,
+      );
+      _nicknameController.text = _sanitizeSingleLine(
+        draft.nickname ?? '',
+        maxLength: 40,
+      );
+      _mottoController.text = _sanitizeSingleLine(
+        draft.motto ?? '',
+        maxLength: 80,
+      );
+      _bioController.text = _sanitizeMultiline(
+        draft.bio ?? '',
+        maxLength: 1500,
+      );
+      _highlightsController.text = _sanitizeMultiline(
+        draft.highlights ?? '',
+        maxLength: 1200,
+      );
+      _willNoteController.text = _sanitizeMultiline(
+        draft.willNote ?? '',
+        maxLength: 1200,
+      );
+      _slugController.text = _sanitizeSlug(draft.slug ?? '');
       _isPublished = draft.isPublished ?? false;
       _publishedSlug = draft.isPublished == true ? draft.slug : null;
       if (draft.slug != null && draft.slug!.isNotEmpty) {
@@ -906,18 +943,11 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }) async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
+    _normalizeMemorialInputs();
     _ensureSlugIfNeeded();
 
-    final draft = MemorialDraft(
-      name: _nameController.text.trim(),
-      nickname: _nicknameController.text.trim(),
-      motto: _mottoController.text.trim(),
-      bio: _bioController.text.trim(),
-      highlights: _highlightsController.text.trim(),
-      willNote: _willNoteController.text.trim(),
-      slug: _slugController.text.trim(),
+    final draft = _buildSanitizedDraft(
       isPublished: isPublished ?? _isPublished,
-      qrEnabled: isPublished ?? _isPublished,
       publicUpdatedAt: publicUpdatedAt,
     );
     await FirebaseDraftService.instance.saveMemorial(uid, draft);
@@ -928,18 +958,19 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
+    _normalizeMemorialInputs();
     _ensureSlugIfNeeded();
     final available = await _checkSlugAvailability();
     if (!available) return;
 
-    final slug = _slugController.text.trim();
+    final slug = _sanitizeSlug(_slugController.text);
     final draft = MemorialDraft(
-      name: _nameController.text.trim(),
-      nickname: _nicknameController.text.trim(),
-      motto: _mottoController.text.trim(),
-      bio: _bioController.text.trim(),
-      highlights: _highlightsController.text.trim(),
-      willNote: _willNoteController.text.trim(),
+      name: _nameValue,
+      nickname: _nicknameValue,
+      motto: _mottoValue,
+      bio: _bioValue,
+      highlights: _highlightsValue,
+      willNote: _willNoteValue,
       slug: slug,
       isPublished: true,
       qrEnabled: true,
@@ -1016,7 +1047,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   Future<bool> _checkSlugAvailability({bool silent = false}) async {
     final uid = AuthService.instance.currentUser?.uid;
-    final slug = _slugController.text.trim();
+    final slug = _sanitizeSlug(_slugController.text);
     if (uid == null || slug.isEmpty) return false;
 
     if (mounted) setState(() => _isCheckingSlug = true);
@@ -1050,9 +1081,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       _showMessage('目前無法產生 QR 碼圖片。');
       return;
     }
-    final slug = _slugController.text.trim().isEmpty
+    final slug = _sanitizeSlug(_slugController.text).isEmpty
         ? 'memorial-qr'
-        : _slugController.text.trim();
+        : _sanitizeSlug(_slugController.text);
     await downloadPngBytes(bytes: bytes, filename: 'warmmemo_$slug.png');
     final uid = AuthService.instance.currentUser?.uid;
     if (uid != null) {
@@ -1103,12 +1134,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   Future<void> _copyPreviewText() async {
     final lines = <String>[
       _displayName,
-      if (_mottoController.text.trim().isNotEmpty) _mottoController.text.trim(),
-      if (_bioController.text.trim().isNotEmpty) _bioController.text.trim(),
-      if (_highlightsController.text.trim().isNotEmpty)
-        _highlightsController.text.trim(),
-      if (_willNoteController.text.trim().isNotEmpty)
-        _willNoteController.text.trim(),
+      if (_mottoValue.isNotEmpty) _mottoValue,
+      if (_bioValue.isNotEmpty) _bioValue,
+      if (_highlightsValue.isNotEmpty) _highlightsValue,
+      if (_willNoteValue.isNotEmpty) _willNoteValue,
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n\n')));
     _showMessage('已複製預覽文字。');
@@ -1161,17 +1190,122 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   MemorialDraft get _currentMemorialDraft => MemorialDraft(
-    name: _nameController.text.trim(),
-    nickname: _nicknameController.text.trim(),
-    motto: _mottoController.text.trim(),
-    bio: _bioController.text.trim(),
-    highlights: _highlightsController.text.trim(),
-    willNote: _willNoteController.text.trim(),
-    slug: _slugController.text.trim(),
+    name: _nameValue,
+    nickname: _nicknameValue,
+    motto: _mottoValue,
+    bio: _bioValue,
+    highlights: _highlightsValue,
+    willNote: _willNoteValue,
+    slug: _sanitizeSlug(_slugController.text),
     isPublished: _isPublished,
     qrEnabled: _isPublished,
     publicUpdatedAt: DateTime.now(),
   );
+
+  MemorialDraft _buildSanitizedDraft({
+    required bool isPublished,
+    DateTime? publicUpdatedAt,
+  }) {
+    return MemorialDraft(
+      name: _nameValue,
+      nickname: _nicknameValue,
+      motto: _mottoValue,
+      bio: _bioValue,
+      highlights: _highlightsValue,
+      willNote: _willNoteValue,
+      slug: _sanitizeSlug(_slugController.text),
+      isPublished: isPublished,
+      qrEnabled: isPublished,
+      publicUpdatedAt: publicUpdatedAt,
+    );
+  }
+
+  String get _nameValue =>
+      _sanitizeSingleLine(_nameController.text, maxLength: 40);
+  String get _nicknameValue =>
+      _sanitizeSingleLine(_nicknameController.text, maxLength: 40);
+  String get _mottoValue =>
+      _sanitizeSingleLine(_mottoController.text, maxLength: 80);
+  String get _bioValue =>
+      _sanitizeMultiline(_bioController.text, maxLength: 1500);
+  String get _highlightsValue =>
+      _sanitizeMultiline(_highlightsController.text, maxLength: 1200);
+  String get _willNoteValue =>
+      _sanitizeMultiline(_willNoteController.text, maxLength: 1200);
+  String get _proposalVendorValue =>
+      _sanitizeSingleLine(_proposalVendorController.text, maxLength: 60);
+  String get _proposalScheduleValue =>
+      _sanitizeDateOrOpenText(_proposalScheduleController.text, maxLength: 80);
+  String get _proposalNoteValue =>
+      _sanitizeMultiline(_proposalNoteController.text, maxLength: 240);
+
+  void _normalizeMemorialInputs() {
+    _nameController.text = _nameValue;
+    _nicknameController.text = _nicknameValue;
+    _mottoController.text = _mottoValue;
+    _bioController.text = _bioValue;
+    _highlightsController.text = _highlightsValue;
+    _willNoteController.text = _willNoteValue;
+    _slugController.text = _sanitizeSlug(_slugController.text);
+    _proposalVendorController.text = _proposalVendorValue;
+    _proposalScheduleController.text = _proposalScheduleValue;
+    _proposalNoteController.text = _proposalNoteValue;
+  }
+
+  String _sanitizeSingleLine(String input, {required int maxLength}) {
+    var value = input.replaceAll(_controlChars, '');
+    value = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ');
+    value = value.replaceAll('<', '＜').replaceAll('>', '＞');
+    value = value.trim();
+    if (value.length > maxLength) {
+      value = value.substring(0, maxLength).trim();
+    }
+    return value;
+  }
+
+  String _sanitizeMultiline(String input, {required int maxLength}) {
+    var value = input.replaceAll(_controlChars, '');
+    value = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    value = value.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    value = value.replaceAll('<', '＜').replaceAll('>', '＞');
+    value = value.trim();
+    if (value.length > maxLength) {
+      value = value.substring(0, maxLength).trim();
+    }
+    return value;
+  }
+
+  String _sanitizeDateOrOpenText(String input, {required int maxLength}) {
+    final cleaned = _sanitizeSingleLine(input, maxLength: maxLength);
+    if (cleaned.isEmpty) return '';
+    final normalized = cleaned.replaceAll('/', '-');
+    final dateMatch = RegExp(
+      r'^(\d{4})-(\d{1,2})-(\d{1,2})$',
+    ).firstMatch(normalized);
+    if (dateMatch != null) {
+      final year = int.tryParse(dateMatch.group(1) ?? '');
+      final month = int.tryParse(dateMatch.group(2) ?? '');
+      final day = int.tryParse(dateMatch.group(3) ?? '');
+      if (year != null &&
+          month != null &&
+          day != null &&
+          month >= 1 &&
+          month <= 12 &&
+          day >= 1 &&
+          day <= 31) {
+        return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+      }
+    }
+    final monthMatch = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(normalized);
+    if (monthMatch != null) {
+      final year = int.tryParse(monthMatch.group(1) ?? '');
+      final month = int.tryParse(monthMatch.group(2) ?? '');
+      if (year != null && month != null && month >= 1 && month <= 12) {
+        return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
+      }
+    }
+    return cleaned;
+  }
 
   Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
     final uid = AuthService.instance.currentUser?.uid;
@@ -1246,7 +1380,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       await UserProfileService.instance.submitTopUpRequest(
         uid: uid,
         requestedTokens: selectedTokens,
-        note: noteController.text,
+        note: _sanitizeMultiline(noteController.text, maxLength: 200),
       );
       _showMessage('點數申請已送出。');
     }
@@ -1255,7 +1389,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   void _ensureSlugIfNeeded() {
     if (_slugController.text.trim().isNotEmpty) return;
-    final fallback = _slugify(_nameController.text.trim());
+    final fallback = _slugify(_nameValue);
     final base = fallback.isEmpty ? 'memorial' : fallback;
     final raw = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
     final suffix = raw.length > 5 ? raw.substring(raw.length - 5) : raw;

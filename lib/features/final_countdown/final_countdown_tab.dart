@@ -36,9 +36,13 @@ class _PlanItem {
   }
 
   static _PlanItem fromJson(Map<String, dynamic> json) {
+    final rawAmount = json['amount'];
+    final amountText = rawAmount is num
+        ? rawAmount.toString()
+        : ((rawAmount as String?) ?? '0');
     return _PlanItem(
       name: (json['name'] as String?) ?? '',
-      amount: (json['amount'] as String?) ?? '0',
+      amount: amountText,
       kind: _AmountKind.values.firstWhere(
         (v) => v.name == json['kind'],
         orElse: () => _AmountKind.oneTime,
@@ -102,6 +106,16 @@ class FinalCountdownTab extends StatefulWidget {
 
 class _FinalCountdownTabState extends State<FinalCountdownTab> {
   static const _prefsKey = 'final_countdown_tab_v1';
+  static final RegExp _controlChars = RegExp(
+    r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]',
+  );
+  static const int _minAge = 0;
+  static const int _maxAge = 130;
+  static const int _minLifeExpectancy = 1;
+  static const int _maxLifeExpectancy = 130;
+  static const int _minRetireYear = 1900;
+  static const int _maxRetireYear = 2300;
+  static const double _maxAmount = 999999999999;
 
   late final TextEditingController _currentAgeController;
   late final TextEditingController _lifeExpectancyController;
@@ -172,18 +186,27 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
               .toList();
       if (!mounted) return;
       setState(() {
-        final currentAge = (map['currentAge'] as String?)?.trim();
-        final life = (map['lifeExpectancy'] as String?)?.trim();
-        final retire = (map['retireYear'] as String?)?.trim();
-        if (currentAge != null && currentAge.isNotEmpty) {
-          _currentAgeController.text = currentAge;
-        }
-        if (life != null && life.isNotEmpty) {
-          _lifeExpectancyController.text = life;
-        }
-        if (retire != null && retire.isNotEmpty) {
-          _retireYearController.text = retire;
-        }
+        final currentAge = _readBoundedIntFromDynamic(
+          map['currentAge'],
+          fallback: 35,
+          min: _minAge,
+          max: _maxAge,
+        );
+        final life = _readBoundedIntFromDynamic(
+          map['lifeExpectancy'],
+          fallback: 85,
+          min: _minLifeExpectancy,
+          max: _maxLifeExpectancy,
+        );
+        final retire = _readBoundedIntFromDynamic(
+          map['retireYear'],
+          fallback: DateTime.now().year + 25,
+          min: _minRetireYear,
+          max: _maxRetireYear,
+        );
+        _currentAgeController.text = '$currentAge';
+        _lifeExpectancyController.text = '$life';
+        _retireYearController.text = '$retire';
         if (costs.isNotEmpty) {
           for (final item in _costItems) {
             item.dispose();
@@ -209,24 +232,72 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   void _queueSave() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 300), () async {
+      _normalizeInputsForPersistence();
       final prefs = await SharedPreferences.getInstance();
       final payload = <String, dynamic>{
-        'currentAge': _currentAgeController.text.trim(),
-        'lifeExpectancy': _lifeExpectancyController.text.trim(),
-        'retireYear': _retireYearController.text.trim(),
-        'costItems': _costItems.map((item) => item.toJson()).toList(),
-        'assetItems': _assetItems.map((item) => item.toJson()).toList(),
+        'currentAge': _readBoundedInt(
+          _currentAgeController,
+          fallback: 35,
+          min: _minAge,
+          max: _maxAge,
+        ),
+        'lifeExpectancy': _readBoundedInt(
+          _lifeExpectancyController,
+          fallback: 85,
+          min: _minLifeExpectancy,
+          max: _maxLifeExpectancy,
+        ),
+        'retireYear': _readBoundedInt(
+          _retireYearController,
+          fallback: DateTime.now().year + 25,
+          min: _minRetireYear,
+          max: _maxRetireYear,
+        ),
+        'costItems': _costItems.map(_sanitizedItemJson).toList(),
+        'assetItems': _assetItems.map(_sanitizedItemJson).toList(),
       };
       await prefs.setString(_prefsKey, jsonEncode(payload));
     });
   }
 
-  int _readInt(TextEditingController controller, int fallback) {
-    return int.tryParse(controller.text.trim()) ?? fallback;
+  int _readInt(
+    TextEditingController controller, {
+    required int fallback,
+    required int min,
+    required int max,
+  }) {
+    return _readBoundedInt(controller, fallback: fallback, min: min, max: max);
+  }
+
+  int _readBoundedInt(
+    TextEditingController controller, {
+    required int fallback,
+    required int min,
+    required int max,
+  }) {
+    final parsed = int.tryParse(controller.text.trim()) ?? fallback;
+    return parsed.clamp(min, max);
+  }
+
+  int _readBoundedIntFromDynamic(
+    dynamic value, {
+    required int fallback,
+    required int min,
+    required int max,
+  }) {
+    if (value is int) return value.clamp(min, max);
+    if (value is num) return value.toInt().clamp(min, max);
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed.clamp(min, max);
+    }
+    return fallback.clamp(min, max);
   }
 
   double _readAmount(TextEditingController controller) {
-    return double.tryParse(controller.text.replaceAll(',', '').trim()) ?? 0;
+    final parsed = double.tryParse(controller.text.replaceAll(',', '').trim());
+    if (parsed == null || parsed.isNaN || parsed.isInfinite) return 0;
+    return parsed.clamp(0, _maxAmount);
   }
 
   double _sumItems(
@@ -275,7 +346,60 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     final value = double.tryParse(normalized);
     if (value == null) return '請輸入有效數字';
     if (value < 0) return '金額不可為負數';
+    if (value > _maxAmount) return '金額超過上限';
     return null;
+  }
+
+  void _normalizeInputsForPersistence() {
+    _currentAgeController.text =
+        '${_readBoundedInt(_currentAgeController, fallback: 35, min: _minAge, max: _maxAge)}';
+    _lifeExpectancyController.text =
+        '${_readBoundedInt(_lifeExpectancyController, fallback: 85, min: _minLifeExpectancy, max: _maxLifeExpectancy)}';
+    _retireYearController.text =
+        '${_readBoundedInt(_retireYearController, fallback: DateTime.now().year + 25, min: _minRetireYear, max: _maxRetireYear)}';
+    for (final item in _costItems) {
+      _normalizePlanItem(item);
+    }
+    for (final item in _assetItems) {
+      _normalizePlanItem(item);
+    }
+  }
+
+  void _normalizePlanItem(_PlanItem item) {
+    item.nameController.text = _sanitizePlanName(item.nameController.text);
+    item.amountController.text = _formatAmount(
+      _parseAmount(item.amountController.text),
+    );
+  }
+
+  Map<String, dynamic> _sanitizedItemJson(_PlanItem item) {
+    return <String, dynamic>{
+      'name': _sanitizePlanName(item.nameController.text),
+      'amount': _parseAmount(item.amountController.text),
+      'kind': item.kind.name,
+      'phase': item.phase.name,
+    };
+  }
+
+  double _parseAmount(String text) {
+    final value = double.tryParse(text.replaceAll(',', '').trim());
+    if (value == null || value.isNaN || value.isInfinite) return 0;
+    return value.clamp(0, _maxAmount);
+  }
+
+  String _formatAmount(double value) {
+    final fixed = value.toStringAsFixed(2);
+    return fixed.endsWith('.00')
+        ? fixed.substring(0, fixed.length - 3)
+        : (fixed.endsWith('0') ? fixed.substring(0, fixed.length - 1) : fixed);
+  }
+
+  String _sanitizePlanName(String input) {
+    var value = input.replaceAll(_controlChars, '');
+    value = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ');
+    value = value.replaceAll('<', '＜').replaceAll('>', '＞').trim();
+    if (value.length > 40) value = value.substring(0, 40).trim();
+    return value;
   }
 
   void _refreshAndSave() {
@@ -286,9 +410,24 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   @override
   Widget build(BuildContext context) {
     final nowYear = DateTime.now().year;
-    final currentAge = math.max(0, _readInt(_currentAgeController, 35));
-    final life = math.max(0, _readInt(_lifeExpectancyController, 85));
-    final retireYear = _readInt(_retireYearController, nowYear + 25);
+    final currentAge = _readInt(
+      _currentAgeController,
+      fallback: 35,
+      min: _minAge,
+      max: _maxAge,
+    );
+    final life = _readInt(
+      _lifeExpectancyController,
+      fallback: 85,
+      min: _minLifeExpectancy,
+      max: _maxLifeExpectancy,
+    );
+    final retireYear = _readInt(
+      _retireYearController,
+      fallback: nowYear + 25,
+      min: _minRetireYear,
+      max: _maxRetireYear,
+    );
     final remainingYears = math.max(0, life - currentAge);
     final beforeRetire = math.min(
       math.max(0, retireYear - nowYear),
@@ -732,6 +871,10 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       controller: controller,
       keyboardType: TextInputType.number,
       onChanged: (_) => _refreshAndSave(),
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(4),
+      ],
       decoration: InputDecoration(labelText: label, isDense: true),
     );
   }
