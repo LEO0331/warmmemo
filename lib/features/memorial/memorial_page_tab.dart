@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -41,7 +41,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   bool _showPreview = false;
   bool _isPublished = false;
   bool _isCheckingSlug = false;
-  String _slugStatus = 'Create a public link for QR memorial access.';
+  String _slugStatus = '建立公開連結後，即可提供 QR 掃描追思。';
   String? _publishedSlug;
   DraftStats? _stats;
   Timer? _slugCheckDebounce;
@@ -78,12 +78,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const PageHero(
-                  eyebrow: 'Memorial',
+                  eyebrow: '追思紀念',
                   icon: Icons.person_outline,
-                  title: 'Memorial Page + QR',
+                  title: '紀念頁 + QR 碼',
                   subtitle:
-                      'Build a memorial page, publish a public link, and download a QR image for a gravestone, plaque, or remembrance card.',
-                  badges: ['Public page', 'QR code', 'Download PNG'],
+                      '建立紀念頁、發布公開連結，並下載 QR 圖檔，方便用於墓碑、牌位或追思卡。',
+                  badges: ['公開頁面', 'QR 碼', '下載 PNG'],
                 ),
                 const SizedBox(height: 12),
                 if (_stats != null) _buildStatsCard(theme),
@@ -98,38 +98,38 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   child: Column(
                     children: [
                       LabeledTextField(
-                        label: 'Name',
+                        label: '姓名',
                         controller: _nameController,
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
-                                ? 'Please enter a name.'
+                                ? '請輸入姓名。'
                                 : null,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: 'Nickname',
+                        label: '稱呼 / 暱稱',
                         controller: _nicknameController,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: 'Motto',
+                        label: '座右銘',
                         controller: _mottoController,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: 'Life Summary',
+                        label: '簡易自傳',
                         controller: _bioController,
                         maxLines: 5,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: 'Highlights',
+                        label: '人生重點',
                         controller: _highlightsController,
                         maxLines: 4,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
-                        label: 'Message to Family',
+                        label: '給家人的話',
                         controller: _willNoteController,
                         maxLines: 4,
                       ),
@@ -138,13 +138,15 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           icon: const Icon(Icons.visibility_outlined),
-                          label: const Text('Preview Memorial'),
+                          label: const Text('預覽紀念頁'),
                           onPressed: _handlePreview,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                _buildV2FeatureLayout(theme),
                 const SizedBox(height: 16),
                 _buildQrSection(theme),
                 const SizedBox(height: 24),
@@ -160,7 +162,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       Expanded(
                         child: FilledButton.icon(
                           icon: const Icon(Icons.picture_as_pdf_outlined),
-                          label: const Text('Export PDF'),
+                          label: const Text('匯出 PDF'),
                           onPressed: _exportMemorialPdf,
                         ),
                       ),
@@ -168,7 +170,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       Expanded(
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.image_outlined),
-                          label: const Text('Export Image'),
+                          label: const Text('匯出圖片'),
                           onPressed: _exportMemorialImage,
                         ),
                       ),
@@ -183,6 +185,39 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     );
   }
 
+  Widget _buildV2FeatureLayout(ThemeData theme) {
+    return SectionCard(
+      title: '第2版功能布局',
+      icon: Icons.dashboard_customize_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '建議將內容編輯與協作管理分區，先完成生命故事，再安排供應與交付。',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: const [
+              _FeatureBadge(title: '留言', icon: Icons.forum_outlined),
+              _FeatureBadge(title: '家族樹', icon: Icons.account_tree_outlined),
+              _FeatureBadge(title: '簡易自傳', icon: Icons.auto_stories_outlined),
+              _FeatureBadge(title: '供應商管理', icon: Icons.store_outlined),
+              _FeatureBadge(title: '材質選單', icon: Icons.category_outlined),
+              _FeatureBadge(title: '交付排程', icon: Icons.event_available_outlined),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Bullet('內容區：留言、家族樹、簡易自傳（先蒐集故事與追思內容）。'),
+          const Bullet('作業區：供應商管理、材質選單、交付排程（再銜接製作與交付）。'),
+          const Bullet('流程建議：先完成紀念頁內容，再發布 QR 並同步交付排程。'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatsCard(ThemeData theme) {
     final stats = _stats!;
     return Card(
@@ -191,8 +226,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _statColumn(theme, 'Reads', stats.readCount),
-            _statColumn(theme, 'Clicks', stats.clickCount),
+            _statColumn(theme, '瀏覽次數', stats.readCount),
+            _statColumn(theme, '操作次數', stats.clickCount),
           ],
         ),
       ),
@@ -206,13 +241,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         final events = snapshot.data ?? const <NotificationEvent>[];
         if (events.isEmpty) {
           return const SectionCard(
-            title: 'Recent Notifications',
+            title: '近期通知',
             icon: Icons.notifications_outlined,
-            child: Text('No recent memorial notifications.'),
+            child: Text('目前沒有新的紀念頁通知。'),
           );
         }
         return SectionCard(
-          title: 'Recent Notifications',
+          title: '近期通知',
           icon: Icons.notifications_outlined,
           child: Column(
             children: List.generate(events.take(4).length, (index) {
@@ -225,8 +260,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       : Icons.circle_outlined,
                   size: 20,
                 ),
-                title: Text(event.draftType ?? 'Memorial'),
-                subtitle: Text('${event.channel} · ${event.status}'),
+                title: Text(event.draftType ?? '紀念頁'),
+                subtitle: Text('${event.channel} • ${event.status}'),
                 trailing: Text(
                   event.occurredAt.toLocal().toString().split('.').first,
                   style: const TextStyle(fontSize: 12),
@@ -244,7 +279,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     final ready = _isPublished && publicUrl != null;
 
     return SectionCard(
-      title: 'QR Memorial',
+      title: '公開紀念頁與 QR',
       icon: Icons.qr_code_2_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,9 +287,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: _isPublished,
-            title: const Text('Publish public memorial page'),
+            title: const Text('發布公開紀念頁'),
             subtitle: const Text(
-              'When published, visitors can scan the QR code and open a read-only memorial page.',
+              '發布後，訪客可透過掃描 QR 碼開啟唯讀紀念頁。',
             ),
             onChanged: (value) async {
               if (value) {
@@ -266,7 +301,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Public slug',
+            '公開網址代稱（Slug）',
             style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
@@ -276,7 +311,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               LengthLimitingTextInputFormatter(48),
             ],
             decoration: InputDecoration(
-              hintText: 'family-memory',
+              hintText: 'jia-zu-ji-nian',
               suffixIcon: _isCheckingSlug
                   ? const Padding(
                       padding: EdgeInsets.all(12),
@@ -297,12 +332,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           Text(_slugStatus, style: theme.textTheme.bodySmall),
           const SizedBox(height: 12),
           Text(
-            'Public URL',
+            '公開網址',
             style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           SelectableText(
-            publicUrl ?? 'No public URL yet',
+            publicUrl ?? '尚未產生公開網址',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: publicUrl == null ? const Color(0xFF8D6B5C) : theme.colorScheme.primary,
             ),
@@ -329,7 +364,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Scan to remember',
+                        '掃碼進入追思頁',
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -350,31 +385,31 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               FilledButton.icon(
                 onPressed: _publishPublicPage,
                 icon: Icon(_isPublished ? Icons.refresh_outlined : Icons.public_outlined),
-                label: Text(_isPublished ? 'Update Public Page' : 'Publish Now'),
+                label: Text(_isPublished ? '更新公開頁' : '立即發布'),
               ),
               OutlinedButton.icon(
                 onPressed: ready ? _copyPublicLink : null,
                 icon: const Icon(Icons.copy_all_outlined),
-                label: const Text('Copy Link'),
+                label: const Text('複製連結'),
               ),
               OutlinedButton.icon(
                 onPressed: ready ? _downloadQrPng : null,
                 icon: const Icon(Icons.download_outlined),
-                label: const Text('Download QR PNG'),
+                label: const Text('下載 QR PNG'),
               ),
               if (_isPublished)
                 OutlinedButton.icon(
                   onPressed: _unpublishPublicPage,
                   icon: const Icon(Icons.public_off_outlined),
-                  label: const Text('Unpublish'),
+                  label: const Text('取消發布'),
                 ),
             ],
           ),
           const SizedBox(height: 16),
-          Bullet('Use strong contrast: dark QR on a light background.'),
-          Bullet('Leave enough physical size for real-world scanning.'),
-          Bullet('Avoid flowers, frames, or decorations covering the code.'),
-          Bullet('Test a printed sample before final installation.'),
+          Bullet('請保持高對比：深色 QR 搭配淺色底。'),
+          Bullet('實體印製需保留足夠尺寸，避免掃描失敗。'),
+          Bullet('避免花紋、邊框或裝飾遮住 QR 區塊。'),
+          Bullet('正式安裝前，先列印樣張實測。'),
         ],
       ),
     );
@@ -401,7 +436,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Copy preview text',
+                  tooltip: '複製預覽文字',
                   icon: const Icon(Icons.copy_all_outlined),
                   onPressed: _copyPreviewText,
                 ),
@@ -418,18 +453,18 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             ],
             const SizedBox(height: 12),
             if (_bioController.text.trim().isNotEmpty)
-              _previewSection(theme, 'Life Summary', _bioController.text.trim()),
+              _previewSection(theme, '簡易自傳', _bioController.text.trim()),
             if (_highlightsController.text.trim().isNotEmpty)
-              _previewSection(theme, 'Highlights', _highlightsController.text.trim()),
+              _previewSection(theme, '人生重點', _highlightsController.text.trim()),
             if (_willNoteController.text.trim().isNotEmpty)
               _previewSection(
                 theme,
-                'Message to Family',
+                '給家人的話',
                 _willNoteController.text.trim(),
               ),
             const Divider(),
             Text(
-              _currentPublicUrl ?? 'No public URL yet',
+              _currentPublicUrl ?? '尚未產生公開網址',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: _currentPublicUrl == null
                     ? const Color(0xFF8D6B5C)
@@ -481,7 +516,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     final nickname = _nicknameController.text.trim();
     if (nickname.isNotEmpty) return nickname;
     final name = _nameController.text.trim();
-    return name.isEmpty ? 'Untitled memorial' : name;
+    return name.isEmpty ? '未命名紀念頁' : name;
   }
 
   String? get _currentPublicUrl {
@@ -529,7 +564,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       _isPublished = draft.isPublished ?? false;
       _publishedSlug = draft.isPublished == true ? draft.slug : null;
       if (draft.slug != null && draft.slug!.isNotEmpty) {
-        _slugStatus = 'Current slug: ${draft.slug}';
+        _slugStatus = '目前代稱：${draft.slug}';
       }
     });
 
@@ -604,9 +639,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     setState(() {
       _isPublished = true;
       _publishedSlug = slug;
-      _slugStatus = 'Public memorial page is live.';
+      _slugStatus = '公開紀念頁已上線。';
     });
-    _showMessage('Public memorial page published.');
+    _showMessage('公開紀念頁已發布。');
   }
 
   Future<void> _unpublishPublicPage() async {
@@ -621,9 +656,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     setState(() {
       _isPublished = false;
       _publishedSlug = null;
-      _slugStatus = 'Public memorial page is unpublished.';
+      _slugStatus = '公開紀念頁已下架。';
     });
-    _showMessage('Public memorial page unpublished.');
+    _showMessage('公開紀念頁已取消發布。');
   }
 
   void _handleSlugChanged(String rawValue) {
@@ -636,8 +671,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     }
     setState(() {
       _slugStatus = sanitized.isEmpty
-          ? 'Please enter a slug.'
-          : 'Slug not checked yet.';
+          ? '請輸入網址代稱。'
+          : '尚未檢查可用性。';
     });
     _slugCheckDebounce?.cancel();
     if (sanitized.isEmpty) return;
@@ -660,10 +695,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (!mounted) return available;
     setState(() {
       _isCheckingSlug = false;
-      _slugStatus = available ? 'Slug is available.' : 'Slug is already taken.';
+      _slugStatus = available ? '此代稱可使用。' : '此代稱已被使用。';
     });
     if (!available && !silent) {
-      _showMessage('Slug is already taken.');
+      _showMessage('此代稱已被使用。');
     }
     return available;
   }
@@ -676,13 +711,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (uid != null) {
       await FirebaseDraftService.instance.incrementStats(uid, clickDelta: 1);
     }
-    _showMessage('Public link copied.');
+    _showMessage('已複製公開連結。');
   }
 
   Future<void> _downloadQrPng() async {
     final bytes = await _captureQrImage();
     if (bytes == null) {
-      _showMessage('Unable to capture QR image right now.');
+      _showMessage('目前無法產生 QR 圖片。');
       return;
     }
     final slug = _slugController.text.trim().isEmpty
@@ -693,7 +728,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (uid != null) {
       await FirebaseDraftService.instance.incrementStats(uid, clickDelta: 1);
     }
-    _showMessage('QR image prepared.');
+    _showMessage('QR 圖片已準備完成。');
   }
 
   Future<Uint8List?> _captureQrImage() async {
@@ -717,7 +752,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         _willNoteController.text.trim(),
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n\n')));
-    _showMessage('Preview text copied.');
+    _showMessage('已複製預覽文字。');
   }
 
   Future<void> _exportMemorialPdf() async {
@@ -730,9 +765,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         _currentMemorialDraft,
         publicUrl: _isPublished ? _currentPublicUrl : null,
       );
-      _showMessage('PDF exported.');
+      _showMessage('PDF 匯出完成。');
     } catch (error) {
-      _showMessage('PDF export failed: $error');
+      _showMessage('PDF 匯出失敗： $error');
     }
   }
 
@@ -743,7 +778,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (!ok) return;
     final bytes = await _capturePreviewImage();
     if (bytes == null) {
-      _showMessage('Unable to export image right now.');
+      _showMessage('目前無法匯出圖片。');
       return;
     }
     await Share.shareXFiles([
@@ -752,8 +787,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         mimeType: 'image/png',
         name: 'warmmemo_memorial.png',
       ),
-    ], text: 'WarmMemo memorial');
-    _showMessage('Preview image exported.');
+    ], text: 'WarmMemo 紀念頁');
+    _showMessage('預覽圖片已匯出。');
   }
 
   Future<Uint8List?> _capturePreviewImage() async {
@@ -782,12 +817,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) {
-      _showMessage('Please sign in first.');
+      _showMessage('請先登入。');
       return false;
     }
     final result = await TokenWalletService.instance.consume(uid: uid, type: type);
     if (result.ok) return true;
-    _showMessage('${result.message ?? 'Insufficient tokens.'} Balance: ${result.balanceAfter}.');
+    _showMessage('${result.message ?? '點數不足。'} 目前餘額：${result.balanceAfter}。');
     await _showTopUpRequestDialog(uid);
     return false;
   }
@@ -799,16 +834,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Request Tokens'),
+          title: const Text('申請點數'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Submit a quick token request if you need more credits.'),
+              const Text('如需更多點數，可快速送出申請。'),
               const SizedBox(height: 10),
               DropdownButtonFormField<int>(
                 initialValue: selectedTokens,
-                decoration: const InputDecoration(labelText: 'Token amount'),
+                decoration: const InputDecoration(labelText: '申請點數'),
                 items: const [
                   DropdownMenuItem(value: 10, child: Text('10')),
                   DropdownMenuItem(value: 20, child: Text('20')),
@@ -822,7 +857,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               const SizedBox(height: 8),
               TextField(
                 controller: noteController,
-                decoration: const InputDecoration(labelText: 'Note'),
+                decoration: const InputDecoration(labelText: '備註'),
                 maxLines: 2,
               ),
             ],
@@ -830,11 +865,11 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Submit'),
+              child: const Text('送出'),
             ),
           ],
         ),
@@ -846,7 +881,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         requestedTokens: selectedTokens,
         note: noteController.text,
       );
-      _showMessage('Token request sent.');
+      _showMessage('點數申請已送出。');
     }
     noteController.dispose();
   }
@@ -879,3 +914,41 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
+
+class _FeatureBadge extends StatelessWidget {
+  const _FeatureBadge({
+    required this.title,
+    required this.icon,
+  });
+
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4EA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE7D5C8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF5A3D30),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
