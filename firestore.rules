@@ -37,6 +37,48 @@ service cloud.firestore {
       return !(request.resource.data.paymentStatus in ['paid']);
     }
 
+    function ownerOrderProposalShapeValid() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['proposal'])
+        || (
+          request.resource.data.proposal == null
+          || (
+            request.resource.data.proposal is map
+            && request.resource.data.proposal.keys().hasOnly([
+              'vendorPreference',
+              'materialChoice',
+              'schedulePreference',
+              'note',
+              'submittedAt'
+            ])
+            && (
+              !('vendorPreference' in request.resource.data.proposal)
+              || request.resource.data.proposal.vendorPreference is string
+              || request.resource.data.proposal.vendorPreference == null
+            )
+            && (
+              !('materialChoice' in request.resource.data.proposal)
+              || request.resource.data.proposal.materialChoice is string
+              || request.resource.data.proposal.materialChoice == null
+            )
+            && (
+              !('schedulePreference' in request.resource.data.proposal)
+              || request.resource.data.proposal.schedulePreference is string
+              || request.resource.data.proposal.schedulePreference == null
+            )
+            && (
+              !('note' in request.resource.data.proposal)
+              || request.resource.data.proposal.note is string
+              || request.resource.data.proposal.note == null
+            )
+            && (
+              !('submittedAt' in request.resource.data.proposal)
+              || request.resource.data.proposal.submittedAt is string
+              || request.resource.data.proposal.submittedAt == null
+            )
+          )
+        );
+    }
+
     function ownerUserSafeUpdate(userId) {
       return isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
@@ -104,7 +146,8 @@ service cloud.firestore {
           && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired'];
         allow update: if (isOwner(userId)
             && ownerOrderUpdatableKeysOnly()
-            && ownerOrderPaymentStatusAllowed())
+            && ownerOrderPaymentStatusAllowed()
+            && ownerOrderProposalShapeValid())
           || isAdmin();
         allow delete: if isAdmin();
       }
@@ -153,7 +196,8 @@ service cloud.firestore {
             'paymentCurrency',
             'proposal'
           ])
-          && !(request.resource.data.paymentStatus in ['paid']))
+          && !(request.resource.data.paymentStatus in ['paid'])
+          && ownerOrderProposalShapeValid())
         || isAdmin();
       allow delete: if isAdmin();
     }

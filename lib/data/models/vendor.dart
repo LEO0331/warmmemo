@@ -39,6 +39,7 @@ class Vendor {
 
   Map<String, Object?> toMap() => {
     'name': name,
+    'nameLower': name.trim().toLowerCase(),
     'contactName': contactName,
     'contactPhone': contactPhone,
     'serviceRegion': serviceRegion,

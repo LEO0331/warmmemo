@@ -53,6 +53,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       });
       return;
     }
+    if (_editing.status == 'complete' && !_isDeliveredMilestoneDone()) {
+      setState(() {
+        _workflowHint = '案件要標記 complete 前，請先將「已交付」里程碑設為 done。';
+      });
+      return;
+    }
     final actor =
         AuthService.instance.currentUser?.email ??
         AuthService.instance.currentUser?.uid ??
@@ -174,14 +180,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
 
     setState(() {
+      final mergedNotes = _mergeProposalNotes(
+        base: _editing.notes,
+        schedulePreference: proposal.schedulePreference,
+        note: proposal.note,
+      );
       _editing = _editing.copyWith(
         materialSelection: nextMaterial,
-        notes: [
-          _editing.notes ?? '',
-          if ((proposal.schedulePreference ?? '').trim().isNotEmpty)
-            '客戶排程偏好：${proposal.schedulePreference}',
-          if ((proposal.note ?? '').trim().isNotEmpty) '客戶備註：${proposal.note}',
-        ].where((line) => line.trim().isNotEmpty).join('\n'),
+        notes: mergedNotes,
       );
     });
   }
@@ -215,6 +221,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 StreamBuilder<List<Vendor>>(
                   stream: VendorService.instance.streamVendors(),
                   builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const SectionCard(
+                        title: '供應商與材質',
+                        icon: Icons.storefront_outlined,
+                        child: Padding(
+                          padding: EdgeInsets.all(8),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return SectionCard(
+                        title: '供應商與材質',
+                        icon: Icons.storefront_outlined,
+                        child: SelectableText('供應商讀取失敗：${snapshot.error}'),
+                      );
+                    }
                     final vendors = snapshot.data ?? const <Vendor>[];
                     return _buildVendorAndMaterialSection(vendors);
                   },
@@ -693,9 +716,58 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   void _updateMilestone(int index, DeliveryMilestone value) {
+    if (value.status == 'done' && !_previousMilestonesCompleted(index)) {
+      _showMessage('請先完成前一個里程碑，再標記此步驟為 done。');
+      return;
+    }
     setState(() {
       _schedule = List<DeliveryMilestone>.from(_schedule)..[index] = value;
       _editing = _editing.copyWith(deliverySchedule: _schedule);
     });
+  }
+
+  bool _isDeliveredMilestoneDone() {
+    final delivered = _schedule.where((item) => item.code == 'delivered');
+    if (delivered.isEmpty) return false;
+    return delivered.first.status == 'done';
+  }
+
+  bool _previousMilestonesCompleted(int index) {
+    if (index <= 0) return true;
+    for (var i = 0; i < index; i++) {
+      if (_schedule[i].status != 'done') return false;
+    }
+    return true;
+  }
+
+  String _mergeProposalNotes({
+    String? base,
+    String? schedulePreference,
+    String? note,
+  }) {
+    final lines = (base ?? '')
+        .split('\n')
+        .map((line) => line.trimRight())
+        .where(
+          (line) =>
+              line.trim().isNotEmpty &&
+              !line.startsWith('客戶排程偏好：') &&
+              !line.startsWith('客戶備註：'),
+        )
+        .toList();
+    if ((schedulePreference ?? '').trim().isNotEmpty) {
+      lines.add('客戶排程偏好：${schedulePreference!.trim()}');
+    }
+    if ((note ?? '').trim().isNotEmpty) {
+      lines.add('客戶備註：${note!.trim()}');
+    }
+    return lines.join('\n');
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

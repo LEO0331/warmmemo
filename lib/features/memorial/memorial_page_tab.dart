@@ -221,16 +221,32 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               icon: Icons.assignment_outlined,
             );
           }
-          final orderMap = {for (final order in orders) order.id ?? '': order};
+          final selectableOrders = orders
+              .where((order) => order.id != null && order.id!.isNotEmpty)
+              .toList();
+          if (selectableOrders.isEmpty) {
+            return const EmptyStateCard(
+              title: '訂單資料暫時不可用',
+              description: '目前訂單缺少識別碼，請稍後重整頁面再試。',
+              icon: Icons.error_outline,
+            );
+          }
+          final orderMap = {
+            for (final order in selectableOrders) order.id ?? '': order,
+          };
           final defaultOrder = _proposalOrderId != null
               ? orderMap[_proposalOrderId!]
-              : orders.first;
+              : selectableOrders.first;
           if (defaultOrder != null) {
             _syncProposalForm(defaultOrder);
           }
           final selectedOrder =
               (_proposalOrderId != null ? orderMap[_proposalOrderId!] : null) ??
-              orders.first;
+              selectableOrders.first;
+          final proposalHasInput = _hasProposalInput();
+          final proposalUnchanged = _isProposalUnchanged(selectedOrder);
+          final submitDisabled =
+              _submittingProposal || !proposalHasInput || proposalUnchanged;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,8 +259,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               DropdownButtonFormField<String>(
                 initialValue: selectedOrder.id,
                 decoration: const InputDecoration(labelText: '選擇提案訂單'),
-                items: orders
-                    .where((order) => order.id != null)
+                items: selectableOrders
                     .map(
                       (order) => DropdownMenuItem<String>(
                         value: order.id,
@@ -282,6 +297,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               const SizedBox(height: 10),
               TextField(
                 controller: _proposalVendorController,
+                inputFormatters: [LengthLimitingTextInputFormatter(60)],
                 decoration: const InputDecoration(labelText: '供應商偏好'),
               ),
               const SizedBox(height: 8),
@@ -306,22 +322,35 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               const SizedBox(height: 8),
               TextField(
                 controller: _proposalScheduleController,
+                inputFormatters: [LengthLimitingTextInputFormatter(80)],
                 decoration: const InputDecoration(labelText: '排程偏好'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _proposalNoteController,
+                inputFormatters: [LengthLimitingTextInputFormatter(240)],
                 decoration: const InputDecoration(labelText: '補充備註'),
                 maxLines: 3,
               ),
               const SizedBox(height: 10),
               FilledButton.icon(
-                onPressed: _submittingProposal
+                onPressed: submitDisabled
                     ? null
                     : () =>
                           _submitOrderProposal(uid: uid, order: selectedOrder),
                 icon: const Icon(Icons.send_outlined),
                 label: Text(_submittingProposal ? '送出中...' : '送出提案給 Admin'),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                !proposalHasInput
+                    ? '請至少填寫一項偏好再送出。'
+                    : (proposalUnchanged
+                          ? '目前內容與已送出提案相同。'
+                          : '送出後可由 Admin 審核並落地執行。'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF7A6458),
+                ),
               ),
             ],
           );
@@ -387,6 +416,14 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     required String uid,
     required Purchase order,
   }) async {
+    if (!_hasProposalInput()) {
+      _showMessage('請至少填寫一項偏好。');
+      return;
+    }
+    if (_isProposalUnchanged(order)) {
+      _showMessage('提案內容未變更，已略過送出。');
+      return;
+    }
     setState(() => _submittingProposal = true);
     try {
       MaterialOption? material;
@@ -412,6 +449,32 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     } finally {
       if (mounted) setState(() => _submittingProposal = false);
     }
+  }
+
+  bool _hasProposalInput() {
+    return _proposalVendorController.text.trim().isNotEmpty ||
+        _proposalMaterialCode != null ||
+        _proposalScheduleController.text.trim().isNotEmpty ||
+        _proposalNoteController.text.trim().isNotEmpty;
+  }
+
+  bool _isProposalUnchanged(Purchase order) {
+    final old = order.proposal;
+    String? selectedMaterial;
+    if (_proposalMaterialCode != null) {
+      final matched = kMaterialOptionsV1.where(
+        (item) => item.code == _proposalMaterialCode,
+      );
+      if (matched.isNotEmpty) {
+        selectedMaterial = matched.first.label;
+      }
+    }
+    return (old?.vendorPreference ?? '').trim() ==
+            _proposalVendorController.text.trim() &&
+        (old?.materialChoice ?? '').trim() == (selectedMaterial ?? '').trim() &&
+        (old?.schedulePreference ?? '').trim() ==
+            _proposalScheduleController.text.trim() &&
+        (old?.note ?? '').trim() == _proposalNoteController.text.trim();
   }
 
   Widget _buildStatsCard(ThemeData theme) {

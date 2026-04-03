@@ -14,10 +14,14 @@ class VendorService {
       _firestore.collection('vendors');
 
   Stream<List<Vendor>> streamVendors({bool includeInactive = true}) {
-    return _vendors.orderBy('name').snapshots().map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => Vendor.fromMap(doc.data(), id: doc.id))
-          .toList();
+    return _vendors.snapshots().map((snapshot) {
+      final items =
+          snapshot.docs
+              .map((doc) => Vendor.fromMap(doc.data(), id: doc.id))
+              .toList()
+            ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
       if (includeInactive) return items;
       return items.where((item) => item.isActive).toList();
     });
@@ -26,6 +30,21 @@ class VendorService {
   Future<String> createVendor(Vendor vendor) async {
     final doc = await _vendors.add(vendor.toMap());
     return doc.id;
+  }
+
+  Future<bool> nameExists(String name) async {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    final byLower = await _vendors
+        .where('nameLower', isEqualTo: normalized)
+        .limit(1)
+        .get();
+    if (byLower.docs.isNotEmpty) return true;
+    final fallback = await _vendors
+        .where('name', isEqualTo: name.trim())
+        .limit(1)
+        .get();
+    return fallback.docs.isNotEmpty;
   }
 
   Future<void> updateVendor(Vendor vendor) {

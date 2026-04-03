@@ -745,11 +745,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         value: vendor.isActive,
                         onChanged: vendor.id == null
                             ? null
-                            : (value) {
-                                VendorService.instance.setVendorActive(
-                                  vendorId: vendor.id!,
-                                  isActive: value,
-                                );
+                            : (value) async {
+                                try {
+                                  await VendorService.instance.setVendorActive(
+                                    vendorId: vendor.id!,
+                                    isActive: value,
+                                  );
+                                } catch (error) {
+                                  if (!context.mounted) return;
+                                  AppFeedback.show(
+                                    context,
+                                    message: '更新供應商狀態失敗：$error',
+                                    tone: FeedbackTone.error,
+                                  );
+                                }
                               },
                       ),
                     ),
@@ -809,13 +818,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
       AppFeedback.show(context, message: '請輸入供應商名稱', tone: FeedbackTone.info);
       return;
     }
+    if (name.length < 2) {
+      AppFeedback.show(
+        context,
+        message: '供應商名稱至少 2 個字',
+        tone: FeedbackTone.info,
+      );
+      return;
+    }
+    final phone = _vendorPhoneController.text.trim();
+    if (phone.isNotEmpty && !RegExp(r'^[0-9+\-\s()]{8,20}$').hasMatch(phone)) {
+      AppFeedback.show(context, message: '聯絡電話格式不正確', tone: FeedbackTone.info);
+      return;
+    }
     setState(() => _savingVendor = true);
     try {
+      final exists = await VendorService.instance.nameExists(name);
+      if (exists) {
+        if (!mounted) return;
+        AppFeedback.show(
+          context,
+          message: '供應商已存在，請直接使用現有資料',
+          tone: FeedbackTone.info,
+        );
+        return;
+      }
       await VendorService.instance.createVendor(
         Vendor(
           name: name,
           contactName: _vendorContactController.text.trim(),
-          contactPhone: _vendorPhoneController.text.trim(),
+          contactPhone: phone,
           serviceRegion: _vendorRegionController.text.trim(),
         ),
       );
