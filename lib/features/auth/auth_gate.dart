@@ -73,9 +73,7 @@ class _AuthGateState extends State<AuthGate> {
             }
             return const SelectionArea(child: LandingPage());
           }
-          return SelectionArea(
-            child: AppShell(initialIndex: _initialTabIndex),
-          );
+          return SelectionArea(child: AppShell(initialIndex: _initialTabIndex));
         }
 
         return const SelectionArea(child: LandingPage());
@@ -127,9 +125,24 @@ class _AuthGateState extends State<AuthGate> {
   String? _resolvePublicMemorialSlug() {
     if (!kIsWeb) return null;
     final segments = Uri.base.pathSegments;
-    if (segments.length < 2) return null;
-    if (segments.first.toLowerCase() != 'm') return null;
-    final slug = segments[1].trim().toLowerCase();
-    return slug.isEmpty ? null : slug;
+    if (segments.length >= 2 && segments.first.toLowerCase() == 'm') {
+      final slug = segments[1].trim().toLowerCase();
+      return slug.isEmpty ? null : slug;
+    }
+
+    final fragment = Uri.base.fragment.trim();
+    if (fragment.isEmpty) return null;
+    final normalized = fragment.startsWith('/')
+        ? fragment.substring(1)
+        : fragment;
+    final fragSegments = normalized
+        .split('/')
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (fragSegments.length >= 2 && fragSegments.first.toLowerCase() == 'm') {
+      final slug = fragSegments[1].trim().toLowerCase();
+      return slug.isEmpty ? null : slug;
+    }
+    return null;
   }
 }

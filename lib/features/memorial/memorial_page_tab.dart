@@ -49,6 +49,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   bool _showPreview = false;
   bool _isPublished = false;
   bool _isCheckingSlug = false;
+  bool _publishToggleBusy = false;
   bool _submittingProposal = false;
   String _slugStatus = '建立公開連結後，即可提供 QR 掃描追思。';
   String? _publishedSlug;
@@ -557,13 +558,21 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             value: _isPublished,
             title: const Text('發布公開紀念頁'),
             subtitle: const Text('發布後，訪客可透過掃描 QR 碼開啟唯讀紀念頁。'),
-            onChanged: (value) async {
-              if (value) {
-                await _publishPublicPage();
-                return;
-              }
-              await _unpublishPublicPage();
-            },
+            onChanged: _publishToggleBusy
+                ? null
+                : (value) async {
+                    setState(() {
+                      _publishToggleBusy = true;
+                      _isPublished = value;
+                    });
+                    if (value) {
+                      await _publishPublicPage();
+                    } else {
+                      await _unpublishPublicPage();
+                    }
+                    if (!mounted) return;
+                    setState(() => _publishToggleBusy = false);
+                  },
           ),
           const SizedBox(height: 8),
           Text(
@@ -655,7 +664,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             runSpacing: 12,
             children: [
               FilledButton.icon(
-                onPressed: _publishPublicPage,
+                onPressed: _publishToggleBusy ? null : _publishPublicPage,
                 icon: Icon(
                   _isPublished ? Icons.refresh_outlined : Icons.public_outlined,
                 ),
@@ -673,7 +682,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               ),
               if (_isPublished)
                 OutlinedButton.icon(
-                  onPressed: _unpublishPublicPage,
+                  onPressed: _publishToggleBusy ? null : _unpublishPublicPage,
                   icon: const Icon(Icons.public_off_outlined),
                   label: const Text('取消發布'),
                 ),
@@ -792,7 +801,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   String? get _currentPublicUrl {
     final slug = _effectiveSlug;
     if (slug.isEmpty) return null;
-    return 'https://warmmemo.tw/m/$slug';
+    final base = _publicBaseUrl;
+    return '$base/#/m/$slug';
   }
 
   String get _effectiveSlug {
@@ -806,7 +816,21 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   String? get _effectivePublicUrl {
     final slug = _effectiveSlug;
     if (slug.isEmpty) return null;
-    return 'https://warmmemo.tw/m/$slug';
+    final base = _publicBaseUrl;
+    return '$base/#/m/$slug';
+  }
+
+  String get _publicBaseUrl {
+    const envBaseUrl = String.fromEnvironment('PUBLIC_BASE_URL');
+    if (envBaseUrl.isNotEmpty) {
+      return envBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    }
+    final origin = Uri.base.origin;
+    final segments = Uri.base.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.isNotEmpty) {
+      return '$origin/${segments.first}';
+    }
+    return origin;
   }
 
   Future<void> _handlePreview() async {
