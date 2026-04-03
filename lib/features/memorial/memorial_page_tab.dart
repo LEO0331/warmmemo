@@ -51,7 +51,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   bool _isCheckingSlug = false;
   bool _publishToggleBusy = false;
   bool _submittingProposal = false;
-  String _slugStatus = '建立公開連結後，即可提供 QR 掃描追思。';
+  String _slugStatus = '建立公開連結後，即可提供 碼掃描追思。';
   String? _publishedSlug;
   String? _proposalOrderId;
   String? _proposalMaterialCode;
@@ -100,7 +100,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   eyebrow: '追思紀念',
                   icon: Icons.person_outline,
                   title: '紀念頁 + QR 碼',
-                  subtitle: '建立紀念頁、發布公開連結，並下載 QR 圖檔，方便用於墓碑、牌位或追思卡。',
+                  subtitle: '建立紀念頁、發布公開連結，並下載 QR 碼圖檔，方便用於墓碑、牌位或追思卡。',
                   badges: ['公開頁面', 'QR 碼', '下載 PNG'],
                 ),
                 const SizedBox(height: 12),
@@ -205,7 +205,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   Widget _buildBusinessWorkspace(ThemeData theme, String uid) {
     return SectionCard(
-      title: '商業作業區（墓碑/塔位購買）',
+      title: '購買規劃小幫手',
       icon: Icons.business_center_outlined,
       child: StreamBuilder<List<Purchase>>(
         stream: OrderRepository.instance.watchOrders(uid),
@@ -223,7 +223,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           if (orders.isEmpty) {
             return const EmptyStateCard(
               title: '尚未有可推進訂單',
-              description: '先到固定方案建立訂單，回到此區提交墓碑/塔位偏好，管理端即可快速報價與下單。',
+              description: '先到固定方案建立訂單，再回到這裡填寫偏好，我們會協助你更順利地往下一步前進。',
               icon: Icons.assignment_outlined,
             );
           }
@@ -233,7 +233,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           if (selectableOrders.isEmpty) {
             return const EmptyStateCard(
               title: '訂單資料暫時不可用',
-              description: '目前訂單缺少識別碼，暫時無法送出墓碑/塔位需求。請稍後重整頁面再試。',
+              description: '目前訂單資料尚未完整，暫時無法送出需求。請稍後重新整理，我們會在這裡等你。',
               icon: Icons.error_outline,
             );
           }
@@ -258,18 +258,18 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SelectableText(
-                '成交目標：確認客戶要購買哪一類墓碑/塔位與材質等級，縮短報價到下單時間。',
+                '讓我們先了解你想要的墓碑/塔位方向與材質偏好，後續會更快幫你安排。',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 4),
               SelectableText(
-                '建議填寫：款式偏好、材質等級、期望交期與預算限制，便於管理端快速確認供應商。',
+                '可先填寫款式想法、材質等級與期望時程，後續溝通會更省心。',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: selectedOrder.id,
-                decoration: const InputDecoration(labelText: '選擇要購買規劃的訂單'),
+                decoration: const InputDecoration(labelText: '選擇本次要規劃的訂單'),
                 items: selectableOrders
                     .map(
                       (order) => DropdownMenuItem<String>(
@@ -309,7 +309,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               TextField(
                 controller: _proposalVendorController,
                 inputFormatters: [LengthLimitingTextInputFormatter(60)],
-                decoration: const InputDecoration(labelText: '墓碑/塔位供應商偏好'),
+                decoration: const InputDecoration(labelText: '偏好的供應商（若有）'),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String?>(
@@ -326,7 +326,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     (item) => DropdownMenuItem<String?>(
                       value: item.code,
                       child: Text(
-                        '${item.label} (${item.tier})｜${item.priceBand}｜毛利 ${item.grossMarginBand}',
+                        '${item.label} (${item.tier})｜${item.priceBand}',
                       ),
                     ),
                   ),
@@ -338,14 +338,14 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               TextField(
                 controller: _proposalScheduleController,
                 inputFormatters: [LengthLimitingTextInputFormatter(80)],
-                decoration: const InputDecoration(labelText: '期望完成日期/交付時段'),
+                decoration: const InputDecoration(labelText: '希望完成時間'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _proposalNoteController,
                 inputFormatters: [LengthLimitingTextInputFormatter(240)],
                 decoration: const InputDecoration(
-                  labelText: '商務備註（預算/安裝條件/限制）',
+                  labelText: '補充說明（預算/安裝條件/限制）',
                 ),
                 maxLines: 3,
               ),
@@ -364,7 +364,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     ? '請至少填寫一項偏好再送出。'
                     : (proposalUnchanged
                           ? '目前內容與已送出提案相同。'
-                          : '送出後將進入審核、報價、供應商確認與交付安排。'),
+                          : '送出後我們會協助你進入報價、確認與安排流程。'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF7A6458),
                 ),
@@ -559,7 +559,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     final ready = _isPublished && publicUrl != null;
 
     return SectionCard(
-      title: '公開紀念頁與 QR',
+      title: '公開紀念頁與 QR 碼',
       icon: Icons.qr_code_2_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +689,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               OutlinedButton.icon(
                 onPressed: ready ? _downloadQrPng : null,
                 icon: const Icon(Icons.download_outlined),
-                label: const Text('下載 QR PNG'),
+                label: const Text('下載 QR 碼PNG'),
               ),
               if (_isPublished)
                 OutlinedButton.icon(
@@ -700,9 +700,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             ],
           ),
           const SizedBox(height: 16),
-          Bullet('請保持高對比：深色 QR 搭配淺色底。'),
+          Bullet('請保持高對比：深色 碼搭配淺色底。'),
           Bullet('實體印製需保留足夠尺寸，避免掃描失敗。'),
-          Bullet('避免花紋、邊框或裝飾遮住 QR 區塊。'),
+          Bullet('避免花紋、邊框或裝飾遮住 QR 碼區塊。'),
           Bullet('正式安裝前，先列印樣張實測。'),
         ],
       ),
@@ -1047,7 +1047,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   Future<void> _downloadQrPng() async {
     final bytes = await _captureQrImage(url: _effectivePublicUrl);
     if (bytes == null) {
-      _showMessage('目前無法產生 QR 圖片。');
+      _showMessage('目前無法產生 QR 碼圖片。');
       return;
     }
     final slug = _slugController.text.trim().isEmpty
@@ -1058,7 +1058,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (uid != null) {
       await FirebaseDraftService.instance.incrementStats(uid, clickDelta: 1);
     }
-    _showMessage('QR 圖片已準備完成。');
+    _showMessage('QR 碼圖片已準備完成。');
   }
 
   Future<Uint8List?> _captureQrImage({String? url}) async {

@@ -1,8 +1,10 @@
 import 'dart:ui' as ui;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/export/pdf_exporter.dart';
@@ -34,6 +36,7 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
   String _generatedText = '';
   List<String> _qualityWarnings = const [];
   final _previewKey = GlobalKey();
+  final _qrKey = GlobalKey();
 
   @override
   void initState() {
@@ -135,7 +138,7 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                   eyebrow: 'Obituary',
                   icon: Icons.campaign_outlined,
                   title: '數位訃聞草稿工具',
-                  subtitle: '協助家屬打造清楚訃聞內容，完成後可生成分享文、PDF、圖片或 QR code，快速通知親友。',
+                  subtitle: '協助家屬打造清楚訃聞內容，完成後可快速分享文字、匯出 PDF/圖片與 QR 摘要，通知親友更便利。',
                   badges: ['清楚通知', '語氣模板', '多格式輸出'],
                 ),
                 const SizedBox(height: 16),
@@ -232,22 +235,36 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                           icon: const Icon(Icons.auto_fix_high_outlined),
                           label: const Text('產生訃聞文案'),
                           onPressed: () async {
-                            if (_templateVersion == 'v1' && _tone == '溫和正式') {
-                              setState(() => _tone = '極簡通知');
-                            }
-                            final ok = await _consumeTokenOrShowTopUp(
-                              AdvancedServiceType.obituaryGenerate,
-                            );
-                            if (!ok) return;
-                            _generateObituary();
-                            await _saveDraft();
-                            final uid = AuthService.instance.currentUser?.uid;
-                            if (uid != null) {
-                              await UserProfileService.instance
-                                  .markOnboardingStep(
-                                    uid,
-                                    UserProfileService.onboardingStepFirstDraft,
-                                  );
+                            try {
+                              if (_templateVersion == 'v1' && _tone == '溫和正式') {
+                                setState(() => _tone = '極簡通知');
+                              }
+                              final ok = await _consumeTokenOrShowTopUp(
+                                AdvancedServiceType.obituaryGenerate,
+                              );
+                              if (!ok) return;
+                              _generateObituary();
+                              await _saveDraft();
+                              final uid = AuthService.instance.currentUser?.uid;
+                              if (uid != null) {
+                                try {
+                                  await UserProfileService.instance
+                                      .markOnboardingStep(
+                                        uid,
+                                        UserProfileService
+                                            .onboardingStepFirstDraft,
+                                      );
+                                } catch (_) {
+                                  // Do not block primary flow if onboarding write fails.
+                                }
+                              }
+                            } catch (error) {
+                              _showMessage(
+                                _friendlyErrorMessage(
+                                  error,
+                                  fallback: '產生訃聞時發生錯誤，請稍後再試。',
+                                ),
+                              );
                             }
                           },
                         ),
@@ -340,11 +357,20 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                               alignment: Alignment.centerRight,
                               child: OutlinedButton.icon(
                                 onPressed: () async {
-                                  final ok = await _consumeTokenOrShowTopUp(
-                                    AdvancedServiceType.obituaryRewrite,
-                                  );
-                                  if (!ok) return;
-                                  _rewriteForClarity();
+                                  try {
+                                    final ok = await _consumeTokenOrShowTopUp(
+                                      AdvancedServiceType.obituaryRewrite,
+                                    );
+                                    if (!ok) return;
+                                    _rewriteForClarity();
+                                  } catch (error) {
+                                    _showMessage(
+                                      _friendlyErrorMessage(
+                                        error,
+                                        fallback: '重寫失敗，請稍後再試。',
+                                      ),
+                                    );
+                                  }
                                 },
                                 icon: const Icon(Icons.auto_fix_high_outlined),
                                 label: const Text('一鍵重寫（更清楚）'),
@@ -356,6 +382,76 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
                     ),
                   ),
                 const SizedBox(height: 24),
+                if (_generatedText.isNotEmpty)
+                  SectionCard(
+                    title: '快速分享',
+                    icon: Icons.qr_code_2_outlined,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '可直接分享文字，或出示 QR 摘要給現場親友掃描查看。',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: _shareObituaryText,
+                              icon: const Icon(Icons.ios_share_outlined),
+                              label: const Text('分享訃聞文字'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _copyQrSummaryText,
+                              icon: const Icon(Icons.copy_all_outlined),
+                              label: const Text('複製 QR 摘要文字'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _downloadQrImage,
+                              icon: const Icon(Icons.download_outlined),
+                              label: const Text('下載 QR 圖片'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: RepaintBoundary(
+                            key: _qrKey,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFFE8D7CC),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  QrImageView(
+                                    data: _qrSummaryText,
+                                    size: 168,
+                                    backgroundColor: Colors.white,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '訃聞摘要 QR',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_generatedText.isNotEmpty) const SizedBox(height: 24),
                 if (_generatedText.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -403,16 +499,22 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final draft = await FirebaseDraftService.instance.loadObituary(uid);
+    ObituaryDraft? draft;
+    try {
+      draft = await FirebaseDraftService.instance.loadObituary(uid);
+    } catch (_) {
+      return;
+    }
     if (draft == null) return;
+    final currentDraft = draft;
 
     setState(() {
-      _deceasedNameController.text = draft.deceasedName ?? '';
-      _relationshipController.text = draft.relationship ?? '家屬';
-      _locationController.text = draft.location ?? '';
-      _serviceDateController.text = draft.serviceDate ?? '';
-      _tone = draft.tone ?? '溫和正式';
-      _customNoteController.text = draft.customNote ?? '';
+      _deceasedNameController.text = currentDraft.deceasedName ?? '';
+      _relationshipController.text = currentDraft.relationship ?? '家屬';
+      _locationController.text = currentDraft.location ?? '';
+      _serviceDateController.text = currentDraft.serviceDate ?? '';
+      _tone = currentDraft.tone ?? '溫和正式';
+      _customNoteController.text = currentDraft.customNote ?? '';
     });
   }
 
@@ -429,7 +531,11 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       customNote: _customNoteController.text.trim(),
     );
 
-    await FirebaseDraftService.instance.saveObituary(uid, draft);
+    try {
+      await FirebaseDraftService.instance.saveObituary(uid, draft);
+    } catch (_) {
+      // Draft persistence failure should not crash the user flow.
+    }
   }
 
   ObituaryDraft get _currentObituaryDraft => ObituaryDraft(
@@ -457,14 +563,18 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       return;
     }
 
-    await Share.shareXFiles([
-      XFile.fromData(
-        bytes,
-        mimeType: 'image/png',
-        name: 'warmmemo_obituary.png',
-      ),
-    ], text: 'WarmMemo 訃聞圖片');
-    _showMessage('圖片已準備好');
+    try {
+      await Share.shareXFiles([
+        XFile.fromData(
+          bytes,
+          mimeType: 'image/png',
+          name: 'warmmemo_obituary.png',
+        ),
+      ], text: 'WarmMemo 訃聞圖片');
+      _showMessage('圖片已準備好');
+    } catch (error) {
+      _showMessage(_friendlyErrorMessage(error, fallback: '分享圖片失敗，請稍後再試。'));
+    }
   }
 
   Future<Uint8List?> _captureObituaryImage() async {
@@ -490,14 +600,85 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       _showMessage('請先登入再使用進階功能。');
       return false;
     }
-    final result = await TokenWalletService.instance.consume(
-      uid: uid,
-      type: type,
-    );
+    TokenConsumeResult result;
+    try {
+      result = await TokenWalletService.instance.consume(uid: uid, type: type);
+    } catch (error) {
+      _showMessage(_friendlyErrorMessage(error, fallback: '點數扣除失敗，請稍後再試。'));
+      return false;
+    }
     if (result.ok) return true;
     _showMessage('${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）');
     await _showTopUpRequestDialog(uid);
     return false;
+  }
+
+  String get _qrSummaryText {
+    final lines = <String>[
+      'WarmMemo 訃聞摘要',
+      '往生者：${_deceasedNameController.text.trim().isEmpty ? '-' : _deceasedNameController.text.trim()}',
+      '家屬：${_relationshipController.text.trim().isEmpty ? '-' : _relationshipController.text.trim()}',
+      '時間：${_serviceDateController.text.trim().isEmpty ? '-' : _serviceDateController.text.trim()}',
+      '地點：${_locationController.text.trim().isEmpty ? '-' : _locationController.text.trim()}',
+    ];
+    return lines.join('\n');
+  }
+
+  Future<void> _shareObituaryText() async {
+    if (_generatedText.trim().isEmpty) return;
+    try {
+      await Share.share(_generatedText, subject: 'WarmMemo 訃聞通知');
+    } catch (error) {
+      _showMessage(_friendlyErrorMessage(error, fallback: '分享失敗，請稍後再試。'));
+    }
+  }
+
+  Future<void> _copyQrSummaryText() async {
+    await Clipboard.setData(ClipboardData(text: _qrSummaryText));
+    _showMessage('QR 摘要文字已複製。');
+  }
+
+  Future<void> _downloadQrImage() async {
+    final bytes = await _captureQrImage();
+    if (bytes == null) {
+      _showMessage('目前無法產生 QR 圖片。');
+      return;
+    }
+    try {
+      await Share.shareXFiles([
+        XFile.fromData(
+          bytes,
+          mimeType: 'image/png',
+          name: 'warmmemo_obituary_qr.png',
+        ),
+      ], text: 'WarmMemo 訃聞摘要 QR');
+      _showMessage('QR 圖片已準備好。');
+    } catch (error) {
+      _showMessage(_friendlyErrorMessage(error, fallback: '分享 QR 失敗，請稍後再試。'));
+    }
+  }
+
+  Future<Uint8List?> _captureQrImage() async {
+    final context = _qrKey.currentContext;
+    if (context == null) return null;
+    final boundary = context.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 3);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
+  }
+
+  String _friendlyErrorMessage(Object error, {required String fallback}) {
+    if (error is FirebaseException) {
+      if (error.code == 'permission-denied') {
+        return '權限不足，請確認登入帳號與 Firestore 規則設定。';
+      }
+      return error.message ?? fallback;
+    }
+    if (error is PlatformException) {
+      return error.message ?? fallback;
+    }
+    return fallback;
   }
 
   Future<void> _showTopUpRequestDialog(String uid) async {
