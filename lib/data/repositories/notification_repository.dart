@@ -21,6 +21,8 @@ class NotificationRepository {
   final Map<String, Future<List<NotificationEvent>>> _inflight =
       <String, Future<List<NotificationEvent>>>{};
   final Set<String> _optimisticRead = <String>{};
+  final Map<String, Set<String>> _keysByNotificationId =
+      <String, Set<String>>{};
 
   Stream<List<NotificationEvent>> watchForUser(
     String userId, {
@@ -30,6 +32,7 @@ class NotificationRepository {
     final key = _cacheKey(userId, limit);
     return _service.streamForUser(userId, limit: limit).map((items) {
       final merged = _applyOptimistic(items);
+      _registerNotificationKeys(key, merged);
       _cache.set(key, merged, ttl: policy.ttl);
       return merged;
     });
@@ -52,6 +55,7 @@ class NotificationRepository {
     final future = withRetry(() async {
       final items = await _service.fetchForUser(userId, limit: limit);
       final merged = _applyOptimistic(items);
+      _registerNotificationKeys(key, merged);
       _cache.set(key, merged, ttl: policy.ttl);
       return merged;
     }, policy: policy);
@@ -66,12 +70,13 @@ class NotificationRepository {
 
   Future<void> markReadOptimistic(String notificationId) async {
     _optimisticRead.add(notificationId);
-    _cache.clear();
+    _invalidateNotificationKeys(notificationId);
     try {
       await _service.markRead(notificationId);
       _optimisticRead.remove(notificationId);
     } catch (_) {
       _optimisticRead.remove(notificationId);
+      _invalidateNotificationKeys(notificationId);
       rethrow;
     }
   }
@@ -93,4 +98,24 @@ class NotificationRepository {
   }
 
   String _cacheKey(String userId, int limit) => 'notifications:$userId:$limit';
+
+  void _registerNotificationKeys(
+    String key,
+    List<NotificationEvent> notifications,
+  ) {
+    for (final item in notifications) {
+      final id = item.id;
+      if (id == null || id.isEmpty) continue;
+      final keys = _keysByNotificationId.putIfAbsent(id, () => <String>{});
+      keys.add(key);
+    }
+  }
+
+  void _invalidateNotificationKeys(String notificationId) {
+    final keys = _keysByNotificationId[notificationId];
+    if (keys == null || keys.isEmpty) return;
+    for (final key in keys) {
+      _cache.invalidate(key);
+    }
+  }
 }

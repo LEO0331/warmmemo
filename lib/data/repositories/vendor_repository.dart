@@ -50,9 +50,9 @@ class VendorRepository {
     if (running != null) return running;
 
     final future = withRetry(() async {
-      final first = await _service
-          .streamVendors(includeInactive: includeInactive)
-          .first;
+      final first = await _service.fetchVendors(
+        includeInactive: includeInactive,
+      );
       final merged = _applyOptimistic(first);
       _cache.set(key, merged, ttl: policy.ttl);
       return merged;
@@ -67,7 +67,8 @@ class VendorRepository {
   }
 
   Future<void> createVendor(Vendor vendor) {
-    _cache.clear();
+    _cache.invalidate(_cacheKey(true));
+    _cache.invalidate(_cacheKey(false));
     return _service.createVendor(vendor);
   }
 
@@ -98,10 +99,12 @@ class VendorRepository {
     try {
       await _service.setVendorActive(vendorId: id, isActive: nextActive);
       _optimisticActive.remove(id);
-      _cache.clear();
+      _cache.invalidate(_cacheKey(true));
+      _cache.invalidate(_cacheKey(false));
     } catch (_) {
       _optimisticActive[id] = vendor.isActive;
-      _cache.clear();
+      _cache.invalidate(_cacheKey(true));
+      _cache.invalidate(_cacheKey(false));
       rethrow;
     }
   }

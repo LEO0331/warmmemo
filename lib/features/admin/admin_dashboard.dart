@@ -56,6 +56,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _keywordDebouncer = Debouncer(delay: const Duration(milliseconds: 350));
   late final AdminVendorController _vendorController;
   bool _savingVendor = false;
+  int _ordersVersion = 0;
+  String? _filterMemoKey;
+  List<Purchase> _filterMemoResult = const <Purchase>[];
+  String? _metricsMemoKey;
+  _MetricsSnapshot? _metricsMemo;
+  String? _overviewMemoKey;
+  _OverviewSnapshot? _overviewMemo;
 
   @override
   void initState() {
@@ -270,18 +277,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildOrdersOverview() {
-    final planNames = _allOrders.map((o) => o.planName).toSet().toList()
-      ..sort();
-    final statuses = _allOrders.map((o) => o.status).toSet().toList()..sort();
-    final verifiers =
-        _allOrders
-            .map((o) => _latestVerifier(o))
-            .whereType<String>()
-            .where((v) => v.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    final filtered = _applyFilters(_allOrders);
+    final overview = _getOverviewSnapshot();
+    final filtered = _getFilteredOrders();
     return SectionCard(
       title: '方案訂單管理（檢視）',
       icon: Icons.assignment_outlined,
@@ -358,7 +355,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 selected: _statusFilter == null,
                 onSelected: (_) => setState(() => _statusFilter = null),
               ),
-              ...statuses.map(
+              ...overview.statuses.map(
                 (s) => ChoiceChip(
                   label: Text(s),
                   selected: _statusFilter == s,
@@ -370,7 +367,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 selected: _planFilter == null,
                 onSelected: (_) => setState(() => _planFilter = null),
               ),
-              ...planNames.map(
+              ...overview.planNames.map(
                 (p) => ChoiceChip(
                   label: Text(p),
                   selected: _planFilter == p,
@@ -416,7 +413,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 8),
           SelectableText(
-            '統計：已付款 ${_allOrders.where((o) => o.paymentStatus == 'paid').length} 筆 / 共 ${_allOrders.length} 筆',
+            '統計：已付款 ${overview.paidCount} 筆 / 共 ${overview.totalCount} 筆',
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -428,7 +425,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 selected: _verifierQuickFilter == null,
                 onSelected: (_) => setState(() => _verifierQuickFilter = null),
               ),
-              ...verifiers.map(
+              ...overview.verifiers.map(
                 (v) => ChoiceChip(
                   label: Text(v),
                   selected: _verifierQuickFilter == v,
@@ -500,7 +497,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildOrdersWorkQueue() {
-    final filtered = _applyFilters(_allOrders);
+    final filtered = _getFilteredOrders();
     if (filtered.isEmpty) {
       return const SectionCard(
         title: '個別訂單處理',
@@ -590,6 +587,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             );
                             if (idx != -1) {
                               _allOrders[idx] = updated;
+                              _markOrdersChanged();
                             }
                           });
                         }
@@ -791,25 +789,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildMetricsPanel() {
-    final total = _allOrders.length;
-    final pending = _allOrders.where((o) => o.status == 'pending').length;
-    final received = _allOrders.where((o) => o.status == 'received').length;
-    final complete = _allOrders.where((o) => o.status == 'complete').length;
-    final paid = _allOrders.where((o) => o.paymentStatus == 'paid').length;
-    final paidRate = total == 0 ? 0 : ((paid / total) * 100).round();
-    final completed = _allOrders.where((o) => o.status == 'complete').toList();
-    final avgHours = completed.isEmpty
-        ? 0.0
-        : completed
-                  .map(
-                    (o) =>
-                        (o.verifiedAt ?? o.createdAt)
-                            .difference(o.createdAt)
-                            .inMinutes /
-                        60,
-                  )
-                  .reduce((a, b) => a + b) /
-              completed.length;
+    final metrics = _getMetricsSnapshot();
 
     return SectionCard(
       title: '營運指標',
@@ -818,13 +798,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         spacing: 10,
         runSpacing: 10,
         children: [
-          _metricChip('總訂單', '$total'),
-          _metricChip('待受理', '$pending'),
-          _metricChip('處理中', '$received'),
-          _metricChip('已完成', '$complete'),
-          _metricChip('已付款', '$paid'),
-          _metricChip('付款率', '$paidRate%'),
-          _metricChip('平均結案時間', '${avgHours.toStringAsFixed(1)}h'),
+          _metricChip('總訂單', '${metrics.total}'),
+          _metricChip('待受理', '${metrics.pending}'),
+          _metricChip('處理中', '${metrics.received}'),
+          _metricChip('已完成', '${metrics.complete}'),
+          _metricChip('已付款', '${metrics.paid}'),
+          _metricChip('付款率', '${metrics.paidRate}%'),
+          _metricChip('平均結案時間', '${metrics.avgHours.toStringAsFixed(1)}h'),
         ],
       ),
     );
@@ -1131,6 +1111,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ..addAll(
             page.items..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
           );
+        _markOrdersChanged();
         _cursor = page.cursor;
         _loadingPage = false;
       });
@@ -1158,10 +1139,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
         startAfterDocPath: _cursor,
       );
       if (!mounted) return;
+      final sortedIncoming = page.items.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {
+        final merged = _mergeOrdersByCreatedAtDesc(_allOrders, sortedIncoming);
         _allOrders
-          ..addAll(page.items)
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          ..clear()
+          ..addAll(merged);
+        _markOrdersChanged();
         _cursor = page.cursor;
         _loadingPage = false;
       });
@@ -1186,6 +1171,141 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _latestVerifier(Purchase order) {
     if (order.verificationLogs.isEmpty) return null;
     return order.verificationLogs.last.actor;
+  }
+
+  List<Purchase> _getFilteredOrders() {
+    final key =
+        '$_ordersVersion|$_statusFilter|$_planFilter|$_paymentQuickFilter|$_verifierQuickFilter|$_keyword|${_dateKey(_fromDate)}|${_dateKey(_toDate)}';
+    if (_filterMemoKey == key) {
+      return _filterMemoResult;
+    }
+    final result = _applyFilters(_allOrders);
+    _filterMemoKey = key;
+    _filterMemoResult = result;
+    return result;
+  }
+
+  _OverviewSnapshot _getOverviewSnapshot() {
+    final key = '$_ordersVersion';
+    if (_overviewMemoKey == key && _overviewMemo != null) {
+      return _overviewMemo!;
+    }
+    final planNames = _allOrders.map((o) => o.planName).toSet().toList()
+      ..sort();
+    final statuses = _allOrders.map((o) => o.status).toSet().toList()..sort();
+    final verifiers =
+        _allOrders
+            .map((o) => _latestVerifier(o))
+            .whereType<String>()
+            .where((v) => v.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final paidCount = _allOrders.where((o) => o.paymentStatus == 'paid').length;
+    final snapshot = _OverviewSnapshot(
+      planNames: planNames,
+      statuses: statuses,
+      verifiers: verifiers,
+      paidCount: paidCount,
+      totalCount: _allOrders.length,
+    );
+    _overviewMemoKey = key;
+    _overviewMemo = snapshot;
+    return snapshot;
+  }
+
+  _MetricsSnapshot _getMetricsSnapshot() {
+    final key = '$_ordersVersion';
+    if (_metricsMemoKey == key && _metricsMemo != null) {
+      return _metricsMemo!;
+    }
+    final total = _allOrders.length;
+    final pending = _allOrders.where((o) => o.status == 'pending').length;
+    final received = _allOrders.where((o) => o.status == 'received').length;
+    final complete = _allOrders.where((o) => o.status == 'complete').length;
+    final paid = _allOrders.where((o) => o.paymentStatus == 'paid').length;
+    final paidRate = total == 0 ? 0 : ((paid / total) * 100).round();
+    final completed = _allOrders.where((o) => o.status == 'complete').toList();
+    final avgHours = completed.isEmpty
+        ? 0.0
+        : completed
+                  .map(
+                    (o) =>
+                        (o.verifiedAt ?? o.createdAt)
+                            .difference(o.createdAt)
+                            .inMinutes /
+                        60,
+                  )
+                  .reduce((a, b) => a + b) /
+              completed.length;
+    final snapshot = _MetricsSnapshot(
+      total: total,
+      pending: pending,
+      received: received,
+      complete: complete,
+      paid: paid,
+      paidRate: paidRate,
+      avgHours: avgHours,
+    );
+    _metricsMemoKey = key;
+    _metricsMemo = snapshot;
+    return snapshot;
+  }
+
+  void _markOrdersChanged() {
+    _ordersVersion += 1;
+    _filterMemoKey = null;
+    _metricsMemoKey = null;
+    _overviewMemoKey = null;
+    _metricsMemo = null;
+    _overviewMemo = null;
+  }
+
+  String _dateKey(DateTime? value) {
+    if (value == null) return '-';
+    return '${value.year}-${value.month}-${value.day}';
+  }
+
+  List<Purchase> _mergeOrdersByCreatedAtDesc(
+    List<Purchase> existing,
+    List<Purchase> incomingSorted,
+  ) {
+    if (existing.isEmpty) return List<Purchase>.from(incomingSorted);
+    if (incomingSorted.isEmpty) return List<Purchase>.from(existing);
+    final seenIds = existing
+        .map((order) => order.id)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final incoming = incomingSorted.where((order) {
+      final id = order.id;
+      if (id == null || id.isEmpty) return true;
+      return !seenIds.contains(id);
+    }).toList();
+    if (incoming.isEmpty) return List<Purchase>.from(existing);
+
+    final merged = <Purchase>[];
+    var i = 0;
+    var j = 0;
+    while (i < existing.length && j < incoming.length) {
+      final left = existing[i];
+      final right = incoming[j];
+      if (left.createdAt.isAfter(right.createdAt) ||
+          left.createdAt.isAtSameMomentAs(right.createdAt)) {
+        merged.add(left);
+        i += 1;
+      } else {
+        merged.add(right);
+        j += 1;
+      }
+    }
+    if (i < existing.length) {
+      merged.addAll(existing.sublist(i));
+    }
+    if (j < incoming.length) {
+      merged.addAll(incoming.sublist(j));
+    }
+    return merged;
   }
 
   Future<void> _copyVerificationSummary(Purchase order) async {
@@ -1278,4 +1398,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return '請將下方原始錯誤回報給技術團隊，以便快速定位。';
     }
   }
+}
+
+class _OverviewSnapshot {
+  const _OverviewSnapshot({
+    required this.planNames,
+    required this.statuses,
+    required this.verifiers,
+    required this.paidCount,
+    required this.totalCount,
+  });
+
+  final List<String> planNames;
+  final List<String> statuses;
+  final List<String> verifiers;
+  final int paidCount;
+  final int totalCount;
+}
+
+class _MetricsSnapshot {
+  const _MetricsSnapshot({
+    required this.total,
+    required this.pending,
+    required this.received,
+    required this.complete,
+    required this.paid,
+    required this.paidRate,
+    required this.avgHours,
+  });
+
+  final int total;
+  final int pending;
+  final int received;
+  final int complete;
+  final int paid;
+  final int paidRate;
+  final double avgHours;
 }

@@ -47,7 +47,7 @@ class OrderRepository {
     if (running != null) return running;
 
     final future = withRetry(() async {
-      final first = await _service.userOrders(uid).first;
+      final first = await _service.fetchUserOrders(uid);
       _cache.set(key, first, ttl: policy.ttl);
       return _mergeOptimistic(uid, first);
     }, policy: policy);
@@ -89,9 +89,15 @@ class OrderRepository {
     try {
       await _service.updateOrder(uid: uid, purchase: next);
       optimisticMap.remove(orderId);
+      if (optimisticMap.isEmpty) {
+        _optimisticByUid.remove(uid);
+      }
       _cache.invalidate(key);
     } catch (_) {
-      optimisticMap[orderId] = previous;
+      optimisticMap.remove(orderId);
+      if (optimisticMap.isEmpty) {
+        _optimisticByUid.remove(uid);
+      }
       if (cached != null) {
         final rollback = cached
             .map((item) => item.id == orderId ? previous : item)

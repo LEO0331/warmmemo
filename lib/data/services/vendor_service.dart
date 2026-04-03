@@ -27,6 +27,19 @@ class VendorService {
     });
   }
 
+  Future<List<Vendor>> fetchVendors({bool includeInactive = true}) async {
+    final snapshot = await _vendors.get();
+    final items =
+        snapshot.docs
+            .map((doc) => Vendor.fromMap(doc.data(), id: doc.id))
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
+    if (includeInactive) return items;
+    return items.where((item) => item.isActive).toList();
+  }
+
   Future<String> createVendor(Vendor vendor) async {
     final doc = await _vendors.add(vendor.toMap());
     return doc.id;
