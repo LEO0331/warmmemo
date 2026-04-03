@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -162,7 +163,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (uid != null) _buildV2BusinessWorkspace(theme, uid),
+                if (uid != null) _buildBusinessWorkspace(theme, uid),
                 const SizedBox(height: 16),
                 _buildQrSection(theme),
                 const SizedBox(height: 24),
@@ -201,9 +202,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     );
   }
 
-  Widget _buildV2BusinessWorkspace(ThemeData theme, String uid) {
+  Widget _buildBusinessWorkspace(ThemeData theme, String uid) {
     return SectionCard(
-      title: 'V2 商業作業區',
+      title: '商業作業區',
       icon: Icons.business_center_outlined,
       child: StreamBuilder<List<Purchase>>(
         stream: OrderRepository.instance.watchOrders(uid),
@@ -256,7 +257,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '目標：縮短「提案送出 -> Admin 審核 -> 供應商指派 -> 材質確認 -> 排程建立」流程。',
+                '重點：送出需求後，管理端會接續處理供應商、材質與交付安排。',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 10),
@@ -542,7 +543,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Widget _buildQrSection(ThemeData theme) {
-    final publicUrl = _currentPublicUrl;
+    final publicUrl = _effectivePublicUrl;
     final ready = _isPublished && publicUrl != null;
 
     return SectionCard(
@@ -559,9 +560,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             onChanged: (value) async {
               if (value) {
                 await _publishPublicPage();
-              } else {
-                await _unpublishPublicPage();
+                return;
               }
+              await _unpublishPublicPage();
             },
           ),
           const SizedBox(height: 8),
@@ -789,7 +790,21 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   String? get _currentPublicUrl {
-    final slug = _slugController.text.trim();
+    final slug = _effectiveSlug;
+    if (slug.isEmpty) return null;
+    return 'https://warmmemo.tw/m/$slug';
+  }
+
+  String get _effectiveSlug {
+    final published = (_publishedSlug ?? '').trim();
+    if (_isPublished && published.isNotEmpty) {
+      return published;
+    }
+    return _slugController.text.trim();
+  }
+
+  String? get _effectivePublicUrl {
+    final slug = _effectiveSlug;
     if (slug.isEmpty) return null;
     return 'https://warmmemo.tw/m/$slug';
   }
@@ -896,41 +911,53 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       publicUpdatedAt: DateTime.now(),
     );
 
-    if (_publishedSlug != null &&
-        _publishedSlug != slug &&
-        _publishedSlug!.trim().isNotEmpty) {
-      await FirebaseDraftService.instance.unpublishMemorial(
-        uid,
-        _publishedSlug!,
-      );
-    }
+    try {
+      if (_publishedSlug != null &&
+          _publishedSlug != slug &&
+          _publishedSlug!.trim().isNotEmpty) {
+        await FirebaseDraftService.instance.unpublishMemorial(
+          uid,
+          _publishedSlug!,
+        );
+      }
 
-    await FirebaseDraftService.instance.saveMemorial(uid, draft);
-    await FirebaseDraftService.instance.publishMemorial(uid, draft);
-    if (!mounted) return;
-    setState(() {
-      _isPublished = true;
-      _publishedSlug = slug;
-      _slugStatus = '公開紀念頁已上線。';
-    });
-    _showMessage('公開紀念頁已發布。');
+      await FirebaseDraftService.instance.saveMemorial(uid, draft);
+      await FirebaseDraftService.instance.publishMemorial(uid, draft);
+      if (!mounted) return;
+      setState(() {
+        _isPublished = true;
+        _publishedSlug = slug;
+        _slugStatus = '公開紀念頁已上線。';
+      });
+      _showMessage('公開紀念頁已發布。');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isPublished = false);
+      _showMessage(_friendlyErrorMessage(error, fallback: '發布失敗，請稍後再試。'));
+    }
   }
 
   Future<void> _unpublishPublicPage() async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
     final slug = (_publishedSlug ?? _slugController.text).trim();
-    if (slug.isNotEmpty) {
-      await FirebaseDraftService.instance.unpublishMemorial(uid, slug);
+    try {
+      if (slug.isNotEmpty) {
+        await FirebaseDraftService.instance.unpublishMemorial(uid, slug);
+      }
+      await _saveDraft(isPublished: false, publicUpdatedAt: DateTime.now());
+      if (!mounted) return;
+      setState(() {
+        _isPublished = false;
+        _publishedSlug = null;
+        _slugStatus = '公開紀念頁已下架。';
+      });
+      _showMessage('公開紀念頁已取消發布。');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isPublished = true);
+      _showMessage(_friendlyErrorMessage(error, fallback: '取消發布失敗，請稍後再試。'));
     }
-    await _saveDraft(isPublished: false, publicUpdatedAt: DateTime.now());
-    if (!mounted) return;
-    setState(() {
-      _isPublished = false;
-      _publishedSlug = null;
-      _slugStatus = '公開紀念頁已下架。';
-    });
-    _showMessage('公開紀念頁已取消發布。');
   }
 
   void _handleSlugChanged(String rawValue) {
@@ -983,7 +1010,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Future<void> _downloadQrPng() async {
-    final bytes = await _captureQrImage();
+    final bytes = await _captureQrImage(url: _effectivePublicUrl);
     if (bytes == null) {
       _showMessage('目前無法產生 QR 圖片。');
       return;
@@ -999,14 +1026,43 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     _showMessage('QR 圖片已準備完成。');
   }
 
-  Future<Uint8List?> _captureQrImage() async {
-    final context = _qrKey.currentContext;
-    if (context == null) return null;
-    final boundary = context.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary == null) return null;
-    final image = await boundary.toImage(pixelRatio: 3);
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    return bytes?.buffer.asUint8List();
+  Future<Uint8List?> _captureQrImage({String? url}) async {
+    final data = url ?? _effectivePublicUrl;
+    if (data == null || data.isEmpty) return null;
+
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      final context = _qrKey.currentContext;
+      final boundary = context?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final image = await boundary.toImage(pixelRatio: 3);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (bytes != null) {
+          return bytes.buffer.asUint8List();
+        }
+      }
+    } catch (_) {
+      // Fall back to painter-based generation below.
+    }
+
+    final painter = QrPainter(
+      data: data,
+      version: QrVersions.auto,
+      gapless: true,
+      eyeStyle: const QrEyeStyle(
+        eyeShape: QrEyeShape.square,
+        color: Color(0xFF000000),
+      ),
+      dataModuleStyle: const QrDataModuleStyle(
+        dataModuleShape: QrDataModuleShape.square,
+        color: Color(0xFF000000),
+      ),
+    );
+    final image = await painter.toImageData(
+      1024,
+      format: ui.ImageByteFormat.png,
+    );
+    return image?.buffer.asUint8List();
   }
 
   Future<void> _copyPreviewText() async {
@@ -1178,6 +1234,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     slug = slug.replaceAll(RegExp(r'^-+'), '');
     slug = slug.replaceAll(RegExp(r'-+$'), '');
     return slug;
+  }
+
+  String _friendlyErrorMessage(Object error, {required String fallback}) {
+    if (error is FirebaseException) {
+      if (error.code == 'permission-denied') {
+        return '權限不足，請部署新版 Firestore 規則後再重試。';
+      }
+      return error.message ?? fallback;
+    }
+    return fallback;
   }
 
   void _showMessage(String message) {
