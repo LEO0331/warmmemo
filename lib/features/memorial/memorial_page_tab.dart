@@ -1184,8 +1184,13 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       type: type,
     );
     if (result.ok) return true;
-    _showMessage('${result.message ?? '點數不足。'} 目前餘額：${result.balanceAfter}。');
-    await _showTopUpRequestDialog(uid);
+    final message = result.errorCode == 'insufficient-balance'
+        ? '${result.message ?? '點數不足。'} 目前餘額：${result.balanceAfter}。'
+        : (result.message ?? '點數扣除失敗，請稍後再試。');
+    _showMessage(message);
+    if (result.errorCode == 'insufficient-balance') {
+      await _showTopUpRequestDialog(uid);
+    }
     return false;
   }
 

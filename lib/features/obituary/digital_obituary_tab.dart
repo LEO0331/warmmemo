@@ -600,16 +600,18 @@ class _DigitalObituaryTabState extends State<DigitalObituaryTab> {
       _showMessage('請先登入再使用進階功能。');
       return false;
     }
-    TokenConsumeResult result;
-    try {
-      result = await TokenWalletService.instance.consume(uid: uid, type: type);
-    } catch (error) {
-      _showMessage(_friendlyErrorMessage(error, fallback: '點數扣除失敗，請稍後再試。'));
-      return false;
-    }
+    final result = await TokenWalletService.instance.consume(
+      uid: uid,
+      type: type,
+    );
     if (result.ok) return true;
-    _showMessage('${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）');
-    await _showTopUpRequestDialog(uid);
+    final message = result.errorCode == 'insufficient-balance'
+        ? '${result.message ?? '點數不足'}（目前 ${result.balanceAfter} 點）'
+        : (result.message ?? '點數扣除失敗，請稍後再試。');
+    _showMessage(message);
+    if (result.errorCode == 'insufficient-balance') {
+      await _showTopUpRequestDialog(uid);
+    }
     return false;
   }
 
