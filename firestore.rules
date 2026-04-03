@@ -28,7 +28,8 @@ service cloud.firestore {
         'paymentStatus',
         'invoiceId',
         'checkoutUrl',
-        'paymentCurrency'
+        'paymentCurrency',
+        'proposal'
       ]);
     }
 
@@ -149,11 +150,16 @@ service cloud.firestore {
             'paymentStatus',
             'invoiceId',
             'checkoutUrl',
-            'paymentCurrency'
+            'paymentCurrency',
+            'proposal'
           ])
           && !(request.resource.data.paymentStatus in ['paid']))
         || isAdmin();
       allow delete: if isAdmin();
+    }
+
+    match /vendors/{vendorId} {
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {

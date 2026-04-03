@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
+import '../../data/models/material_catalog.dart';
 import '../../data/models/purchase.dart';
+import '../../data/models/vendor.dart';
 import '../../data/services/purchase_service.dart';
+import '../../data/services/vendor_service.dart';
 
 class OrderDetailPage extends StatefulWidget {
   const OrderDetailPage({super.key, required this.purchase});
@@ -19,12 +22,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   late Purchase _original;
   final _formKey = GlobalKey<FormState>();
   String? _workflowHint;
+  late List<DeliveryMilestone> _schedule;
 
   @override
   void initState() {
     super.initState();
     _editing = widget.purchase;
     _original = widget.purchase;
+    _schedule = widget.purchase.deliverySchedule.isEmpty
+        ? defaultDeliveryMilestones()
+        : widget.purchase.deliverySchedule;
+    if (_editing.deliverySchedule.isEmpty) {
+      _editing = _editing.copyWith(deliverySchedule: _schedule);
+    }
   }
 
   void _save() {
@@ -47,7 +57,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         AuthService.instance.currentUser?.email ??
         AuthService.instance.currentUser?.uid ??
         'admin';
-    final withLog = _buildLoggedPurchase(actor);
+    final withLog = _buildLoggedPurchase(
+      actor,
+    ).copyWith(deliverySchedule: _schedule);
     Navigator.of(context).pop(withLog);
   }
 
@@ -80,8 +92,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if ((_original.notes ?? '') != (_editing.notes ?? '')) {
       changed.add('notes updated');
     }
+    if ((_original.vendorAssignment?.vendorId ?? '') !=
+        (_editing.vendorAssignment?.vendorId ?? '')) {
+      changed.add('vendorAssignment updated');
+    }
+    if ((_original.materialSelection?.code ?? '') !=
+        (_editing.materialSelection?.code ?? '')) {
+      changed.add('materialSelection updated');
+    }
+    if (_scheduleDigest(_original.deliverySchedule) !=
+        _scheduleDigest(_schedule)) {
+      changed.add('deliverySchedule updated');
+    }
 
-    if (changed.isEmpty) return _editing;
+    if (changed.isEmpty) return _editing.copyWith(deliverySchedule: _schedule);
 
     final now = DateTime.now();
     final log = VerificationLog(
@@ -102,7 +126,64 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           : _editing.verifiedBy,
       verifiedAt: _editing.verifiedAt ?? now,
       verificationLogs: [..._editing.verificationLogs, log],
+      deliverySchedule: _schedule,
     );
+  }
+
+  String _scheduleDigest(List<DeliveryMilestone> schedule) {
+    return schedule
+        .map(
+          (item) =>
+              '${item.code}:${item.status}:${item.targetDate?.toIso8601String() ?? '-'}:${item.note ?? ''}',
+        )
+        .join('|');
+  }
+
+  String _conversionStep(Purchase order) {
+    final proposalReady = order.proposal != null && !order.proposal!.isEmpty;
+    final vendorReady =
+        order.vendorAssignment != null && !order.vendorAssignment!.isEmpty;
+    final materialReady =
+        order.materialSelection != null && !order.materialSelection!.isEmpty;
+    final scheduleReady = _schedule.any(
+      (item) => item.status == 'in_progress' || item.status == 'done',
+    );
+
+    if (!proposalReady) return '待提案';
+    if (!vendorReady) return '待指派供應商';
+    if (!materialReady) return '待確認材質';
+    if (!scheduleReady) return '待建立排程';
+    return '已進入製作';
+  }
+
+  void _applyProposalToFields() {
+    final proposal = _editing.proposal;
+    if (proposal == null) return;
+    MaterialSelection? nextMaterial = _editing.materialSelection;
+    final matched = kMaterialOptionsV1.where(
+      (option) => option.label == proposal.materialChoice,
+    );
+    if (matched.isNotEmpty) {
+      final material = matched.first;
+      nextMaterial = MaterialSelection(
+        code: material.code,
+        label: material.label,
+        tier: material.tier,
+        priceBand: material.priceBand,
+      );
+    }
+
+    setState(() {
+      _editing = _editing.copyWith(
+        materialSelection: nextMaterial,
+        notes: [
+          _editing.notes ?? '',
+          if ((proposal.schedulePreference ?? '').trim().isNotEmpty)
+            '客戶排程偏好：${proposal.schedulePreference}',
+          if ((proposal.note ?? '').trim().isNotEmpty) '客戶備註：${proposal.note}',
+        ].where((line) => line.trim().isNotEmpty).join('\n'),
+      );
+    });
   }
 
   @override
@@ -124,9 +205,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   title: _editing.planName,
                   subtitle:
                       '用戶：${_editing.userId ?? '-'}｜價格：${_editing.priceLabel}',
-                  badges: const ['案件狀態', '付款狀態', '人工核對'],
+                  badges: const ['成交漏斗', '供應商指派', '交付排程'],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
+                _buildFunnelCard(theme),
+                const SizedBox(height: 12),
+                _buildProposalCard(),
+                const SizedBox(height: 12),
+                StreamBuilder<List<Vendor>>(
+                  stream: VendorService.instance.streamVendors(),
+                  builder: (context, snapshot) {
+                    final vendors = snapshot.data ?? const <Vendor>[];
+                    return _buildVendorAndMaterialSection(vendors);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildScheduleSection(theme),
+                const SizedBox(height: 12),
                 SelectableText('目前狀態：${_editing.status}'),
                 SelectableText('付款狀態：${_editing.paymentStatus ?? '-'}'),
                 if (_workflowHint != null) ...[
@@ -307,5 +402,300 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildFunnelCard(ThemeData theme) {
+    return SectionCard(
+      title: '成交轉換漏斗',
+      icon: Icons.insights_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '目前階段：${_conversionStep(_editing)}',
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _stepChip(
+                label: '提案送出',
+                done: _editing.proposal != null && !_editing.proposal!.isEmpty,
+              ),
+              _stepChip(
+                label: '供應商指派',
+                done:
+                    _editing.vendorAssignment != null &&
+                    !_editing.vendorAssignment!.isEmpty,
+              ),
+              _stepChip(
+                label: '材質確認',
+                done:
+                    _editing.materialSelection != null &&
+                    !_editing.materialSelection!.isEmpty,
+              ),
+              _stepChip(
+                label: '排程建立',
+                done: _schedule.any((item) => item.status != 'pending'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProposalCard() {
+    final proposal = _editing.proposal;
+    if (proposal == null || proposal.isEmpty) {
+      return const SectionCard(
+        title: '客戶提案',
+        icon: Icons.campaign_outlined,
+        child: Text('尚未收到客戶提案。'),
+      );
+    }
+    return SectionCard(
+      title: '客戶提案（待審核）',
+      icon: Icons.campaign_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((proposal.vendorPreference ?? '').trim().isNotEmpty)
+            SelectableText('供應商偏好：${proposal.vendorPreference}'),
+          if ((proposal.materialChoice ?? '').trim().isNotEmpty)
+            SelectableText('材質偏好：${proposal.materialChoice}'),
+          if ((proposal.schedulePreference ?? '').trim().isNotEmpty)
+            SelectableText('排程偏好：${proposal.schedulePreference}'),
+          if ((proposal.note ?? '').trim().isNotEmpty)
+            SelectableText('備註：${proposal.note}'),
+          if (proposal.submittedAt != null)
+            SelectableText(
+              '提案時間：${proposal.submittedAt!.toLocal().toString().split('.').first}',
+            ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _applyProposalToFields,
+            icon: const Icon(Icons.playlist_add_check_outlined),
+            label: const Text('套用提案到最終設定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVendorAndMaterialSection(List<Vendor> vendors) {
+    final activeVendors = vendors.where((item) => item.isActive).toList();
+    final selectedVendorId = _editing.vendorAssignment?.vendorId;
+    final materialCode = _editing.materialSelection?.code;
+
+    return SectionCard(
+      title: '供應商與材質',
+      icon: Icons.storefront_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String?>(
+            initialValue: selectedVendorId,
+            decoration: const InputDecoration(labelText: '供應商指派'),
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('未指定')),
+              ...activeVendors.map(
+                (vendor) => DropdownMenuItem<String?>(
+                  value: vendor.id,
+                  child: Text(vendor.name),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              final picked = activeVendors.where(
+                (vendor) => vendor.id == value,
+              );
+              if (picked.isEmpty) {
+                setState(() {
+                  _editing = _editing.copyWith(vendorAssignment: null);
+                });
+                return;
+              }
+              final vendor = picked.first;
+              setState(() {
+                _editing = _editing.copyWith(
+                  vendorAssignment: VendorAssignment(
+                    vendorId: vendor.id,
+                    vendorName: vendor.name,
+                    contactName: vendor.contactName,
+                    contactPhone: vendor.contactPhone,
+                    region: vendor.serviceRegion,
+                  ),
+                  companyName: vendor.name,
+                  agentName: vendor.contactName,
+                  contactNumber: vendor.contactPhone,
+                );
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String?>(
+            initialValue: materialCode,
+            decoration: const InputDecoration(labelText: '材質選單 v1'),
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('未指定')),
+              ...kMaterialOptionsV1.map(
+                (item) => DropdownMenuItem<String?>(
+                  value: item.code,
+                  child: Text('${item.label} (${item.tier})'),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) {
+                setState(
+                  () => _editing = _editing.copyWith(materialSelection: null),
+                );
+                return;
+              }
+              final option = kMaterialOptionsV1.firstWhere(
+                (item) => item.code == value,
+              );
+              setState(() {
+                _editing = _editing.copyWith(
+                  materialSelection: MaterialSelection(
+                    code: option.code,
+                    label: option.label,
+                    tier: option.tier,
+                    priceBand: option.priceBand,
+                  ),
+                );
+              });
+            },
+          ),
+          if (_editing.materialSelection != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                Chip(
+                  label: Text('等級：${_editing.materialSelection!.tier ?? '-'}'),
+                ),
+                Chip(
+                  label: Text(
+                    '價格帶：${_editing.materialSelection!.priceBand ?? '-'}',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleSection(ThemeData theme) {
+    return SectionCard(
+      title: '交付排程（3 里程碑）',
+      icon: Icons.event_available_outlined,
+      child: Column(
+        children: List.generate(_schedule.length, (index) {
+          final item = _schedule[index];
+          final dateText = item.targetDate == null
+              ? '未設定日期'
+              : item.targetDate!.toLocal().toString().split(' ').first;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.label, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: item.status,
+                    decoration: const InputDecoration(labelText: '進度狀態'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'pending',
+                        child: Text('pending'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'in_progress',
+                        child: Text('in_progress'),
+                      ),
+                      DropdownMenuItem(value: 'done', child: Text('done')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      _updateMilestone(
+                        index,
+                        item.copyWith(status: value, updatedAt: DateTime.now()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text('目標日期：$dateText'),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                            initialDate: item.targetDate ?? DateTime.now(),
+                          );
+                          if (picked == null) return;
+                          _updateMilestone(
+                            index,
+                            item.copyWith(
+                              targetDate: picked,
+                              updatedAt: DateTime.now(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.event_outlined),
+                        label: const Text('設定日期'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    key: ValueKey('schedule-${item.code}'),
+                    initialValue: item.note,
+                    decoration: const InputDecoration(labelText: '里程碑備註'),
+                    onChanged: (value) {
+                      _updateMilestone(
+                        index,
+                        item.copyWith(note: value, updatedAt: DateTime.now()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _stepChip({required String label, required bool done}) {
+    return Chip(
+      avatar: Icon(
+        done ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+        size: 18,
+      ),
+      label: Text(label),
+    );
+  }
+
+  void _updateMilestone(int index, DeliveryMilestone value) {
+    setState(() {
+      _schedule = List<DeliveryMilestone>.from(_schedule)..[index] = value;
+      _editing = _editing.copyWith(deliverySchedule: _schedule);
+    });
   }
 }

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -13,8 +13,11 @@ import '../../core/utils/download_bytes_stub.dart'
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
+import '../../data/models/material_catalog.dart';
 import '../../data/models/draft_models.dart';
+import '../../data/models/purchase.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/purchase_service.dart';
 import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_profile_service.dart';
 
@@ -37,12 +40,18 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   final _highlightsController = TextEditingController();
   final _willNoteController = TextEditingController();
   final _slugController = TextEditingController();
+  final _proposalVendorController = TextEditingController();
+  final _proposalScheduleController = TextEditingController();
+  final _proposalNoteController = TextEditingController();
 
   bool _showPreview = false;
   bool _isPublished = false;
   bool _isCheckingSlug = false;
+  bool _submittingProposal = false;
   String _slugStatus = '建立公開連結後，即可提供 QR 掃描追思。';
   String? _publishedSlug;
+  String? _proposalOrderId;
+  String? _proposalMaterialCode;
   DraftStats? _stats;
   Timer? _slugCheckDebounce;
 
@@ -62,12 +71,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     _highlightsController.dispose();
     _willNoteController.dispose();
     _slugController.dispose();
+    _proposalVendorController.dispose();
+    _proposalScheduleController.dispose();
+    _proposalNoteController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final uid = AuthService.instance.currentUser?.uid;
 
     return WarmBackdrop(
       child: SafeArea(
@@ -81,8 +94,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   eyebrow: '追思紀念',
                   icon: Icons.person_outline,
                   title: '紀念頁 + QR 碼',
-                  subtitle:
-                      '建立紀念頁、發布公開連結，並下載 QR 圖檔，方便用於墓碑、牌位或追思卡。',
+                  subtitle: '建立紀念頁、發布公開連結，並下載 QR 圖檔，方便用於墓碑、牌位或追思卡。',
                   badges: ['公開頁面', 'QR 碼', '下載 PNG'],
                 ),
                 const SizedBox(height: 12),
@@ -102,8 +114,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                         controller: _nameController,
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
-                                ? '請輸入姓名。'
-                                : null,
+                            ? '請輸入姓名。'
+                            : null,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
@@ -146,7 +158,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildV2FeatureLayout(theme),
+                if (uid != null) _buildV2BusinessWorkspace(theme, uid),
                 const SizedBox(height: 16),
                 _buildQrSection(theme),
                 const SizedBox(height: 24),
@@ -185,37 +197,221 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     );
   }
 
-  Widget _buildV2FeatureLayout(ThemeData theme) {
+  Widget _buildV2BusinessWorkspace(ThemeData theme, String uid) {
     return SectionCard(
-      title: '第2版功能布局',
-      icon: Icons.dashboard_customize_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '建議將內容編輯與協作管理分區，先完成生命故事，再安排供應與交付。',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: const [
-              _FeatureBadge(title: '留言', icon: Icons.forum_outlined),
-              _FeatureBadge(title: '家族樹', icon: Icons.account_tree_outlined),
-              _FeatureBadge(title: '簡易自傳', icon: Icons.auto_stories_outlined),
-              _FeatureBadge(title: '供應商管理', icon: Icons.store_outlined),
-              _FeatureBadge(title: '材質選單', icon: Icons.category_outlined),
-              _FeatureBadge(title: '交付排程', icon: Icons.event_available_outlined),
+      title: 'V2 商業作業區',
+      icon: Icons.business_center_outlined,
+      child: StreamBuilder<List<Purchase>>(
+        stream: PurchaseService.instance.userOrders(uid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.all(8),
+              child: CircularProgressIndicator(),
+            );
+          }
+          if (snapshot.hasError) {
+            return SelectableText('讀取訂單失敗：${snapshot.error}');
+          }
+          final orders = snapshot.data ?? const <Purchase>[];
+          if (orders.isEmpty) {
+            return const EmptyStateCard(
+              title: '尚未有可提案訂單',
+              description: '先到固定方案建立訂單，再回到此區提交供應商/材質/排程偏好。',
+              icon: Icons.assignment_outlined,
+            );
+          }
+          final orderMap = {for (final order in orders) order.id ?? '': order};
+          final defaultOrder = _proposalOrderId != null
+              ? orderMap[_proposalOrderId!]
+              : orders.first;
+          if (defaultOrder != null) {
+            _syncProposalForm(defaultOrder);
+          }
+          final selectedOrder =
+              (_proposalOrderId != null ? orderMap[_proposalOrderId!] : null) ??
+              orders.first;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '目標：縮短「提案送出 -> Admin 審核 -> 供應商指派 -> 材質確認 -> 排程建立」流程。',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: selectedOrder.id,
+                decoration: const InputDecoration(labelText: '選擇提案訂單'),
+                items: orders
+                    .where((order) => order.id != null)
+                    .map(
+                      (order) => DropdownMenuItem<String>(
+                        value: order.id,
+                        child: Text('${order.planName} (${order.status})'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  final nextOrder = orders.firstWhere(
+                    (order) => order.id == value,
+                  );
+                  setState(() {
+                    _proposalOrderId = value;
+                    _proposalMaterialCode = _materialCodeFromOrder(nextOrder);
+                    _proposalVendorController.text =
+                        nextOrder.proposal?.vendorPreference ?? '';
+                    _proposalScheduleController.text =
+                        nextOrder.proposal?.schedulePreference ?? '';
+                    _proposalNoteController.text =
+                        nextOrder.proposal?.note ?? '';
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '目前成交階段：${_conversionStep(selectedOrder)}',
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '最近里程碑：${_latestMilestoneSummary(selectedOrder)}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _proposalVendorController,
+                decoration: const InputDecoration(labelText: '供應商偏好'),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String?>(
+                initialValue: _proposalMaterialCode,
+                decoration: const InputDecoration(labelText: '材質偏好'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('未指定'),
+                  ),
+                  ...kMaterialOptionsV1.map(
+                    (item) => DropdownMenuItem<String?>(
+                      value: item.code,
+                      child: Text('${item.label} (${item.tier})'),
+                    ),
+                  ),
+                ],
+                onChanged: (value) =>
+                    setState(() => _proposalMaterialCode = value),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _proposalScheduleController,
+                decoration: const InputDecoration(labelText: '排程偏好'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _proposalNoteController,
+                decoration: const InputDecoration(labelText: '補充備註'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: _submittingProposal
+                    ? null
+                    : () =>
+                          _submitOrderProposal(uid: uid, order: selectedOrder),
+                icon: const Icon(Icons.send_outlined),
+                label: Text(_submittingProposal ? '送出中...' : '送出提案給 Admin'),
+              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          const Bullet('內容區：留言、家族樹、簡易自傳（先蒐集故事與追思內容）。'),
-          const Bullet('作業區：供應商管理、材質選單、交付排程（再銜接製作與交付）。'),
-          const Bullet('流程建議：先完成紀念頁內容，再發布 QR 並同步交付排程。'),
-        ],
+          );
+        },
       ),
     );
+  }
+
+  void _syncProposalForm(Purchase order) {
+    if (_proposalOrderId == order.id) return;
+    _proposalOrderId = order.id;
+    _proposalMaterialCode = _materialCodeFromOrder(order);
+    _proposalVendorController.text = order.proposal?.vendorPreference ?? '';
+    _proposalScheduleController.text = order.proposal?.schedulePreference ?? '';
+    _proposalNoteController.text = order.proposal?.note ?? '';
+  }
+
+  String? _materialCodeFromOrder(Purchase order) {
+    final proposalMaterial = order.proposal?.materialChoice;
+    if (proposalMaterial == null || proposalMaterial.trim().isEmpty) {
+      return null;
+    }
+    final matched = kMaterialOptionsV1.where(
+      (item) => item.label == proposalMaterial,
+    );
+    return matched.isEmpty ? null : matched.first.code;
+  }
+
+  String _conversionStep(Purchase order) {
+    final proposalReady = order.proposal != null && !order.proposal!.isEmpty;
+    final vendorReady =
+        order.vendorAssignment != null && !order.vendorAssignment!.isEmpty;
+    final materialReady =
+        order.materialSelection != null && !order.materialSelection!.isEmpty;
+    final scheduleReady = order.deliverySchedule.any(
+      (item) => item.status == 'in_progress' || item.status == 'done',
+    );
+    if (!proposalReady) return '待提案';
+    if (!vendorReady) return '待指派供應商';
+    if (!materialReady) return '待確認材質';
+    if (!scheduleReady) return '待建立排程';
+    return '已進入製作';
+  }
+
+  String _latestMilestoneSummary(Purchase order) {
+    if (order.deliverySchedule.isEmpty) return '尚未建立';
+    final done = order.deliverySchedule.where((item) => item.status == 'done');
+    if (done.isNotEmpty) {
+      final latestDone = done.last;
+      return '${latestDone.label}（done）';
+    }
+    final inProgress = order.deliverySchedule.where(
+      (item) => item.status == 'in_progress',
+    );
+    if (inProgress.isNotEmpty) {
+      final latest = inProgress.last;
+      return '${latest.label}（in_progress）';
+    }
+    return '${order.deliverySchedule.first.label}（pending）';
+  }
+
+  Future<void> _submitOrderProposal({
+    required String uid,
+    required Purchase order,
+  }) async {
+    setState(() => _submittingProposal = true);
+    try {
+      MaterialOption? material;
+      if (_proposalMaterialCode != null) {
+        final matched = kMaterialOptionsV1.where(
+          (item) => item.code == _proposalMaterialCode,
+        );
+        if (matched.isNotEmpty) material = matched.first;
+      }
+      final updated = order.copyWith(
+        proposal: OrderProposal(
+          vendorPreference: _proposalVendorController.text.trim(),
+          materialChoice: material?.label,
+          schedulePreference: _proposalScheduleController.text.trim(),
+          note: _proposalNoteController.text.trim(),
+          submittedAt: DateTime.now(),
+        ),
+      );
+      await PurchaseService.instance.updateOrder(uid: uid, purchase: updated);
+      _showMessage('提案已送出，Admin 會進一步審核與指派。');
+    } catch (error) {
+      _showMessage('提案送出失敗：$error');
+    } finally {
+      if (mounted) setState(() => _submittingProposal = false);
+    }
   }
 
   Widget _buildStatsCard(ThemeData theme) {
@@ -288,9 +484,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             contentPadding: EdgeInsets.zero,
             value: _isPublished,
             title: const Text('發布公開紀念頁'),
-            subtitle: const Text(
-              '發布後，訪客可透過掃描 QR 碼開啟唯讀紀念頁。',
-            ),
+            subtitle: const Text('發布後，訪客可透過掃描 QR 碼開啟唯讀紀念頁。'),
             onChanged: (value) async {
               if (value) {
                 await _publishPublicPage();
@@ -302,7 +496,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           const SizedBox(height: 8),
           Text(
             '公開網址代稱（Slug）',
-            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           TextFormField(
@@ -333,13 +529,17 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           const SizedBox(height: 12),
           Text(
             '公開網址',
-            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           SelectableText(
             publicUrl ?? '尚未產生公開網址',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: publicUrl == null ? const Color(0xFF8D6B5C) : theme.colorScheme.primary,
+              color: publicUrl == null
+                  ? const Color(0xFF8D6B5C)
+                  : theme.colorScheme.primary,
             ),
           ),
           if (publicUrl != null) ...[
@@ -384,7 +584,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             children: [
               FilledButton.icon(
                 onPressed: _publishPublicPage,
-                icon: Icon(_isPublished ? Icons.refresh_outlined : Icons.public_outlined),
+                icon: Icon(
+                  _isPublished ? Icons.refresh_outlined : Icons.public_outlined,
+                ),
                 label: Text(_isPublished ? '更新公開頁' : '立即發布'),
               ),
               OutlinedButton.icon(
@@ -457,11 +659,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             if (_highlightsController.text.trim().isNotEmpty)
               _previewSection(theme, '人生重點', _highlightsController.text.trim()),
             if (_willNoteController.text.trim().isNotEmpty)
-              _previewSection(
-                theme,
-                '給家人的話',
-                _willNoteController.text.trim(),
-              ),
+              _previewSection(theme, '給家人的話', _willNoteController.text.trim()),
             const Divider(),
             Text(
               _currentPublicUrl ?? '尚未產生公開網址',
@@ -630,7 +828,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (_publishedSlug != null &&
         _publishedSlug != slug &&
         _publishedSlug!.trim().isNotEmpty) {
-      await FirebaseDraftService.instance.unpublishMemorial(uid, _publishedSlug!);
+      await FirebaseDraftService.instance.unpublishMemorial(
+        uid,
+        _publishedSlug!,
+      );
     }
 
     await FirebaseDraftService.instance.saveMemorial(uid, draft);
@@ -670,9 +871,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       );
     }
     setState(() {
-      _slugStatus = sanitized.isEmpty
-          ? '請輸入網址代稱。'
-          : '尚未檢查可用性。';
+      _slugStatus = sanitized.isEmpty ? '請輸入網址代稱。' : '尚未檢查可用性。';
     });
     _slugCheckDebounce?.cancel();
     if (sanitized.isEmpty) return;
@@ -688,10 +887,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (uid == null || slug.isEmpty) return false;
 
     if (mounted) setState(() => _isCheckingSlug = true);
-    final available = await FirebaseDraftService.instance.isMemorialSlugAvailable(
-      slug,
-      excludingUid: uid,
-    );
+    final available = await FirebaseDraftService.instance
+        .isMemorialSlugAvailable(slug, excludingUid: uid);
     if (!mounted) return available;
     setState(() {
       _isCheckingSlug = false;
@@ -802,17 +999,17 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   MemorialDraft get _currentMemorialDraft => MemorialDraft(
-        name: _nameController.text.trim(),
-        nickname: _nicknameController.text.trim(),
-        motto: _mottoController.text.trim(),
-        bio: _bioController.text.trim(),
-        highlights: _highlightsController.text.trim(),
-        willNote: _willNoteController.text.trim(),
-        slug: _slugController.text.trim(),
-        isPublished: _isPublished,
-        qrEnabled: _isPublished,
-        publicUpdatedAt: DateTime.now(),
-      );
+    name: _nameController.text.trim(),
+    nickname: _nicknameController.text.trim(),
+    motto: _mottoController.text.trim(),
+    bio: _bioController.text.trim(),
+    highlights: _highlightsController.text.trim(),
+    willNote: _willNoteController.text.trim(),
+    slug: _slugController.text.trim(),
+    isPublished: _isPublished,
+    qrEnabled: _isPublished,
+    publicUpdatedAt: DateTime.now(),
+  );
 
   Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
     final uid = AuthService.instance.currentUser?.uid;
@@ -820,7 +1017,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       _showMessage('請先登入。');
       return false;
     }
-    final result = await TokenWalletService.instance.consume(uid: uid, type: type);
+    final result = await TokenWalletService.instance.consume(
+      uid: uid,
+      type: type,
+    );
     if (result.ok) return true;
     _showMessage('${result.message ?? '點數不足。'} 目前餘額：${result.balanceAfter}。');
     await _showTopUpRequestDialog(uid);
@@ -911,44 +1111,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
-
-class _FeatureBadge extends StatelessWidget {
-  const _FeatureBadge({
-    required this.title,
-    required this.icon,
-  });
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4EA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE7D5C8)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF5A3D30),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-

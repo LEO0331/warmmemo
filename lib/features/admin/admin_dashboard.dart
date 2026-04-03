@@ -7,8 +7,10 @@ import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
+import '../../data/models/vendor.dart';
 import '../../data/services/purchase_service.dart';
 import '../../data/services/user_role_service.dart';
+import '../../data/services/vendor_service.dart';
 import 'order_detail_page.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -44,10 +46,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _lastErrorDetail;
   final List<Purchase> _allOrders = [];
   final Set<String> _selectedOrderIds = <String>{};
+  final _vendorNameController = TextEditingController();
+  final _vendorContactController = TextEditingController();
+  final _vendorPhoneController = TextEditingController();
+  final _vendorRegionController = TextEditingController();
+  bool _savingVendor = false;
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _vendorNameController.dispose();
+    _vendorContactController.dispose();
+    _vendorPhoneController.dispose();
+    _vendorRegionController.dispose();
     super.dispose();
   }
 
@@ -212,6 +223,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
             const SizedBox(height: 16),
             _buildMetricsPanel(),
+            const SizedBox(height: 16),
+            _buildVendorManagement(),
             const SizedBox(height: 16),
             if (_loadingPage && _allOrders.isEmpty) ...[
               const SkeletonOrderList(count: 4),
@@ -435,6 +448,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         SelectableText('狀態：${o.status}'),
                         SelectableText('付款：${o.paymentStatus ?? '-'}'),
                         SelectableText('金額：${o.priceLabel}'),
+                        SelectableText('成交階段：${_conversionStep(o)}'),
+                        SelectableText('交付里程碑：${_latestMilestoneSummary(o)}'),
                         SelectableText(
                           '建立時間：${o.createdAt.toLocal().toString().split('.').first}',
                         ),
@@ -521,6 +536,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 SelectableText('狀態：${o.status}'),
                 SelectableText('付款：${o.paymentStatus ?? '-'}'),
                 SelectableText('用戶：${o.userId ?? '-'}'),
+                SelectableText('成交階段：${_conversionStep(o)}'),
+                SelectableText('交付里程碑：${_latestMilestoneSummary(o)}'),
                 SelectableText('最近核對：${_latestVerificationSummary(o)}'),
                 const SizedBox(height: 10),
                 Wrap(
@@ -655,6 +672,97 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }).toList();
   }
 
+  Widget _buildVendorManagement() {
+    return SectionCard(
+      title: '供應商主檔管理',
+      icon: Icons.storefront_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '先維護可指派供應商，訂單處理時可一鍵套用，縮短成交到製作的轉換時間。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _vendorNameController,
+            decoration: const InputDecoration(labelText: '供應商名稱'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _vendorContactController,
+            decoration: const InputDecoration(labelText: '聯絡人'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _vendorPhoneController,
+            decoration: const InputDecoration(labelText: '聯絡電話'),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _vendorRegionController,
+            decoration: const InputDecoration(labelText: '服務區域'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _savingVendor ? null : _createVendor,
+            icon: const Icon(Icons.add_business_outlined),
+            label: Text(_savingVendor ? '儲存中...' : '新增供應商'),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<Vendor>>(
+            stream: VendorService.instance.streamVendors(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: CircularProgressIndicator(),
+                );
+              }
+              if (snapshot.hasError) {
+                return SelectableText('供應商讀取失敗：${snapshot.error}');
+              }
+              final vendors = snapshot.data ?? const <Vendor>[];
+              if (vendors.isEmpty) {
+                return const Text('目前尚無供應商資料。');
+              }
+              return Column(
+                children: vendors.map((vendor) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: Icon(
+                        vendor.isActive
+                            ? Icons.check_circle_outline
+                            : Icons.pause_circle_outline,
+                      ),
+                      title: Text(vendor.name),
+                      subtitle: Text(
+                        '聯絡人：${vendor.contactName ?? '-'}｜電話：${vendor.contactPhone ?? '-'}｜區域：${vendor.serviceRegion ?? '-'}',
+                      ),
+                      trailing: Switch(
+                        value: vendor.isActive,
+                        onChanged: vendor.id == null
+                            ? null
+                            : (value) {
+                                VendorService.instance.setVendorActive(
+                                  vendorId: vendor.id!,
+                                  isActive: value,
+                                );
+                              },
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMetricsPanel() {
     final total = _allOrders.length;
     final pending = _allOrders.where((o) => o.status == 'pending').length;
@@ -693,6 +801,41 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  }
+
+  Future<void> _createVendor() async {
+    final name = _vendorNameController.text.trim();
+    if (name.isEmpty) {
+      AppFeedback.show(context, message: '請輸入供應商名稱', tone: FeedbackTone.info);
+      return;
+    }
+    setState(() => _savingVendor = true);
+    try {
+      await VendorService.instance.createVendor(
+        Vendor(
+          name: name,
+          contactName: _vendorContactController.text.trim(),
+          contactPhone: _vendorPhoneController.text.trim(),
+          serviceRegion: _vendorRegionController.text.trim(),
+        ),
+      );
+      if (!mounted) return;
+      _vendorNameController.clear();
+      _vendorContactController.clear();
+      _vendorPhoneController.clear();
+      _vendorRegionController.clear();
+      AppFeedback.show(context, message: '供應商已新增', tone: FeedbackTone.success);
+    } catch (error) {
+      if (!mounted) return;
+      _captureError(error);
+      AppFeedback.show(
+        context,
+        message: '新增供應商失敗：$error',
+        tone: FeedbackTone.error,
+      );
+    } finally {
+      if (mounted) setState(() => _savingVendor = false);
+    }
   }
 
   Widget _metricChip(String label, String value) {
@@ -874,6 +1017,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final latest = order.verificationLogs.last;
     final time = latest.actedAt.toLocal().toString().split('.').first;
     return '$time｜${latest.actor}';
+  }
+
+  String _conversionStep(Purchase order) {
+    final proposalReady = order.proposal != null && !order.proposal!.isEmpty;
+    final vendorReady =
+        order.vendorAssignment != null && !order.vendorAssignment!.isEmpty;
+    final materialReady =
+        order.materialSelection != null && !order.materialSelection!.isEmpty;
+    final scheduleReady = order.deliverySchedule.any(
+      (item) => item.status == 'in_progress' || item.status == 'done',
+    );
+    if (!proposalReady) return '待提案';
+    if (!vendorReady) return '待指派供應商';
+    if (!materialReady) return '待確認材質';
+    if (!scheduleReady) return '待建立排程';
+    return '已進入製作';
+  }
+
+  String _latestMilestoneSummary(Purchase order) {
+    if (order.deliverySchedule.isEmpty) return '尚未建立';
+    final done = order.deliverySchedule.where((item) => item.status == 'done');
+    if (done.isNotEmpty) {
+      final latestDone = done.last;
+      return '${latestDone.label}（done）';
+    }
+    final inProgress = order.deliverySchedule.where(
+      (item) => item.status == 'in_progress',
+    );
+    if (inProgress.isNotEmpty) {
+      final latest = inProgress.last;
+      return '${latest.label}（in_progress）';
+    }
+    return '${order.deliverySchedule.first.label}（pending）';
   }
 
   Future<void> _resendCheckoutLink(Purchase order) async {
