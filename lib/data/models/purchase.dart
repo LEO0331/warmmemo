@@ -125,24 +125,33 @@ class VendorAssignment {
 }
 
 class MaterialSelection {
-  MaterialSelection({this.code, this.label, this.tier, this.priceBand});
+  MaterialSelection({
+    this.code,
+    this.label,
+    this.tier,
+    this.priceBand,
+    this.grossMarginBand,
+  });
 
   final String? code;
   final String? label;
   final String? tier;
   final String? priceBand;
+  final String? grossMarginBand;
 
   bool get isEmpty =>
       (code ?? '').trim().isEmpty &&
       (label ?? '').trim().isEmpty &&
       (tier ?? '').trim().isEmpty &&
-      (priceBand ?? '').trim().isEmpty;
+      (priceBand ?? '').trim().isEmpty &&
+      (grossMarginBand ?? '').trim().isEmpty;
 
   Map<String, Object?> toMap() => {
     'code': code,
     'label': label,
     'tier': tier,
     'priceBand': priceBand,
+    'grossMarginBand': grossMarginBand,
   };
 
   factory MaterialSelection.fromMap(Map<String, dynamic> map) =>
@@ -151,6 +160,7 @@ class MaterialSelection {
         label: map['label'] as String?,
         tier: map['tier'] as String?,
         priceBand: map['priceBand'] as String?,
+        grossMarginBand: map['grossMarginBand'] as String?,
       );
 }
 

@@ -205,7 +205,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   Widget _buildBusinessWorkspace(ThemeData theme, String uid) {
     return SectionCard(
-      title: '商業作業區',
+      title: '商業作業區（墓碑/塔位購買）',
       icon: Icons.business_center_outlined,
       child: StreamBuilder<List<Purchase>>(
         stream: OrderRepository.instance.watchOrders(uid),
@@ -222,8 +222,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           final orders = snapshot.data ?? const <Purchase>[];
           if (orders.isEmpty) {
             return const EmptyStateCard(
-              title: '尚未有可提案訂單',
-              description: '先到固定方案建立訂單，再回到此區提交供應商/材質/排程偏好。',
+              title: '尚未有可推進訂單',
+              description: '先到固定方案建立訂單，回到此區提交墓碑/塔位偏好，管理端即可快速報價與下單。',
               icon: Icons.assignment_outlined,
             );
           }
@@ -233,7 +233,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           if (selectableOrders.isEmpty) {
             return const EmptyStateCard(
               title: '訂單資料暫時不可用',
-              description: '目前訂單缺少識別碼，請稍後重整頁面再試。',
+              description: '目前訂單缺少識別碼，暫時無法送出墓碑/塔位需求。請稍後重整頁面再試。',
               icon: Icons.error_outline,
             );
           }
@@ -257,14 +257,19 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '重點：送出需求後，管理端會接續處理供應商、材質與交付安排。',
+              SelectableText(
+                '成交目標：確認客戶要購買哪一類墓碑/塔位與材質等級，縮短報價到下單時間。',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                '建議填寫：款式偏好、材質等級、期望交期與預算限制，便於管理端快速確認供應商。',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: selectedOrder.id,
-                decoration: const InputDecoration(labelText: '選擇提案訂單'),
+                decoration: const InputDecoration(labelText: '選擇要購買規劃的訂單'),
                 items: selectableOrders
                     .map(
                       (order) => DropdownMenuItem<String>(
@@ -291,12 +296,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 },
               ),
               const SizedBox(height: 8),
-              Text(
+              SelectableText(
                 '目前成交階段：${_conversionStep(selectedOrder)}',
                 style: theme.textTheme.titleSmall,
               ),
               const SizedBox(height: 4),
-              Text(
+              SelectableText(
                 '最近里程碑：${_latestMilestoneSummary(selectedOrder)}',
                 style: theme.textTheme.bodySmall,
               ),
@@ -304,12 +309,14 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               TextField(
                 controller: _proposalVendorController,
                 inputFormatters: [LengthLimitingTextInputFormatter(60)],
-                decoration: const InputDecoration(labelText: '供應商偏好'),
+                decoration: const InputDecoration(labelText: '墓碑/塔位供應商偏好'),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String?>(
                 initialValue: _proposalMaterialCode,
-                decoration: const InputDecoration(labelText: '材質偏好'),
+                decoration: const InputDecoration(
+                  labelText: '材質等級偏好（Basic / Standard / Premium）',
+                ),
                 items: [
                   const DropdownMenuItem<String?>(
                     value: null,
@@ -318,7 +325,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                   ...kMaterialOptionsV1.map(
                     (item) => DropdownMenuItem<String?>(
                       value: item.code,
-                      child: Text('${item.label} (${item.tier})'),
+                      child: Text(
+                        '${item.label} (${item.tier})｜${item.priceBand}｜毛利 ${item.grossMarginBand}',
+                      ),
                     ),
                   ),
                 ],
@@ -329,13 +338,15 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               TextField(
                 controller: _proposalScheduleController,
                 inputFormatters: [LengthLimitingTextInputFormatter(80)],
-                decoration: const InputDecoration(labelText: '排程偏好'),
+                decoration: const InputDecoration(labelText: '期望完成日期/交付時段'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _proposalNoteController,
                 inputFormatters: [LengthLimitingTextInputFormatter(240)],
-                decoration: const InputDecoration(labelText: '補充備註'),
+                decoration: const InputDecoration(
+                  labelText: '商務備註（預算/安裝條件/限制）',
+                ),
                 maxLines: 3,
               ),
               const SizedBox(height: 10),
@@ -345,7 +356,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     : () =>
                           _submitOrderProposal(uid: uid, order: selectedOrder),
                 icon: const Icon(Icons.send_outlined),
-                label: Text(_submittingProposal ? '送出中...' : '送出提案給 Admin'),
+                label: Text(_submittingProposal ? '送出中...' : '送出商務提案'),
               ),
               const SizedBox(height: 6),
               Text(
@@ -353,7 +364,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                     ? '請至少填寫一項偏好再送出。'
                     : (proposalUnchanged
                           ? '目前內容與已送出提案相同。'
-                          : '送出後可由 Admin 審核並落地執行。'),
+                          : '送出後將進入審核、報價、供應商確認與交付安排。'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF7A6458),
                 ),

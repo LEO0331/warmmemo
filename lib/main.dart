@@ -65,10 +65,6 @@ class WarmMemoApp extends StatelessWidget {
     return MaterialApp(
       title: '暖備 WarmMemo',
       debugShowCheckedModeBanner: false,
-      builder: (context, child) {
-        if (child == null) return const SizedBox.shrink();
-        return SelectionArea(child: child);
-      },
       theme: base.copyWith(
         textTheme: textTheme,
         scaffoldBackgroundColor: warmSurface,

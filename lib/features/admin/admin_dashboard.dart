@@ -805,6 +805,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _metricChip('已付款', '${metrics.paid}'),
           _metricChip('付款率', '${metrics.paidRate}%'),
           _metricChip('平均結案時間', '${metrics.avgHours.toStringAsFixed(1)}h'),
+          _metricChip(
+            '提案率',
+            '${metrics.proposalRate}% (${metrics.proposalSubmitted}/${metrics.total})',
+          ),
+          _metricChip(
+            '審核通過率',
+            '${metrics.approvalRate}% (${metrics.approved}/${metrics.proposalSubmitted})',
+          ),
+          _metricChip(
+            '指派完成率',
+            '${metrics.assignmentRate}% (${metrics.assigned}/${metrics.approved})',
+          ),
+          _metricChip(
+            '交付完成率',
+            '${metrics.deliveryRate}% (${metrics.delivered}/${metrics.assigned})',
+          ),
         ],
       ),
     );
@@ -1225,6 +1241,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final complete = _allOrders.where((o) => o.status == 'complete').length;
     final paid = _allOrders.where((o) => o.paymentStatus == 'paid').length;
     final paidRate = total == 0 ? 0 : ((paid / total) * 100).round();
+    final proposalSubmitted = _allOrders.where(_hasProposal).length;
+    final approved = _allOrders.where(_isApproved).length;
+    final assigned = _allOrders
+        .where((o) => _isApproved(o) && _hasVendorAssignment(o))
+        .length;
+    final delivered = _allOrders
+        .where(
+          (o) =>
+              _isApproved(o) &&
+              _hasVendorAssignment(o) &&
+              _isDeliveryCompleted(o),
+        )
+        .length;
+    final proposalRate = total == 0
+        ? 0
+        : ((proposalSubmitted / total) * 100).round();
+    final approvalRate = proposalSubmitted == 0
+        ? 0
+        : ((approved / proposalSubmitted) * 100).round();
+    final assignmentRate = approved == 0
+        ? 0
+        : ((assigned / approved) * 100).round();
+    final deliveryRate = assigned == 0
+        ? 0
+        : ((delivered / assigned) * 100).round();
     final completed = _allOrders.where((o) => o.status == 'complete').toList();
     final avgHours = completed.isEmpty
         ? 0.0
@@ -1246,6 +1287,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
       paid: paid,
       paidRate: paidRate,
       avgHours: avgHours,
+      proposalSubmitted: proposalSubmitted,
+      approved: approved,
+      assigned: assigned,
+      delivered: delivered,
+      proposalRate: proposalRate,
+      approvalRate: approvalRate,
+      assignmentRate: assignmentRate,
+      deliveryRate: deliveryRate,
     );
     _metricsMemoKey = key;
     _metricsMemo = snapshot;
@@ -1306,6 +1355,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
       merged.addAll(incoming.sublist(j));
     }
     return merged;
+  }
+
+  bool _hasProposal(Purchase order) {
+    return order.proposal != null && !order.proposal!.isEmpty;
+  }
+
+  bool _hasVendorAssignment(Purchase order) {
+    return order.vendorAssignment != null && !order.vendorAssignment!.isEmpty;
+  }
+
+  bool _isApproved(Purchase order) {
+    if (!_hasProposal(order)) return false;
+    return order.status != 'pending' ||
+        order.verificationLogs.isNotEmpty ||
+        _hasVendorAssignment(order) ||
+        (order.materialSelection != null && !order.materialSelection!.isEmpty);
+  }
+
+  bool _isDeliveryCompleted(Purchase order) {
+    final deliveredDone = order.deliverySchedule.any(
+      (item) => item.code == 'delivered' && item.status == 'done',
+    );
+    return deliveredDone || order.status == 'complete';
   }
 
   Future<void> _copyVerificationSummary(Purchase order) async {
@@ -1425,6 +1497,14 @@ class _MetricsSnapshot {
     required this.paid,
     required this.paidRate,
     required this.avgHours,
+    required this.proposalSubmitted,
+    required this.approved,
+    required this.assigned,
+    required this.delivered,
+    required this.proposalRate,
+    required this.approvalRate,
+    required this.assignmentRate,
+    required this.deliveryRate,
   });
 
   final int total;
@@ -1434,4 +1514,12 @@ class _MetricsSnapshot {
   final int paid;
   final int paidRate;
   final double avgHours;
+  final int proposalSubmitted;
+  final int approved;
+  final int assigned;
+  final int delivered;
+  final int proposalRate;
+  final int approvalRate;
+  final int assignmentRate;
+  final int deliveryRate;
 }

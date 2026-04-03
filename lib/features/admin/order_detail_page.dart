@@ -176,6 +176,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         label: material.label,
         tier: material.tier,
         priceBand: material.priceBand,
+        grossMarginBand: material.grossMarginBand,
       );
     }
 
@@ -198,228 +199,234 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('訂單處理')),
       body: WarmBackdrop(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: ListView(
-              children: [
-                PageHero(
-                  eyebrow: 'Order Detail',
-                  icon: Icons.assignment_turned_in_outlined,
-                  title: _editing.planName,
-                  subtitle:
-                      '用戶：${_editing.userId ?? '-'}｜價格：${_editing.priceLabel}',
-                  badges: const ['成交漏斗', '供應商指派', '交付排程'],
-                ),
-                const SizedBox(height: 12),
-                _buildFunnelCard(theme),
-                const SizedBox(height: 12),
-                _buildProposalCard(),
-                const SizedBox(height: 12),
-                StreamBuilder<List<Vendor>>(
-                  stream: VendorService.instance.streamVendors(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const SectionCard(
-                        title: '供應商與材質',
-                        icon: Icons.storefront_outlined,
-                        child: Padding(
-                          padding: EdgeInsets.all(8),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return SectionCard(
-                        title: '供應商與材質',
-                        icon: Icons.storefront_outlined,
-                        child: SelectableText('供應商讀取失敗：${snapshot.error}'),
-                      );
-                    }
-                    final vendors = snapshot.data ?? const <Vendor>[];
-                    return _buildVendorAndMaterialSection(vendors);
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildScheduleSection(theme),
-                const SizedBox(height: 12),
-                SelectableText('目前狀態：${_editing.status}'),
-                SelectableText('付款狀態：${_editing.paymentStatus ?? '-'}'),
-                if (_workflowHint != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _workflowHint!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
-                      fontWeight: FontWeight.w600,
-                    ),
+        child: SelectionArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: ListView(
+                children: [
+                  PageHero(
+                    eyebrow: 'Order Detail',
+                    icon: Icons.assignment_turned_in_outlined,
+                    title: _editing.planName,
+                    subtitle:
+                        '用戶：${_editing.userId ?? '-'}｜價格：${_editing.priceLabel}',
+                    badges: const ['成交漏斗', '供應商指派', '交付排程'],
                   ),
-                ],
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: _editing.status,
-                  decoration: const InputDecoration(labelText: '案件狀態'),
-                  items: OrderWorkflow.caseStatuses
-                      .map(
-                        (status) => DropdownMenuItem(
-                          value: status,
-                          child: Text(status),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _editing = _editing.copyWith(status: value));
-                  },
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _editing.paymentStatus ?? 'checkout_created',
-                  decoration: const InputDecoration(labelText: '付款狀態'),
-                  items: OrderWorkflow.paymentStatuses
-                      .map(
-                        (status) => DropdownMenuItem(
-                          value: status,
-                          child: Text(status),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _editing = _editing.copyWith(
-                        paymentStatus: value,
-                        paidAt: value == 'paid'
-                            ? DateTime.now()
-                            : _editing.paidAt,
-                      );
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  initialValue: _editing.paymentIntentId,
-                  decoration: const InputDecoration(
-                    labelText: '交易編號 (paymentIntentId)',
-                  ),
-                  onChanged: (v) =>
-                      _editing = _editing.copyWith(paymentIntentId: v),
-                ),
-                const SizedBox(height: 8),
-                SelectableText(
-                  '付款時間：${_editing.paidAt?.toLocal().toString().split('.').first ?? '-'}',
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  initialValue:
-                      _editing.verifiedBy ??
-                      AuthService.instance.currentUser?.email ??
-                      '',
-                  decoration: const InputDecoration(
-                    labelText: '核對人員 (verifiedBy)',
-                  ),
-                  onChanged: (v) => _editing = _editing.copyWith(verifiedBy: v),
-                ),
-                SelectableText(
-                  '核對時間：${_editing.verifiedAt?.toLocal().toString().split('.').first ?? '-'}',
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  initialValue: _editing.verificationNote,
-                  decoration: const InputDecoration(
-                    labelText: '核對備註 (verificationNote)',
-                  ),
-                  maxLines: 3,
-                  onChanged: (v) =>
-                      _editing = _editing.copyWith(verificationNote: v),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _editing = _editing.copyWith(
-                        verifiedBy:
-                            (_editing.verifiedBy == null ||
-                                _editing.verifiedBy!.isEmpty)
-                            ? AuthService.instance.currentUser?.email
-                            : _editing.verifiedBy,
-                        verifiedAt: DateTime.now(),
-                      );
-                    });
-                  },
-                  icon: const Icon(Icons.verified_outlined),
-                  label: const Text('套用核對時間'),
-                ),
-                if (_editing.verificationLogs.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text('人工核對操作紀錄', style: theme.textTheme.titleMedium),
+                  _buildFunnelCard(theme),
+                  const SizedBox(height: 12),
+                  _buildProposalCard(),
+                  const SizedBox(height: 12),
+                  StreamBuilder<List<Vendor>>(
+                    stream: VendorService.instance.streamVendors(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SectionCard(
+                          title: '供應商與材質',
+                          icon: Icons.storefront_outlined,
+                          child: Padding(
+                            padding: EdgeInsets.all(8),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return SectionCard(
+                          title: '供應商與材質',
+                          icon: Icons.storefront_outlined,
+                          child: SelectableText('供應商讀取失敗：${snapshot.error}'),
+                        );
+                      }
+                      final vendors = snapshot.data ?? const <Vendor>[];
+                      return _buildVendorAndMaterialSection(vendors);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildScheduleSection(theme),
+                  const SizedBox(height: 12),
+                  SelectableText('目前狀態：${_editing.status}'),
+                  SelectableText('付款狀態：${_editing.paymentStatus ?? '-'}'),
+                  if (_workflowHint != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _workflowHint!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: _editing.status,
+                    decoration: const InputDecoration(labelText: '案件狀態'),
+                    items: OrderWorkflow.caseStatuses
+                        .map(
+                          (status) => DropdownMenuItem(
+                            value: status,
+                            child: Text(status),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(
+                        () => _editing = _editing.copyWith(status: value),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 8),
-                  ..._editing.verificationLogs.reversed.map(
-                    (log) => Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SelectableText(
-                              '${log.actedAt.toLocal().toString().split('.').first}｜${log.actor}',
-                            ),
-                            SelectableText(log.summary),
-                            if (log.note != null && log.note!.isNotEmpty)
-                              SelectableText('備註：${log.note}'),
-                            if (log.paymentIntentId != null &&
-                                log.paymentIntentId!.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    initialValue: _editing.paymentStatus ?? 'checkout_created',
+                    decoration: const InputDecoration(labelText: '付款狀態'),
+                    items: OrderWorkflow.paymentStatuses
+                        .map(
+                          (status) => DropdownMenuItem(
+                            value: status,
+                            child: Text(status),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _editing = _editing.copyWith(
+                          paymentStatus: value,
+                          paidAt: value == 'paid'
+                              ? DateTime.now()
+                              : _editing.paidAt,
+                        );
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: _editing.paymentIntentId,
+                    decoration: const InputDecoration(
+                      labelText: '交易編號 (paymentIntentId)',
+                    ),
+                    onChanged: (v) =>
+                        _editing = _editing.copyWith(paymentIntentId: v),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    '付款時間：${_editing.paidAt?.toLocal().toString().split('.').first ?? '-'}',
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue:
+                        _editing.verifiedBy ??
+                        AuthService.instance.currentUser?.email ??
+                        '',
+                    decoration: const InputDecoration(
+                      labelText: '核對人員 (verifiedBy)',
+                    ),
+                    onChanged: (v) =>
+                        _editing = _editing.copyWith(verifiedBy: v),
+                  ),
+                  SelectableText(
+                    '核對時間：${_editing.verifiedAt?.toLocal().toString().split('.').first ?? '-'}',
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: _editing.verificationNote,
+                    decoration: const InputDecoration(
+                      labelText: '核對備註 (verificationNote)',
+                    ),
+                    maxLines: 3,
+                    onChanged: (v) =>
+                        _editing = _editing.copyWith(verificationNote: v),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _editing = _editing.copyWith(
+                          verifiedBy:
+                              (_editing.verifiedBy == null ||
+                                  _editing.verifiedBy!.isEmpty)
+                              ? AuthService.instance.currentUser?.email
+                              : _editing.verifiedBy,
+                          verifiedAt: DateTime.now(),
+                        );
+                      });
+                    },
+                    icon: const Icon(Icons.verified_outlined),
+                    label: const Text('套用核對時間'),
+                  ),
+                  if (_editing.verificationLogs.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text('人工核對操作紀錄', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ..._editing.verificationLogs.reversed.map(
+                      (log) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               SelectableText(
-                                'paymentIntentId：${log.paymentIntentId}',
+                                '${log.actedAt.toLocal().toString().split('.').first}｜${log.actor}',
                               ),
-                          ],
+                              SelectableText(log.summary),
+                              if (log.note != null && log.note!.isNotEmpty)
+                                SelectableText('備註：${log.note}'),
+                              if (log.paymentIntentId != null &&
+                                  log.paymentIntentId!.isNotEmpty)
+                                SelectableText(
+                                  'paymentIntentId：${log.paymentIntentId}',
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
+                  ],
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: _editing.companyName,
+                    decoration: const InputDecoration(labelText: '禮儀公司名稱'),
+                    onChanged: (v) =>
+                        _editing = _editing.copyWith(companyName: v),
+                  ),
+                  TextFormField(
+                    initialValue: _editing.agentName,
+                    decoration: const InputDecoration(labelText: '聯絡人 / 專員'),
+                    onChanged: (v) =>
+                        _editing = _editing.copyWith(agentName: v),
+                  ),
+                  TextFormField(
+                    initialValue: _editing.contactNumber,
+                    decoration: const InputDecoration(labelText: '聯絡電話'),
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      final v = (value ?? '').trim();
+                      if (v.isEmpty) return null;
+                      final ok = RegExp(r'^[0-9+\-\s()]{8,20}$').hasMatch(v);
+                      if (!ok) return '電話格式不正確';
+                      return null;
+                    },
+                    onChanged: (v) =>
+                        _editing = _editing.copyWith(contactNumber: v),
+                  ),
+                  TextFormField(
+                    initialValue: _editing.notes,
+                    decoration: const InputDecoration(labelText: '備註 / 補充'),
+                    maxLines: 3,
+                    onChanged: (v) => _editing = _editing.copyWith(notes: v),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('儲存訂單資料'),
+                    onPressed: _save,
                   ),
                 ],
-                const SizedBox(height: 8),
-                TextFormField(
-                  initialValue: _editing.companyName,
-                  decoration: const InputDecoration(labelText: '禮儀公司名稱'),
-                  onChanged: (v) =>
-                      _editing = _editing.copyWith(companyName: v),
-                ),
-                TextFormField(
-                  initialValue: _editing.agentName,
-                  decoration: const InputDecoration(labelText: '聯絡人 / 專員'),
-                  onChanged: (v) => _editing = _editing.copyWith(agentName: v),
-                ),
-                TextFormField(
-                  initialValue: _editing.contactNumber,
-                  decoration: const InputDecoration(labelText: '聯絡電話'),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    final v = (value ?? '').trim();
-                    if (v.isEmpty) return null;
-                    final ok = RegExp(r'^[0-9+\-\s()]{8,20}$').hasMatch(v);
-                    if (!ok) return '電話格式不正確';
-                    return null;
-                  },
-                  onChanged: (v) =>
-                      _editing = _editing.copyWith(contactNumber: v),
-                ),
-                TextFormField(
-                  initialValue: _editing.notes,
-                  decoration: const InputDecoration(labelText: '備註 / 補充'),
-                  maxLines: 3,
-                  onChanged: (v) => _editing = _editing.copyWith(notes: v),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('儲存訂單資料'),
-                  onPressed: _save,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -588,6 +595,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     label: option.label,
                     tier: option.tier,
                     priceBand: option.priceBand,
+                    grossMarginBand: option.grossMarginBand,
                   ),
                 );
               });
@@ -606,8 +614,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     '價格帶：${_editing.materialSelection!.priceBand ?? '-'}',
                   ),
                 ),
+                Chip(
+                  label: Text(
+                    '毛利：${_editing.materialSelection!.grossMarginBand ?? '-'}',
+                  ),
+                ),
               ],
             ),
+            const SizedBox(height: 6),
+            SelectableText('商務判讀：毛利區間僅供估算，請搭配供應商報價與施工條件確認最終利潤。'),
           ],
         ],
       ),
