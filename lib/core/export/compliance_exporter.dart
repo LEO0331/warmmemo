@@ -48,9 +48,8 @@ class ComplianceExporter {
   static Future<Uint8List> _buildPdf(List<NotificationEvent> events, DraftMetrics metrics) async {
     final doc = pw.Document();
     final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
-    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
     final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(boldData);
+    final fontBold = pw.Font.ttf(fontData);
     doc.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
       theme: pw.ThemeData.withFont(
@@ -108,9 +107,8 @@ class ComplianceExporter {
   static Future<Uint8List> _buildDraftPdf(List<UserComplianceSnapshot> bundles) async {
     final doc = pw.Document();
     final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
-    final boldData = await rootBundle.load("assets/fonts/NotoSansTC-Bold.ttf");
     final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(boldData);
+    final fontBold = pw.Font.ttf(fontData);
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       theme: pw.ThemeData.withFont(

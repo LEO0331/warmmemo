@@ -30,9 +30,8 @@ class PdfExporter {
     final fontData = await rootBundle.load(
       'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
     );
-    final boldData = await rootBundle.load('assets/fonts/NotoSansTC-Bold.ttf');
     final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(boldData);
+    final fontBold = pw.Font.ttf(fontData);
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -87,9 +86,8 @@ class PdfExporter {
     final fontData = await rootBundle.load(
       'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
     );
-    final boldData = await rootBundle.load('assets/fonts/NotoSansTC-Bold.ttf');
     final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(boldData);
+    final fontBold = pw.Font.ttf(fontData);
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
