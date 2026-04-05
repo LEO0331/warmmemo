@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'core/theme/motion_tokens.dart';
@@ -25,7 +26,18 @@ class WarmMemoApp extends StatelessWidget {
 
     final base = ThemeData(
       useMaterial3: true,
-      fontFamily: 'NotoSansTC',
+      // Web first paint: avoid downloading 20MB+ custom TTF before first render.
+      // Keep NotoSansTC on non-web platforms; web uses system CJK fallback stack.
+      fontFamily: kIsWeb ? null : 'NotoSansTC',
+      fontFamilyFallback: kIsWeb
+          ? const [
+              'PingFang TC',
+              'Microsoft JhengHei',
+              'Noto Sans CJK TC',
+              'Heiti TC',
+              'sans-serif',
+            ]
+          : null,
       colorScheme: ColorScheme.fromSeed(
         seedColor: warmPrimary,
         primary: warmPrimary,
