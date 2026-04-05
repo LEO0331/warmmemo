@@ -16,6 +16,11 @@ void main() {
       expect(result, 'line1\n\nline2＜ok＞');
     });
 
+    test('multiline applies truncation branch', () {
+      final result = InputGuard.multiline('12345678901234567890', maxLength: 8);
+      expect(result, '12345678');
+    });
+
     test('dateOrText normalizes valid yyyy/mm/dd', () {
       final result = InputGuard.dateOrText('2026/4/5', maxLength: 20);
       expect(result, '2026-04-05');
@@ -24,6 +29,11 @@ void main() {
     test('dateOrText keeps open text when not a date', () {
       final result = InputGuard.dateOrText('下月前完成', maxLength: 20);
       expect(result, '下月前完成');
+    });
+
+    test('dateOrText normalizes year-month branch', () {
+      final result = InputGuard.dateOrText('2026-4', maxLength: 20);
+      expect(result, '2026-04');
     });
 
     test('boundedInt and boundedAmount enforce range', () {
