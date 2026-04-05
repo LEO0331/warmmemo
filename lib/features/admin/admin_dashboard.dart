@@ -3,12 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/data/debouncer.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
+import '../../data/models/vendor.dart';
+import '../../data/repositories/order_repository.dart';
+import '../../data/repositories/vendor_repository.dart';
 import '../../data/services/purchase_service.dart';
 import '../../data/services/user_role_service.dart';
+import 'controllers/admin_vendor_controller.dart';
+import 'models/weekly_funnel.dart';
 import 'order_detail_page.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -44,10 +50,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _lastErrorDetail;
   final List<Purchase> _allOrders = [];
   final Set<String> _selectedOrderIds = <String>{};
+  final _vendorNameController = TextEditingController();
+  final _vendorContactController = TextEditingController();
+  final _vendorPhoneController = TextEditingController();
+  final _vendorRegionController = TextEditingController();
+  final _keywordDebouncer = Debouncer(delay: const Duration(milliseconds: 350));
+  late final AdminVendorController _vendorController;
+  bool _savingVendor = false;
+  int _ordersVersion = 0;
+  String? _filterMemoKey;
+  List<Purchase> _filterMemoResult = const <Purchase>[];
+  String? _metricsMemoKey;
+  _MetricsSnapshot? _metricsMemo;
+  String? _weeklyFunnelMemoKey;
+  WeeklyFunnelSnapshot? _weeklyFunnelMemo;
+  String? _overviewMemoKey;
+  _OverviewSnapshot? _overviewMemo;
+
+  @override
+  void initState() {
+    super.initState();
+    _vendorController = AdminVendorController();
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _vendorNameController.dispose();
+    _vendorContactController.dispose();
+    _vendorPhoneController.dispose();
+    _vendorRegionController.dispose();
+    _keywordDebouncer.dispose();
+    _vendorController.dispose();
     super.dispose();
   }
 
@@ -213,6 +247,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             const SizedBox(height: 16),
             _buildMetricsPanel(),
             const SizedBox(height: 16),
+            _buildWeeklyFunnelPanel(),
+            const SizedBox(height: 16),
+            _buildVendorManagement(),
+            const SizedBox(height: 16),
             if (_loadingPage && _allOrders.isEmpty) ...[
               const SkeletonOrderList(count: 4),
               const SizedBox(height: 12),
@@ -244,18 +282,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildOrdersOverview() {
-    final planNames = _allOrders.map((o) => o.planName).toSet().toList()
-      ..sort();
-    final statuses = _allOrders.map((o) => o.status).toSet().toList()..sort();
-    final verifiers =
-        _allOrders
-            .map((o) => _latestVerifier(o))
-            .whereType<String>()
-            .where((v) => v.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    final filtered = _applyFilters(_allOrders);
+    final overview = _getOverviewSnapshot();
+    final filtered = _getFilteredOrders();
     return SectionCard(
       title: '方案訂單管理（檢視）',
       icon: Icons.assignment_outlined,
@@ -267,8 +295,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
               labelText: '搜尋（方案 / userId / 公司 / 聯絡）',
               prefixIcon: Icon(Icons.search),
             ),
-            onChanged: (value) =>
-                setState(() => _keyword = value.trim().toLowerCase()),
+            onChanged: (value) {
+              _keywordDebouncer.run(() {
+                if (!mounted) return;
+                setState(() => _keyword = value.trim().toLowerCase());
+              });
+            },
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -328,7 +360,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 selected: _statusFilter == null,
                 onSelected: (_) => setState(() => _statusFilter = null),
               ),
-              ...statuses.map(
+              ...overview.statuses.map(
                 (s) => ChoiceChip(
                   label: Text(s),
                   selected: _statusFilter == s,
@@ -340,7 +372,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 selected: _planFilter == null,
                 onSelected: (_) => setState(() => _planFilter = null),
               ),
-              ...planNames.map(
+              ...overview.planNames.map(
                 (p) => ChoiceChip(
                   label: Text(p),
                   selected: _planFilter == p,
@@ -386,7 +418,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 8),
           SelectableText(
-            '統計：已付款 ${_allOrders.where((o) => o.paymentStatus == 'paid').length} 筆 / 共 ${_allOrders.length} 筆',
+            '統計：已付款 ${overview.paidCount} 筆 / 共 ${overview.totalCount} 筆',
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -398,7 +430,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 selected: _verifierQuickFilter == null,
                 onSelected: (_) => setState(() => _verifierQuickFilter = null),
               ),
-              ...verifiers.map(
+              ...overview.verifiers.map(
                 (v) => ChoiceChip(
                   label: Text(v),
                   selected: _verifierQuickFilter == v,
@@ -435,6 +467,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         SelectableText('狀態：${o.status}'),
                         SelectableText('付款：${o.paymentStatus ?? '-'}'),
                         SelectableText('金額：${o.priceLabel}'),
+                        SelectableText('成交階段：${_conversionStep(o)}'),
+                        SelectableText('交付里程碑：${_latestMilestoneSummary(o)}'),
                         SelectableText(
                           '建立時間：${o.createdAt.toLocal().toString().split('.').first}',
                         ),
@@ -468,7 +502,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildOrdersWorkQueue() {
-    final filtered = _applyFilters(_allOrders);
+    final filtered = _getFilteredOrders();
     if (filtered.isEmpty) {
       return const SectionCard(
         title: '個別訂單處理',
@@ -521,6 +555,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 SelectableText('狀態：${o.status}'),
                 SelectableText('付款：${o.paymentStatus ?? '-'}'),
                 SelectableText('用戶：${o.userId ?? '-'}'),
+                SelectableText('成交階段：${_conversionStep(o)}'),
+                SelectableText('交付里程碑：${_latestMilestoneSummary(o)}'),
                 SelectableText('最近核對：${_latestVerificationSummary(o)}'),
                 const SizedBox(height: 10),
                 Wrap(
@@ -545,9 +581,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               ),
                             );
                         if (updated != null && updated.userId != null) {
-                          await PurchaseService.instance.updateOrder(
+                          await OrderRepository.instance.updateOrderOptimistic(
                             uid: updated.userId!,
-                            purchase: updated,
+                            previous: o,
+                            next: updated,
                           );
                           setState(() {
                             final idx = _allOrders.indexWhere(
@@ -555,6 +592,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             );
                             if (idx != -1) {
                               _allOrders[idx] = updated;
+                              _markOrdersChanged();
                             }
                           });
                         }
@@ -655,26 +693,108 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }).toList();
   }
 
+  Widget _buildVendorManagement() {
+    return SectionCard(
+      title: '供應商主檔管理',
+      icon: Icons.storefront_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '先維護可指派供應商，訂單處理時可一鍵套用，縮短成交到製作的轉換時間。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _vendorNameController,
+            decoration: const InputDecoration(labelText: '供應商名稱'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _vendorContactController,
+            decoration: const InputDecoration(labelText: '聯絡人'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _vendorPhoneController,
+            decoration: const InputDecoration(labelText: '聯絡電話'),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _vendorRegionController,
+            decoration: const InputDecoration(labelText: '服務區域'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _savingVendor ? null : _createVendor,
+            icon: const Icon(Icons.add_business_outlined),
+            label: Text(_savingVendor ? '儲存中...' : '新增供應商'),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<Vendor>>(
+            stream: VendorRepository.instance.watchVendors(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: CircularProgressIndicator(),
+                );
+              }
+              if (snapshot.hasError) {
+                return SelectableText('供應商讀取失敗：${snapshot.error}');
+              }
+              final vendors = snapshot.data ?? const <Vendor>[];
+              if (vendors.isEmpty) {
+                return const Text('目前尚無供應商資料。');
+              }
+              return Column(
+                children: vendors.map((vendor) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: Icon(
+                        vendor.isActive
+                            ? Icons.check_circle_outline
+                            : Icons.pause_circle_outline,
+                      ),
+                      title: Text(vendor.name),
+                      subtitle: Text(
+                        '聯絡人：${vendor.contactName ?? '-'}｜電話：${vendor.contactPhone ?? '-'}｜區域：${vendor.serviceRegion ?? '-'}',
+                      ),
+                      trailing: Switch(
+                        value: vendor.isActive,
+                        onChanged: vendor.id == null
+                            ? null
+                            : (value) async {
+                                try {
+                                  await _vendorController.toggleVendorActive(
+                                    vendor: vendor,
+                                    nextActive: value,
+                                  );
+                                } catch (error) {
+                                  if (!context.mounted) return;
+                                  AppFeedback.show(
+                                    context,
+                                    message: '更新供應商狀態失敗：$error',
+                                    tone: FeedbackTone.error,
+                                  );
+                                }
+                              },
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMetricsPanel() {
-    final total = _allOrders.length;
-    final pending = _allOrders.where((o) => o.status == 'pending').length;
-    final received = _allOrders.where((o) => o.status == 'received').length;
-    final complete = _allOrders.where((o) => o.status == 'complete').length;
-    final paid = _allOrders.where((o) => o.paymentStatus == 'paid').length;
-    final paidRate = total == 0 ? 0 : ((paid / total) * 100).round();
-    final completed = _allOrders.where((o) => o.status == 'complete').toList();
-    final avgHours = completed.isEmpty
-        ? 0.0
-        : completed
-                  .map(
-                    (o) =>
-                        (o.verifiedAt ?? o.createdAt)
-                            .difference(o.createdAt)
-                            .inMinutes /
-                        60,
-                  )
-                  .reduce((a, b) => a + b) /
-              completed.length;
+    final metrics = _getMetricsSnapshot();
 
     return SectionCard(
       title: '營運指標',
@@ -683,16 +803,168 @@ class _AdminDashboardState extends State<AdminDashboard> {
         spacing: 10,
         runSpacing: 10,
         children: [
-          _metricChip('總訂單', '$total'),
-          _metricChip('待受理', '$pending'),
-          _metricChip('處理中', '$received'),
-          _metricChip('已完成', '$complete'),
-          _metricChip('已付款', '$paid'),
-          _metricChip('付款率', '$paidRate%'),
-          _metricChip('平均結案時間', '${avgHours.toStringAsFixed(1)}h'),
+          _metricChip('總訂單', '${metrics.total}'),
+          _metricChip('待受理', '${metrics.pending}'),
+          _metricChip('處理中', '${metrics.received}'),
+          _metricChip('已完成', '${metrics.complete}'),
+          _metricChip('已付款', '${metrics.paid}'),
+          _metricChip('付款率', '${metrics.paidRate}%'),
+          _metricChip('平均結案時間', '${metrics.avgHours.toStringAsFixed(1)}h'),
+          _metricChip(
+            '提案率',
+            '${metrics.proposalRate}% (${metrics.proposalSubmitted}/${metrics.total})',
+          ),
+          _metricChip(
+            '審核通過率',
+            '${metrics.approvalRate}% (${metrics.approved}/${metrics.proposalSubmitted})',
+          ),
+          _metricChip(
+            '指派完成率',
+            '${metrics.assignmentRate}% (${metrics.assigned}/${metrics.approved})',
+          ),
+          _metricChip(
+            '交付完成率',
+            '${metrics.deliveryRate}% (${metrics.delivered}/${metrics.assigned})',
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildWeeklyFunnelPanel() {
+    final weekly = _getWeeklyFunnelSnapshot();
+    return SectionCard(
+      title: 'Funnel 每週趨勢（近 8 週）',
+      icon: Icons.show_chart_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              _LegendChip(label: '提案', color: Color(0xFF7C5C4B)),
+              _LegendChip(label: '審核通過', color: Color(0xFF4E8A69)),
+              _LegendChip(label: '指派完成', color: Color(0xFF4C6FAF)),
+              _LegendChip(label: '交付完成', color: Color(0xFF9C6B2F)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (weekly.buckets.isEmpty)
+            const Text('目前尚無足夠資料生成每週趨勢。')
+          else
+            Column(
+              children: weekly.buckets.map((bucket) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _weeklyRow(bucket, weekly.maxCount),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weeklyRow(WeeklyFunnelBucket bucket, int maxCount) {
+    final baseline = maxCount <= 0 ? 1.0 : maxCount.toDouble();
+    return Row(
+      children: [
+        SizedBox(width: 72, child: Text(bucket.label)),
+        Expanded(
+          child: Row(
+            children: [
+              _barSegment(bucket.proposal, baseline, const Color(0xFF7C5C4B)),
+              const SizedBox(width: 6),
+              _barSegment(bucket.approved, baseline, const Color(0xFF4E8A69)),
+              const SizedBox(width: 6),
+              _barSegment(bucket.assigned, baseline, const Color(0xFF4C6FAF)),
+              const SizedBox(width: 6),
+              _barSegment(bucket.delivered, baseline, const Color(0xFF9C6B2F)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _barSegment(int value, double baseline, Color color) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: value / baseline,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFF1E4DA),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text('$value', style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createVendor() async {
+    final name = _vendorNameController.text.trim();
+    if (name.isEmpty) {
+      AppFeedback.show(context, message: '請輸入供應商名稱', tone: FeedbackTone.info);
+      return;
+    }
+    if (name.length < 2) {
+      AppFeedback.show(
+        context,
+        message: '供應商名稱至少 2 個字',
+        tone: FeedbackTone.info,
+      );
+      return;
+    }
+    final phone = _vendorPhoneController.text.trim();
+    if (phone.isNotEmpty && !RegExp(r'^[0-9+\-\s()]{8,20}$').hasMatch(phone)) {
+      AppFeedback.show(context, message: '聯絡電話格式不正確', tone: FeedbackTone.info);
+      return;
+    }
+    setState(() => _savingVendor = true);
+    try {
+      final exists = await VendorRepository.instance.nameExists(name);
+      if (exists) {
+        if (!mounted) return;
+        AppFeedback.show(
+          context,
+          message: '供應商已存在，請直接使用現有資料',
+          tone: FeedbackTone.info,
+        );
+        return;
+      }
+      await _vendorController.createVendor(
+        Vendor(
+          name: name,
+          contactName: _vendorContactController.text.trim(),
+          contactPhone: phone,
+          serviceRegion: _vendorRegionController.text.trim(),
+        ),
+      );
+      if (!mounted) return;
+      _vendorNameController.clear();
+      _vendorContactController.clear();
+      _vendorPhoneController.clear();
+      _vendorRegionController.clear();
+      AppFeedback.show(context, message: '供應商已新增', tone: FeedbackTone.success);
+    } catch (error) {
+      if (!mounted) return;
+      _captureError(error);
+      AppFeedback.show(
+        context,
+        message: '新增供應商失敗：$error',
+        tone: FeedbackTone.error,
+      );
+    } finally {
+      if (mounted) setState(() => _savingVendor = false);
+    }
   }
 
   Widget _metricChip(String label, String value) {
@@ -876,6 +1148,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return '$time｜${latest.actor}';
   }
 
+  String _conversionStep(Purchase order) {
+    final proposalReady = order.proposal != null && !order.proposal!.isEmpty;
+    final vendorReady =
+        order.vendorAssignment != null && !order.vendorAssignment!.isEmpty;
+    final materialReady =
+        order.materialSelection != null && !order.materialSelection!.isEmpty;
+    final scheduleReady = order.deliverySchedule.any(
+      (item) => item.status == 'in_progress' || item.status == 'done',
+    );
+    if (!proposalReady) return '待提案';
+    if (!vendorReady) return '待指派供應商';
+    if (!materialReady) return '待確認材質';
+    if (!scheduleReady) return '待建立排程';
+    return '已進入製作';
+  }
+
+  String _latestMilestoneSummary(Purchase order) {
+    if (order.deliverySchedule.isEmpty) return '尚未建立';
+    final done = order.deliverySchedule.where((item) => item.status == 'done');
+    if (done.isNotEmpty) {
+      final latestDone = done.last;
+      return '${latestDone.label}（done）';
+    }
+    final inProgress = order.deliverySchedule.where(
+      (item) => item.status == 'in_progress',
+    );
+    if (inProgress.isNotEmpty) {
+      final latest = inProgress.last;
+      final overdueTag = _isMilestoneOverdue(latest) ? '｜逾期' : '';
+      return '${latest.label}（in_progress$overdueTag）';
+    }
+    final pending = order.deliverySchedule.first;
+    final overdueTag = _isMilestoneOverdue(pending) ? '｜逾期' : '';
+    return '${pending.label}（pending$overdueTag）';
+  }
+
+  bool _isMilestoneOverdue(DeliveryMilestone milestone) {
+    if (milestone.status == 'done') return false;
+    final target = milestone.targetDate;
+    if (target == null) return false;
+    final today = DateTime.now();
+    final due = DateTime(target.year, target.month, target.day, 23, 59, 59);
+    return today.isAfter(due);
+  }
+
   Future<void> _resendCheckoutLink(Purchase order) async {
     final url = order.checkoutUrl;
     if (url == null || url.isEmpty) return;
@@ -905,6 +1222,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ..addAll(
             page.items..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
           );
+        _markOrdersChanged();
         _cursor = page.cursor;
         _loadingPage = false;
       });
@@ -932,10 +1250,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
         startAfterDocPath: _cursor,
       );
       if (!mounted) return;
+      final sortedIncoming = page.items.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {
+        final merged = _mergeOrdersByCreatedAtDesc(_allOrders, sortedIncoming);
         _allOrders
-          ..addAll(page.items)
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          ..clear()
+          ..addAll(merged);
+        _markOrdersChanged();
         _cursor = page.cursor;
         _loadingPage = false;
       });
@@ -960,6 +1282,210 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _latestVerifier(Purchase order) {
     if (order.verificationLogs.isEmpty) return null;
     return order.verificationLogs.last.actor;
+  }
+
+  List<Purchase> _getFilteredOrders() {
+    final key =
+        '$_ordersVersion|$_statusFilter|$_planFilter|$_paymentQuickFilter|$_verifierQuickFilter|$_keyword|${_dateKey(_fromDate)}|${_dateKey(_toDate)}';
+    if (_filterMemoKey == key) {
+      return _filterMemoResult;
+    }
+    final result = _applyFilters(_allOrders);
+    _filterMemoKey = key;
+    _filterMemoResult = result;
+    return result;
+  }
+
+  _OverviewSnapshot _getOverviewSnapshot() {
+    final key = '$_ordersVersion';
+    if (_overviewMemoKey == key && _overviewMemo != null) {
+      return _overviewMemo!;
+    }
+    final planNames = _allOrders.map((o) => o.planName).toSet().toList()
+      ..sort();
+    final statuses = _allOrders.map((o) => o.status).toSet().toList()..sort();
+    final verifiers =
+        _allOrders
+            .map((o) => _latestVerifier(o))
+            .whereType<String>()
+            .where((v) => v.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final paidCount = _allOrders.where((o) => o.paymentStatus == 'paid').length;
+    final snapshot = _OverviewSnapshot(
+      planNames: planNames,
+      statuses: statuses,
+      verifiers: verifiers,
+      paidCount: paidCount,
+      totalCount: _allOrders.length,
+    );
+    _overviewMemoKey = key;
+    _overviewMemo = snapshot;
+    return snapshot;
+  }
+
+  _MetricsSnapshot _getMetricsSnapshot() {
+    final key = '$_ordersVersion';
+    if (_metricsMemoKey == key && _metricsMemo != null) {
+      return _metricsMemo!;
+    }
+    final total = _allOrders.length;
+    final pending = _allOrders.where((o) => o.status == 'pending').length;
+    final received = _allOrders.where((o) => o.status == 'received').length;
+    final complete = _allOrders.where((o) => o.status == 'complete').length;
+    final paid = _allOrders.where((o) => o.paymentStatus == 'paid').length;
+    final paidRate = total == 0 ? 0 : ((paid / total) * 100).round();
+    final proposalSubmitted = _allOrders.where(_hasProposal).length;
+    final approved = _allOrders.where(_isApproved).length;
+    final assigned = _allOrders
+        .where((o) => _isApproved(o) && _hasVendorAssignment(o))
+        .length;
+    final delivered = _allOrders
+        .where(
+          (o) =>
+              _isApproved(o) &&
+              _hasVendorAssignment(o) &&
+              _isDeliveryCompleted(o),
+        )
+        .length;
+    final proposalRate = total == 0
+        ? 0
+        : ((proposalSubmitted / total) * 100).round();
+    final approvalRate = proposalSubmitted == 0
+        ? 0
+        : ((approved / proposalSubmitted) * 100).round();
+    final assignmentRate = approved == 0
+        ? 0
+        : ((assigned / approved) * 100).round();
+    final deliveryRate = assigned == 0
+        ? 0
+        : ((delivered / assigned) * 100).round();
+    final completed = _allOrders.where((o) => o.status == 'complete').toList();
+    final avgHours = completed.isEmpty
+        ? 0.0
+        : completed
+                  .map(
+                    (o) =>
+                        (o.verifiedAt ?? o.createdAt)
+                            .difference(o.createdAt)
+                            .inMinutes /
+                        60,
+                  )
+                  .reduce((a, b) => a + b) /
+              completed.length;
+    final snapshot = _MetricsSnapshot(
+      total: total,
+      pending: pending,
+      received: received,
+      complete: complete,
+      paid: paid,
+      paidRate: paidRate,
+      avgHours: avgHours,
+      proposalSubmitted: proposalSubmitted,
+      approved: approved,
+      assigned: assigned,
+      delivered: delivered,
+      proposalRate: proposalRate,
+      approvalRate: approvalRate,
+      assignmentRate: assignmentRate,
+      deliveryRate: deliveryRate,
+    );
+    _metricsMemoKey = key;
+    _metricsMemo = snapshot;
+    return snapshot;
+  }
+
+  WeeklyFunnelSnapshot _getWeeklyFunnelSnapshot() {
+    final key = '$_ordersVersion';
+    if (_weeklyFunnelMemoKey == key && _weeklyFunnelMemo != null) {
+      return _weeklyFunnelMemo!;
+    }
+    final snapshot = buildWeeklyFunnelSnapshot(_allOrders, now: DateTime.now());
+    _weeklyFunnelMemoKey = key;
+    _weeklyFunnelMemo = snapshot;
+    return snapshot;
+  }
+
+  void _markOrdersChanged() {
+    _ordersVersion += 1;
+    _filterMemoKey = null;
+    _metricsMemoKey = null;
+    _weeklyFunnelMemoKey = null;
+    _overviewMemoKey = null;
+    _metricsMemo = null;
+    _weeklyFunnelMemo = null;
+    _overviewMemo = null;
+  }
+
+  String _dateKey(DateTime? value) {
+    if (value == null) return '-';
+    return '${value.year}-${value.month}-${value.day}';
+  }
+
+  List<Purchase> _mergeOrdersByCreatedAtDesc(
+    List<Purchase> existing,
+    List<Purchase> incomingSorted,
+  ) {
+    if (existing.isEmpty) return List<Purchase>.from(incomingSorted);
+    if (incomingSorted.isEmpty) return List<Purchase>.from(existing);
+    final seenIds = existing
+        .map((order) => order.id)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final incoming = incomingSorted.where((order) {
+      final id = order.id;
+      if (id == null || id.isEmpty) return true;
+      return !seenIds.contains(id);
+    }).toList();
+    if (incoming.isEmpty) return List<Purchase>.from(existing);
+
+    final merged = <Purchase>[];
+    var i = 0;
+    var j = 0;
+    while (i < existing.length && j < incoming.length) {
+      final left = existing[i];
+      final right = incoming[j];
+      if (left.createdAt.isAfter(right.createdAt) ||
+          left.createdAt.isAtSameMomentAs(right.createdAt)) {
+        merged.add(left);
+        i += 1;
+      } else {
+        merged.add(right);
+        j += 1;
+      }
+    }
+    if (i < existing.length) {
+      merged.addAll(existing.sublist(i));
+    }
+    if (j < incoming.length) {
+      merged.addAll(incoming.sublist(j));
+    }
+    return merged;
+  }
+
+  bool _hasProposal(Purchase order) {
+    return order.proposal != null && !order.proposal!.isEmpty;
+  }
+
+  bool _hasVendorAssignment(Purchase order) {
+    return order.vendorAssignment != null && !order.vendorAssignment!.isEmpty;
+  }
+
+  bool _isApproved(Purchase order) {
+    if (!_hasProposal(order)) return false;
+    return order.status != 'pending' ||
+        order.verificationLogs.isNotEmpty ||
+        _hasVendorAssignment(order) ||
+        (order.materialSelection != null && !order.materialSelection!.isEmpty);
+  }
+
+  bool _isDeliveryCompleted(Purchase order) {
+    final deliveredDone = order.deliverySchedule.any(
+      (item) => item.code == 'delivered' && item.status == 'done',
+    );
+    return deliveredDone || order.status == 'complete';
   }
 
   Future<void> _copyVerificationSummary(Purchase order) async {
@@ -1052,4 +1578,86 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return '請將下方原始錯誤回報給技術團隊，以便快速定位。';
     }
   }
+}
+
+class _OverviewSnapshot {
+  const _OverviewSnapshot({
+    required this.planNames,
+    required this.statuses,
+    required this.verifiers,
+    required this.paidCount,
+    required this.totalCount,
+  });
+
+  final List<String> planNames;
+  final List<String> statuses;
+  final List<String> verifiers;
+  final int paidCount;
+  final int totalCount;
+}
+
+class _LegendChip extends StatelessWidget {
+  const _LegendChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricsSnapshot {
+  const _MetricsSnapshot({
+    required this.total,
+    required this.pending,
+    required this.received,
+    required this.complete,
+    required this.paid,
+    required this.paidRate,
+    required this.avgHours,
+    required this.proposalSubmitted,
+    required this.approved,
+    required this.assigned,
+    required this.delivered,
+    required this.proposalRate,
+    required this.approvalRate,
+    required this.assignmentRate,
+    required this.deliveryRate,
+  });
+
+  final int total;
+  final int pending;
+  final int received;
+  final int complete;
+  final int paid;
+  final int paidRate;
+  final double avgHours;
+  final int proposalSubmitted;
+  final int approved;
+  final int assigned;
+  final int delivered;
+  final int proposalRate;
+  final int approvalRate;
+  final int assignmentRate;
+  final int deliveryRate;
 }

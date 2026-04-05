@@ -28,12 +28,55 @@ service cloud.firestore {
         'paymentStatus',
         'invoiceId',
         'checkoutUrl',
-        'paymentCurrency'
+        'paymentCurrency',
+        'proposal'
       ]);
     }
 
     function ownerOrderPaymentStatusAllowed() {
       return !(request.resource.data.paymentStatus in ['paid']);
+    }
+
+    function ownerOrderProposalShapeValid() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['proposal'])
+        || (
+          request.resource.data.proposal == null
+          || (
+            request.resource.data.proposal is map
+            && request.resource.data.proposal.keys().hasOnly([
+              'vendorPreference',
+              'materialChoice',
+              'schedulePreference',
+              'note',
+              'submittedAt'
+            ])
+            && (
+              !('vendorPreference' in request.resource.data.proposal)
+              || request.resource.data.proposal.vendorPreference is string
+              || request.resource.data.proposal.vendorPreference == null
+            )
+            && (
+              !('materialChoice' in request.resource.data.proposal)
+              || request.resource.data.proposal.materialChoice is string
+              || request.resource.data.proposal.materialChoice == null
+            )
+            && (
+              !('schedulePreference' in request.resource.data.proposal)
+              || request.resource.data.proposal.schedulePreference is string
+              || request.resource.data.proposal.schedulePreference == null
+            )
+            && (
+              !('note' in request.resource.data.proposal)
+              || request.resource.data.proposal.note is string
+              || request.resource.data.proposal.note == null
+            )
+            && (
+              !('submittedAt' in request.resource.data.proposal)
+              || request.resource.data.proposal.submittedAt is string
+              || request.resource.data.proposal.submittedAt == null
+            )
+          )
+        );
     }
 
     function ownerUserSafeUpdate(userId) {
@@ -103,7 +146,8 @@ service cloud.firestore {
           && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired'];
         allow update: if (isOwner(userId)
             && ownerOrderUpdatableKeysOnly()
-            && ownerOrderPaymentStatusAllowed())
+            && ownerOrderPaymentStatusAllowed()
+            && ownerOrderProposalShapeValid())
           || isAdmin();
         allow delete: if isAdmin();
       }
@@ -149,11 +193,17 @@ service cloud.firestore {
             'paymentStatus',
             'invoiceId',
             'checkoutUrl',
-            'paymentCurrency'
+            'paymentCurrency',
+            'proposal'
           ])
-          && !(request.resource.data.paymentStatus in ['paid']))
+          && !(request.resource.data.paymentStatus in ['paid'])
+          && ownerOrderProposalShapeValid())
         || isAdmin();
       allow delete: if isAdmin();
+    }
+
+    match /vendors/{vendorId} {
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {
@@ -167,6 +217,22 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'readAt'])
           && request.resource.data.status == 'read');
       allow delete: if isAdmin();
+    }
+
+    match /public_memorials/{slug} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && (request.auth.uid == request.resource.data.ownerUid || isAdmin());
+      allow update: if isSignedIn()
+        && (
+          isAdmin()
+          || (
+            request.auth.uid == resource.data.ownerUid
+            && request.auth.uid == request.resource.data.ownerUid
+          )
+        );
+      allow delete: if isSignedIn()
+        && (isAdmin() || request.auth.uid == resource.data.ownerUid);
     }
 
     match /admins/{adminId} {

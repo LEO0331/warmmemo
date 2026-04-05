@@ -32,7 +32,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final nowYear = DateTime.now().year;
-    await tester.enterText(find.byKey(const Key('retire_year_field')), '${nowYear + 10}');
+    await tester.enterText(
+      find.byKey(const Key('retire_year_field')),
+      '${nowYear + 10}',
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining('差額（資產 - 支出）：NT\$ 16,380,000'), findsOneWidget);
 
@@ -55,7 +58,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final widget = tester.widget<TextFormField>(amountField);
-    expect(widget.controller?.text, '1,234,567');
+    expect(widget.controller?.text, '1234567');
 
     await tester.enterText(amountField, '');
     await tester.pumpAndSettle();
@@ -90,7 +93,9 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    final currentAge = tester.widget<TextFormField>(find.byKey(const Key('current_age_field')));
+    final currentAge = tester.widget<TextFormField>(
+      find.byKey(const Key('current_age_field')),
+    );
     expect(currentAge.controller?.text, '40');
     expect(find.textContaining('差額（資產 - 支出）：NT\$ 400'), findsOneWidget);
   });
@@ -100,7 +105,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final beforeDeleteButtons = find.byTooltip('刪除');
-    final beforeCount = tester.widgetList<IconButton>(beforeDeleteButtons).length;
+    final beforeCount = tester
+        .widgetList<IconButton>(beforeDeleteButtons)
+        .length;
 
     await tester.scrollUntilVisible(
       find.text('加入旅行'),
@@ -110,7 +117,9 @@ void main() {
     await tester.tap(find.text('加入旅行'));
     await tester.pumpAndSettle();
 
-    final afterAddCount = tester.widgetList<IconButton>(find.byTooltip('刪除')).length;
+    final afterAddCount = tester
+        .widgetList<IconButton>(find.byTooltip('刪除'))
+        .length;
     expect(afterAddCount, greaterThan(beforeCount));
 
     await tester.scrollUntilVisible(
@@ -120,7 +129,116 @@ void main() {
     );
     await tester.tap(find.byTooltip('刪除').last);
     await tester.pumpAndSettle();
-    final afterDeleteCount = tester.widgetList<IconButton>(find.byTooltip('刪除')).length;
+    final afterDeleteCount = tester
+        .widgetList<IconButton>(find.byTooltip('刪除'))
+        .length;
     expect(afterDeleteCount, afterAddCount - 1);
+  });
+
+  testWidgets(
+    'supports quick add chips and manual add buttons for both panels',
+    (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('加入健康'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('加入健康'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入贈與'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('新增支出項目'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('新增支出項目'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('加入存款'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('加入存款'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入股票'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入收入'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('新增資產項目'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('新增資產項目'));
+      await tester.pumpAndSettle();
+
+      final deleteCount = tester
+          .widgetList<IconButton>(find.byTooltip('刪除'))
+          .length;
+      expect(deleteCount, greaterThan(6));
+    },
+  );
+
+  testWidgets('can toggle amount kind and phase chips', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('每年金額').first,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('每年金額').first);
+    await tester.pumpAndSettle();
+    expect(find.text('全期間'), findsWidgets);
+    expect(find.text('退休前'), findsWidgets);
+    expect(find.text('退休後'), findsWidgets);
+
+    await tester.tap(find.text('退休前').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('退休後').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('單次金額').first);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('shows empty states after deleting all items', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    while (find.byTooltip('刪除').evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(
+        find.byTooltip('刪除').last,
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byTooltip('刪除').last);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('尚未新增支出項目'), findsOneWidget);
+    expect(find.text('尚未新增資產項目'), findsOneWidget);
+  });
+
+  testWidgets('renders wide layout and supports decimal amount input', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1300, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final amountField = find.widgetWithText(TextFormField, '金額（NT\$）').first;
+    await tester.enterText(amountField, '12.3');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Row), findsWidgets);
+    expect(find.textContaining('差額（資產 - 支出）'), findsOneWidget);
   });
 }

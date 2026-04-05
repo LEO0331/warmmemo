@@ -37,28 +37,33 @@ void main() {
     expect(find.text('請輸入密碼。'), findsWidgets);
   });
 
-  testWidgets('login submit shows fallback unknown error when auth call fails', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AuthPage(
-          signIn: (email, password) async {
-            throw Exception('unexpected');
-          },
+  testWidgets(
+    'login submit shows fallback unknown error when auth call fails',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AuthPage(
+            signIn: (email, password) async {
+              throw Exception('unexpected');
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.enterText(find.byType(TextFormField).first, 'user@test.com');
-    await tester.enterText(find.byType(TextFormField).at(1), '123456');
+      await tester.enterText(find.byType(TextFormField).first, 'user@test.com');
+      await tester.enterText(find.byType(TextFormField).at(1), '123456');
 
-    final loginSubmitButton = find.widgetWithText(FilledButton, '登入').first;
-    await tester.tap(loginSubmitButton);
-    await tester.pumpAndSettle();
+      final loginSubmitButton = find.widgetWithText(FilledButton, '登入').first;
+      await tester.tap(loginSubmitButton);
+      await tester.pumpAndSettle();
 
-    expect(find.text('發生未知錯誤，請稍後再試。'), findsWidgets);
-  });
+      expect(find.text('發生未知錯誤，請稍後再試。'), findsWidgets);
+    },
+  );
 
-  testWidgets('login submit shows friendly FirebaseAuthException message', (tester) async {
+  testWidgets('login submit shows friendly FirebaseAuthException message', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: AuthPage(
@@ -80,7 +85,9 @@ void main() {
     expect(find.text('帳號或密碼錯誤。'), findsWidgets);
   });
 
-  testWidgets('register submit shows email already in use message', (tester) async {
+  testWidgets('register submit shows email already in use message', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: AuthPage(
@@ -104,7 +111,78 @@ void main() {
     expect(find.text('這個 Email 已被註冊。'), findsWidgets);
   });
 
-  testWidgets('successful login pops page when callback succeeds', (tester) async {
+  testWidgets('register submit shows weak password message', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AuthPage(
+          signUp: (email, password) async {
+            throw FirebaseAuthException(code: 'weak-password');
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('註冊'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).at(0), 'new@test.com');
+    await tester.enterText(find.byType(TextFormField).at(1), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, '註冊').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('密碼強度不足，請至少 6 碼。'), findsWidgets);
+  });
+
+  testWidgets('login submit maps FirebaseException permission-denied', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AuthPage(
+          signIn: (email, password) async {
+            throw FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'permission-denied',
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextFormField).first, 'user@test.com');
+    await tester.enterText(find.byType(TextFormField).at(1), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, '登入').first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('permission-denied'), findsWidgets);
+  });
+
+  testWidgets('login submit maps FirebaseException failed-precondition', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AuthPage(
+          signIn: (email, password) async {
+            throw FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'failed-precondition',
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextFormField).first, 'user@test.com');
+    await tester.enterText(find.byType(TextFormField).at(1), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, '登入').first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('failed-precondition'), findsWidgets);
+  });
+
+  testWidgets('successful login pops page when callback succeeds', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(

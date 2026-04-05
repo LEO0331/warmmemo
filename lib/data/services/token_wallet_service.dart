@@ -27,58 +27,61 @@ class TokenConsumeResult {
     required this.ok,
     required this.balanceAfter,
     this.message,
+    this.errorCode,
   });
 
   final bool ok;
   final int balanceAfter;
   final String? message;
+  final String? errorCode;
 }
 
 class TokenWalletService {
   TokenWalletService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static final TokenWalletService instance = TokenWalletService();
 
   static const int starterTokens = 5;
 
-  static const Map<AdvancedServiceType, AdvancedServiceDefinition> definitions = {
-    AdvancedServiceType.memorialPreview: AdvancedServiceDefinition(
-      type: AdvancedServiceType.memorialPreview,
-      title: '紀念頁預覽生成',
-      cost: 1,
-    ),
-    AdvancedServiceType.memorialExportPdf: AdvancedServiceDefinition(
-      type: AdvancedServiceType.memorialExportPdf,
-      title: '紀念頁匯出 PDF',
-      cost: 1,
-    ),
-    AdvancedServiceType.memorialExportImage: AdvancedServiceDefinition(
-      type: AdvancedServiceType.memorialExportImage,
-      title: '紀念頁匯出圖片',
-      cost: 1,
-    ),
-    AdvancedServiceType.obituaryGenerate: AdvancedServiceDefinition(
-      type: AdvancedServiceType.obituaryGenerate,
-      title: '訃聞文案生成',
-      cost: 1,
-    ),
-    AdvancedServiceType.obituaryRewrite: AdvancedServiceDefinition(
-      type: AdvancedServiceType.obituaryRewrite,
-      title: '訃聞文案重寫',
-      cost: 1,
-    ),
-    AdvancedServiceType.obituaryExportPdf: AdvancedServiceDefinition(
-      type: AdvancedServiceType.obituaryExportPdf,
-      title: '訃聞匯出 PDF',
-      cost: 1,
-    ),
-    AdvancedServiceType.obituaryExportImage: AdvancedServiceDefinition(
-      type: AdvancedServiceType.obituaryExportImage,
-      title: '訃聞匯出圖片',
-      cost: 1,
-    ),
-  };
+  static const Map<AdvancedServiceType, AdvancedServiceDefinition> definitions =
+      {
+        AdvancedServiceType.memorialPreview: AdvancedServiceDefinition(
+          type: AdvancedServiceType.memorialPreview,
+          title: '紀念頁預覽生成',
+          cost: 1,
+        ),
+        AdvancedServiceType.memorialExportPdf: AdvancedServiceDefinition(
+          type: AdvancedServiceType.memorialExportPdf,
+          title: '紀念頁匯出 PDF',
+          cost: 1,
+        ),
+        AdvancedServiceType.memorialExportImage: AdvancedServiceDefinition(
+          type: AdvancedServiceType.memorialExportImage,
+          title: '紀念頁匯出圖片',
+          cost: 1,
+        ),
+        AdvancedServiceType.obituaryGenerate: AdvancedServiceDefinition(
+          type: AdvancedServiceType.obituaryGenerate,
+          title: '訃聞文案生成',
+          cost: 1,
+        ),
+        AdvancedServiceType.obituaryRewrite: AdvancedServiceDefinition(
+          type: AdvancedServiceType.obituaryRewrite,
+          title: '訃聞文案重寫',
+          cost: 1,
+        ),
+        AdvancedServiceType.obituaryExportPdf: AdvancedServiceDefinition(
+          type: AdvancedServiceType.obituaryExportPdf,
+          title: '訃聞匯出 PDF',
+          cost: 1,
+        ),
+        AdvancedServiceType.obituaryExportImage: AdvancedServiceDefinition(
+          type: AdvancedServiceType.obituaryExportImage,
+          title: '訃聞匯出圖片',
+          cost: 1,
+        ),
+      };
 
   final FirebaseFirestore _firestore;
 
@@ -108,28 +111,24 @@ class TokenWalletService {
     final definition = definitions[type]!;
     final userRef = _userDoc(uid);
 
-    return _firestore.runTransaction((tx) async {
-      final snap = await tx.get(userRef);
-      final balance = (snap.data()?['tokenBalance'] as num?)?.toInt() ?? 0;
-      if (balance < definition.cost) {
-        return TokenConsumeResult(
-          ok: false,
-          balanceAfter: balance,
-          message: '點數不足，請先加值。',
-        );
-      }
-      final after = balance - definition.cost;
-      tx.set(
-        userRef,
-        {
+    try {
+      return await _firestore.runTransaction((tx) async {
+        final snap = await tx.get(userRef);
+        final balance = (snap.data()?['tokenBalance'] as num?)?.toInt() ?? 0;
+        if (balance < definition.cost) {
+          return TokenConsumeResult(
+            ok: false,
+            balanceAfter: balance,
+            message: '點數不足，請先加值。',
+            errorCode: 'insufficient-balance',
+          );
+        }
+        final after = balance - definition.cost;
+        tx.set(userRef, {
           'tokenBalance': after,
           'tokenUpdatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-      tx.set(
-        _tokenLogs(uid).doc(),
-        {
+        }, SetOptions(merge: true));
+        tx.set(_tokenLogs(uid).doc(), {
           'type': 'consume',
           'service': definition.type.name,
           'title': definition.title,
@@ -138,9 +137,36 @@ class TokenWalletService {
           'balanceAfter': after,
           'note': note,
           'createdAt': FieldValue.serverTimestamp(),
-        },
+        });
+        return TokenConsumeResult(ok: true, balanceAfter: after);
+      });
+    } on FirebaseException catch (e) {
+      return TokenConsumeResult(
+        ok: false,
+        balanceAfter: 0,
+        errorCode: e.code,
+        message: _firebaseConsumeErrorMessage(e.code),
       );
-      return TokenConsumeResult(ok: true, balanceAfter: after);
-    });
+    } catch (_) {
+      return const TokenConsumeResult(
+        ok: false,
+        balanceAfter: 0,
+        errorCode: 'unknown',
+        message: '點數扣除失敗，請稍後再試。',
+      );
+    }
+  }
+
+  String _firebaseConsumeErrorMessage(String code) {
+    switch (code) {
+      case 'permission-denied':
+        return '權限不足，請重新登入後再試；若持續失敗請聯絡管理員。';
+      case 'unavailable':
+        return '目前服務暫時不可用，請稍後再試。';
+      case 'deadline-exceeded':
+        return '連線逾時，請檢查網路後再試。';
+      default:
+        return '點數扣除失敗，請稍後再試。';
+    }
   }
 }

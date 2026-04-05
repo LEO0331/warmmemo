@@ -22,10 +22,22 @@ void main() {
   group('PaymentService', () {
     test('maps missing key names by amount', () {
       final service = PaymentService();
-      expect(service.missingHostedLinkKeyForAmount(120000), 'STRIPE_PAYMENT_LINK_120000');
-      expect(service.missingHostedLinkKeyForAmount(15000000), 'STRIPE_PAYMENT_LINK_150000');
-      expect(service.missingHostedLinkKeyForAmount(220000), 'STRIPE_PAYMENT_LINK_220000');
-      expect(service.missingHostedLinkKeyForAmount(1), 'STRIPE_PAYMENT_LINK_<PLAN_AMOUNT>');
+      expect(
+        service.missingHostedLinkKeyForAmount(120000),
+        'STRIPE_PAYMENT_LINK_120000',
+      );
+      expect(
+        service.missingHostedLinkKeyForAmount(15000000),
+        'STRIPE_PAYMENT_LINK_150000',
+      );
+      expect(
+        service.missingHostedLinkKeyForAmount(220000),
+        'STRIPE_PAYMENT_LINK_220000',
+      );
+      expect(
+        service.missingHostedLinkKeyForAmount(1),
+        'STRIPE_PAYMENT_LINK_<PLAN_AMOUNT>',
+      );
     });
 
     test('returns null hosted url when no dart-define provided', () {
@@ -35,28 +47,32 @@ void main() {
       expect(service.hostedCheckoutUrlForAmount(220000), isNull);
     });
 
-    test('createInvoice throws when id token is missing in backend mode', () async {
-      final service = PaymentService(
-        idTokenProvider: () async => null,
-      );
-      expect(
-        () => service.createInvoice(
-          email: 'a@test.com',
-          name: 'A',
-          amountCents: 120000,
-          description: 'desc',
-          provider: PaymentProvider.stripe,
-        ),
-        throwsA(isA<StateError>()),
-      );
-    });
+    test(
+      'createInvoice throws when id token is missing in backend mode',
+      () async {
+        final service = PaymentService(idTokenProvider: () async => null);
+        expect(
+          () => service.createInvoice(
+            email: 'a@test.com',
+            name: 'A',
+            amountCents: 120000,
+            description: 'desc',
+            provider: PaymentProvider.stripe,
+          ),
+          throwsA(isA<StateError>()),
+        );
+      },
+    );
 
     test('createInvoice maps backend error payload', () async {
       final service = PaymentService(
         idTokenProvider: () async => 'token',
         client: MockClient((request) async {
           expect(request.headers['authorization'], 'Bearer token');
-          return http.Response('{"code":"quota-exceeded","error":"daily limit"}', 429);
+          return http.Response(
+            '{"code":"quota-exceeded","error":"daily limit"}',
+            429,
+          );
         }),
       );
       expect(
@@ -156,7 +172,13 @@ void main() {
           description: 'desc',
           provider: PaymentProvider.stripe,
         ),
-        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('checkoutUrl 無效'))),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('checkoutUrl 無效'),
+          ),
+        ),
       );
     });
 
@@ -176,7 +198,10 @@ void main() {
       final service = PaymentService(
         idTokenProvider: () async => 'token',
         client: MockClient((request) async {
-          return http.Response('{"code":"linepay-error","error":"bad request"}', 400);
+          return http.Response(
+            '{"code":"linepay-error","error":"bad request"}',
+            400,
+          );
         }),
       );
       expect(
@@ -185,7 +210,13 @@ void main() {
           orderId: 'order-2',
           description: 'line pay',
         ),
-        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('linepay-error'))),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('linepay-error'),
+          ),
+        ),
       );
     });
 
@@ -280,34 +311,41 @@ void main() {
       expect(adminOrders.any((o) => o.userId == 'u2'), isTrue);
     });
 
-    test('PurchaseService updateOrder falls back to users/{uid}/orders/{id}', () async {
-      final db = FakeFirebaseFirestore();
-      final purchaseService = PurchaseService(firestore: db);
-      final ref = db.collection('users').doc('u9').collection('orders').doc('o1');
-      await ref.set({
-        'planName': 'X',
-        'priceLabel': 'NT\$ 120,000',
-        'priceAmount': 120000,
-        'status': 'pending',
-        'createdAt': DateTime(2026, 1, 1).toIso8601String(),
-      });
+    test(
+      'PurchaseService updateOrder falls back to users/{uid}/orders/{id}',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+        final ref = db
+            .collection('users')
+            .doc('u9')
+            .collection('orders')
+            .doc('o1');
+        await ref.set({
+          'planName': 'X',
+          'priceLabel': 'NT\$ 120,000',
+          'priceAmount': 120000,
+          'status': 'pending',
+          'createdAt': DateTime(2026, 1, 1).toIso8601String(),
+        });
 
-      await purchaseService.updateOrder(
-        uid: 'u9',
-        purchase: Purchase(
-          id: 'o1',
-          userId: 'u9',
-          planName: 'X',
-          priceLabel: 'NT\$ 120,000',
-          priceAmount: 120000,
-          status: 'complete',
-          createdAt: DateTime(2026, 1, 1),
-        ),
-      );
+        await purchaseService.updateOrder(
+          uid: 'u9',
+          purchase: Purchase(
+            id: 'o1',
+            userId: 'u9',
+            planName: 'X',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'complete',
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        );
 
-      final doc = await ref.get();
-      expect(doc.data()?['status'], 'complete');
-    });
+        final doc = await ref.get();
+        expect(doc.data()?['status'], 'complete');
+      },
+    );
 
     test('PurchaseService adminOrdersPage returns items and cursor', () async {
       final db = FakeFirebaseFirestore();
@@ -338,6 +376,72 @@ void main() {
       expect(page.items.first.userId, 'u-page');
     });
 
+    test(
+      'PurchaseService adminOrdersPage startAfter throws in fake firestore',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+        await purchaseService.createOrder(
+          uid: 'u-cursor',
+          purchase: Purchase(
+            planName: 'C1',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'pending',
+          ),
+        );
+        await purchaseService.createOrder(
+          uid: 'u-cursor',
+          purchase: Purchase(
+            planName: 'C2',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'pending',
+          ),
+        );
+        final first = await purchaseService.adminOrdersPage(limit: 1);
+        expect(first.items.length, 1);
+        expect(
+          () => purchaseService.adminOrdersPage(
+            limit: 1,
+            startAfterDocPath: first.cursor,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      },
+    );
+
+    test('PurchaseService fetchUserOrders supports limit argument', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+      await purchaseService.createOrder(
+        uid: 'u-limit',
+        purchase: Purchase(
+          planName: 'older',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+      await purchaseService.createOrder(
+        uid: 'u-limit',
+        purchase: Purchase(
+          planName: 'newer',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+          createdAt: DateTime(2026, 1, 2),
+        ),
+      );
+      final limited = await purchaseService.fetchUserOrders(
+        'u-limit',
+        limit: 1,
+      );
+      expect(limited.length, 1);
+      expect(limited.first.planName, 'newer');
+    });
+
     test('PurchaseService updateOrder returns early when id is null', () async {
       final db = FakeFirebaseFirestore();
       final purchaseService = PurchaseService(firestore: db);
@@ -350,69 +454,129 @@ void main() {
           status: 'pending',
         ),
       );
-      final docs = await db.collection('users').doc('u1').collection('orders').get();
+      final docs = await db
+          .collection('users')
+          .doc('u1')
+          .collection('orders')
+          .get();
       expect(docs.docs, isEmpty);
     });
 
-    test('PurchaseService batch update returns skipped reasons and updates', () async {
+    test('PurchaseService updateOrder stores mutation metadata', () async {
       final db = FakeFirebaseFirestore();
       final purchaseService = PurchaseService(firestore: db);
-
-      final ok = await purchaseService.createOrder(
-        uid: 'u1',
+      final created = await purchaseService.createOrder(
+        uid: 'u-meta',
         purchase: Purchase(
-          planName: 'OK',
+          planName: 'Meta',
           priceLabel: 'NT\$ 120,000',
           priceAmount: 120000,
           status: 'pending',
-          paymentStatus: 'checkout_created',
         ),
       );
-      final noChange = await purchaseService.createOrder(
-        uid: 'u1',
-        purchase: Purchase(
-          planName: 'NoChange',
-          priceLabel: 'NT\$ 120,000',
-          priceAmount: 120000,
-          status: 'complete',
-          paymentStatus: 'paid',
-        ),
+      await purchaseService.updateOrder(
+        uid: 'u-meta',
+        purchase: created.copyWith(status: 'received'),
+        mutationId: 'm-123',
       );
+      final doc = await db.doc(created.docPath!).get();
+      expect(doc.data()?['clientMutationId'], 'm-123');
+      expect(doc.data()?['clientUpdatedAt'], isA<String>());
+    });
 
-      final report = await purchaseService.adminBatchUpdate(
-        purchases: [
-          ok,
-          noChange,
-          Purchase(
-            id: 'missing',
-            planName: 'MissingUid',
+    test(
+      'PurchaseService batch update returns skipped reasons and updates',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+
+        final ok = await purchaseService.createOrder(
+          uid: 'u1',
+          purchase: Purchase(
+            planName: 'OK',
             priceLabel: 'NT\$ 120,000',
             priceAmount: 120000,
             status: 'pending',
+            paymentStatus: 'checkout_created',
           ),
-        ],
-        caseStatus: 'received',
-        paymentStatus: 'paid',
-        actor: 'tester',
-      );
-      expect(report.selectedCount, 3);
-      expect(report.updatedCount, 1);
-      expect(report.skippedCount, 2);
-      expect(report.skipped.any((s) => s.reason.contains('缺少 userId')), isTrue);
-      expect(report.skipped.any((s) => s.reason.contains('案件狀態不可')), isTrue);
-      final updatedDoc = await db.doc(ok.docPath!).get();
-      expect(updatedDoc.data()?['status'], 'received');
-      expect(updatedDoc.data()?['paymentStatus'], 'paid');
-    });
+        );
+        final noChange = await purchaseService.createOrder(
+          uid: 'u1',
+          purchase: Purchase(
+            planName: 'NoChange',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'complete',
+            paymentStatus: 'paid',
+          ),
+        );
+
+        final report = await purchaseService.adminBatchUpdate(
+          purchases: [
+            ok,
+            noChange,
+            Purchase(
+              id: 'missing',
+              planName: 'MissingUid',
+              priceLabel: 'NT\$ 120,000',
+              priceAmount: 120000,
+              status: 'pending',
+            ),
+          ],
+          caseStatus: 'received',
+          paymentStatus: 'paid',
+          actor: 'tester',
+        );
+        expect(report.selectedCount, 3);
+        expect(report.updatedCount, 1);
+        expect(report.skippedCount, 2);
+        expect(
+          report.skipped.any((s) => s.reason.contains('缺少 userId')),
+          isTrue,
+        );
+        expect(report.skipped.any((s) => s.reason.contains('案件狀態不可')), isTrue);
+        final updatedDoc = await db.doc(ok.docPath!).get();
+        expect(updatedDoc.data()?['status'], 'received');
+        expect(updatedDoc.data()?['paymentStatus'], 'paid');
+      },
+    );
 
     test('PurchaseService batch update handles empty selection', () async {
       final db = FakeFirebaseFirestore();
       final purchaseService = PurchaseService(firestore: db);
-      final report = await purchaseService.adminBatchUpdate(purchases: const []);
+      final report = await purchaseService.adminBatchUpdate(
+        purchases: const [],
+      );
       expect(report.selectedCount, 0);
       expect(report.updatedCount, 0);
       expect(report.skippedCount, 0);
     });
+
+    test(
+      'PurchaseService batch update skips invalid payment transitions',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+        final paid = await purchaseService.createOrder(
+          uid: 'u-paid',
+          purchase: Purchase(
+            planName: 'Paid',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'complete',
+            paymentStatus: 'paid',
+          ),
+        );
+
+        final report = await purchaseService.adminBatchUpdate(
+          purchases: [paid],
+          paymentStatus: 'failed',
+        );
+        expect(report.updatedCount, 0);
+        expect(report.skippedCount, 1);
+        expect(report.skipped.first.reason, contains('付款狀態不可由'));
+      },
+    );
 
     test('OrderWorkflow transitions enforce allowed states', () {
       expect(
@@ -424,68 +588,82 @@ void main() {
         isFalse,
       );
       expect(
-        OrderWorkflow.canChangePaymentStatus(from: 'failed', to: 'checkout_created'),
+        OrderWorkflow.canChangePaymentStatus(
+          from: 'failed',
+          to: 'checkout_created',
+        ),
         isTrue,
       );
       expect(
-        OrderWorkflow.canChangePaymentStatus(from: 'paid', to: 'checkout_created'),
+        OrderWorkflow.canChangePaymentStatus(
+          from: 'paid',
+          to: 'checkout_created',
+        ),
         isFalse,
       );
     });
 
-    test('NotificationService and ReminderService create reminder once per user', () async {
-      final db = FakeFirebaseFirestore();
-      final notificationService = NotificationService(firestore: db);
-      final reminderService = ReminderService(
-        firestore: db,
-        notificationService: notificationService,
-      );
+    test(
+      'NotificationService and ReminderService create reminder once per user',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final notificationService = NotificationService(firestore: db);
+        final reminderService = ReminderService(
+          firestore: db,
+          notificationService: notificationService,
+        );
 
-      final now = DateTime(2026, 3, 27, 10, 0);
-      await notificationService.logEvent(
-        NotificationEvent(
-          userId: 'u1',
-          channel: 'email',
-          status: 'pending',
-          occurredAt: now,
-          tone: 'warm',
-          draftType: 'memorial',
-        ),
-      );
-      await notificationService.logEvent(
-        NotificationEvent(
-          userId: 'u1',
-          channel: 'line',
-          status: 'pending',
-          occurredAt: now.add(const Duration(minutes: 1)),
-          tone: 'warm',
-          draftType: 'memorial',
-        ),
-      );
-      await notificationService.logEvent(
-        NotificationEvent(
-          userId: 'u2',
-          channel: 'sms',
-          status: 'pending',
-          occurredAt: now.add(const Duration(minutes: 2)),
-          tone: 'formal',
-          draftType: 'obituary',
-        ),
-      );
+        final now = DateTime(2026, 3, 27, 10, 0);
+        await notificationService.logEvent(
+          NotificationEvent(
+            userId: 'u1',
+            channel: 'email',
+            status: 'pending',
+            occurredAt: now,
+            tone: 'warm',
+            draftType: 'memorial',
+          ),
+        );
+        await notificationService.logEvent(
+          NotificationEvent(
+            userId: 'u1',
+            channel: 'line',
+            status: 'pending',
+            occurredAt: now.add(const Duration(minutes: 1)),
+            tone: 'warm',
+            draftType: 'memorial',
+          ),
+        );
+        await notificationService.logEvent(
+          NotificationEvent(
+            userId: 'u2',
+            channel: 'sms',
+            status: 'pending',
+            occurredAt: now.add(const Duration(minutes: 2)),
+            tone: 'formal',
+            draftType: 'obituary',
+          ),
+        );
 
-      final result = await reminderService.pushReminders(channel: 'email');
-      expect(result.notifications, 2);
-      expect(result.users.toSet(), {'u1', 'u2'});
+        final result = await reminderService.pushReminders(channel: 'email');
+        expect(result.notifications, 2);
+        expect(result.users.toSet(), {'u1', 'u2'});
 
-      final reminders = await db
-          .collection('notifications')
-          .where('status', isEqualTo: 'reminder')
-          .get();
-      expect(reminders.docs.length, 2);
+        final reminders = await db
+            .collection('notifications')
+            .where('status', isEqualTo: 'reminder')
+            .get();
+        expect(reminders.docs.length, 2);
 
-      final u1Stats = await db.collection('users').doc('u1').collection('meta').doc('stats').get();
-      expect(u1Stats.exists, isTrue);
-    });
+        final u1Stats = await db
+            .collection('users')
+            .doc('u1')
+            .collection('meta')
+            .doc('stats')
+            .get();
+        expect(u1Stats.exists, isTrue);
+      },
+    );
 
     test('NotificationService query methods return expected records', () async {
       final db = FakeFirebaseFirestore();
@@ -554,90 +732,118 @@ void main() {
       expect(after.data()?['readAt'], isNotNull);
     });
 
-    test('FirebaseDraftService saves and reads drafts/stats/summaries', () async {
-      final db = FakeFirebaseFirestore();
-      final draftService = FirebaseDraftService(firestore: db);
+    test(
+      'FirebaseDraftService saves and reads drafts/stats/summaries',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final draftService = FirebaseDraftService(firestore: db);
 
-      await draftService.saveMemorial(
-        'u1',
-        MemorialDraft(name: '王小明', bio: '測試內容'),
-      );
-      await draftService.saveObituary(
-        'u1',
-        ObituaryDraft(deceasedName: '王大明', tone: 'warm'),
-      );
-      await draftService.incrementStats('u1', readDelta: 2, clickDelta: 1);
+        await draftService.saveMemorial(
+          'u1',
+          MemorialDraft(name: '王小明', bio: '測試內容'),
+        );
+        await draftService.saveObituary(
+          'u1',
+          ObituaryDraft(deceasedName: '王大明', tone: 'warm'),
+        );
+        await draftService.incrementStats('u1', readDelta: 2, clickDelta: 1);
 
-      final memorial = await draftService.loadMemorial('u1');
-      final obituary = await draftService.loadObituary('u1');
-      final stats = await draftService.loadStats('u1');
-      expect(memorial?.name, '王小明');
-      expect(obituary?.deceasedName, '王大明');
-      expect(stats.readCount, 2);
-      expect(stats.clickCount, 1);
+        final memorial = await draftService.loadMemorial('u1');
+        final obituary = await draftService.loadObituary('u1');
+        final stats = await draftService.loadStats('u1');
+        expect(memorial?.name, '王小明');
+        expect(obituary?.deceasedName, '王大明');
+        expect(stats.readCount, 2);
+        expect(stats.clickCount, 1);
 
-      await db.collection('users').doc('u1').collection('meta').doc('stats').set(
-        {'lastReminderAt': '2026-03-20T10:20:30.000Z'},
-        SetOptions(merge: true),
-      );
-      final summaries = await draftService.fetchUserSummaries(limit: 10);
-      expect(summaries.length, 1);
-      expect(summaries.first.userId, 'u1');
-      expect(summaries.first.lastReminderAt, isNotNull);
-    });
+        await db
+            .collection('users')
+            .doc('u1')
+            .collection('meta')
+            .doc('stats')
+            .set({
+              'lastReminderAt': '2026-03-20T10:20:30.000Z',
+            }, SetOptions(merge: true));
+        final summaries = await draftService.fetchUserSummaries(limit: 10);
+        expect(summaries.length, 1);
+        expect(summaries.first.userId, 'u1');
+        expect(summaries.first.lastReminderAt, isNotNull);
+      },
+    );
 
-    test('FirebaseDraftService admin overview/metrics/notifications work', () async {
-      final db = FakeFirebaseFirestore();
-      final draftService = FirebaseDraftService(firestore: db);
+    test(
+      'FirebaseDraftService admin overview/metrics/notifications work',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final draftService = FirebaseDraftService(firestore: db);
 
-      await db.collection('users').doc('u1').set({'updatedAt': Timestamp.now()});
-      await db.collection('users').doc('u2').set({'updatedAt': Timestamp.now()});
-      await db.collection('users').doc('u1').collection('meta').doc('stats').set({
-        'readCount': 5,
-        'clickCount': 2,
-      });
-      await db.collection('users').doc('u2').collection('meta').doc('stats').set({
-        'readCount': 3,
-        'clickCount': 4,
-      });
+        await db.collection('users').doc('u1').set({
+          'updatedAt': Timestamp.now(),
+        });
+        await db.collection('users').doc('u2').set({
+          'updatedAt': Timestamp.now(),
+        });
+        await db
+            .collection('users')
+            .doc('u1')
+            .collection('meta')
+            .doc('stats')
+            .set({'readCount': 5, 'clickCount': 2});
+        await db
+            .collection('users')
+            .doc('u2')
+            .collection('meta')
+            .doc('stats')
+            .set({'readCount': 3, 'clickCount': 4});
 
-      final overview = await draftService.adminOverview().first;
-      expect(overview.length, 2);
+        final overview = await draftService.adminOverview().first;
+        expect(overview.length, 2);
 
-      final metrics = await draftService.adminMetricsStream().first;
-      expect(metrics.totalUsers, 2);
-      expect(metrics.totalReads, 8);
-      expect(metrics.totalClicks, 6);
+        final metrics = await draftService.adminMetricsStream().first;
+        expect(metrics.totalUsers, 2);
+        expect(metrics.totalReads, 8);
+        expect(metrics.totalClicks, 6);
 
-      await draftService.logNotificationEvent(
-        NotificationEvent(
-          userId: 'u1',
-          channel: 'email',
-          status: 'pending',
-          occurredAt: DateTime(2026, 3, 27, 12, 0),
-          tone: 'warm',
-          draftType: 'memorial',
-        ),
-      );
+        await draftService.logNotificationEvent(
+          NotificationEvent(
+            userId: 'u1',
+            channel: 'email',
+            status: 'pending',
+            occurredAt: DateTime(2026, 3, 27, 12, 0),
+            tone: 'warm',
+            draftType: 'memorial',
+          ),
+        );
 
-      final history = await draftService.fetchNotificationHistory(limit: 10);
-      expect(history.length, 1);
-      final timeline = await draftService.notificationTimeline(limit: 10).first;
-      expect(timeline.length, 1);
-      expect(timeline.first.userId, 'u1');
-    });
+        final history = await draftService.fetchNotificationHistory(limit: 10);
+        expect(history.length, 1);
+        final timeline = await draftService
+            .notificationTimeline(limit: 10)
+            .first;
+        expect(timeline.length, 1);
+        expect(timeline.first.userId, 'u1');
+      },
+    );
 
-    test('FirebaseDraftService handles empty stats update and missing drafts', () async {
-      final db = FakeFirebaseFirestore();
-      final draftService = FirebaseDraftService(firestore: db);
+    test(
+      'FirebaseDraftService handles empty stats update and missing drafts',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final draftService = FirebaseDraftService(firestore: db);
 
-      expect(await draftService.loadMemorial('none'), isNull);
-      expect(await draftService.loadObituary('none'), isNull);
+        expect(await draftService.loadMemorial('none'), isNull);
+        expect(await draftService.loadObituary('none'), isNull);
 
-      await draftService.incrementStats('u1');
-      final statsDoc = await db.collection('users').doc('u1').collection('meta').doc('stats').get();
-      expect(statsDoc.exists, isFalse);
-    });
+        await draftService.incrementStats('u1');
+        final statsDoc = await db
+            .collection('users')
+            .doc('u1')
+            .collection('meta')
+            .doc('stats')
+            .get();
+        expect(statsDoc.exists, isFalse);
+      },
+    );
 
     test('UserRoleService can ensure and verify admin doc', () async {
       final db = FakeFirebaseFirestore();
@@ -656,16 +862,19 @@ void main() {
       expect(await roleService.roleStream('u1').first, 'admin');
     });
 
-    test('UserRoleService ensureUserProfile initializes role and email', () async {
-      final db = FakeFirebaseFirestore();
-      final roleService = UserRoleService(firestore: db);
-      final user = MockUser(uid: 'u100', email: 'u100@test.com');
-      await roleService.ensureUserProfile(user);
-      final doc = await db.collection('users').doc('u100').get();
-      expect(doc.data()?['role'], 'user');
-      expect(doc.data()?['email'], 'u100@test.com');
-      expect(doc.data()?['updatedAt'], isNotNull);
-    });
+    test(
+      'UserRoleService ensureUserProfile initializes role and email',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final roleService = UserRoleService(firestore: db);
+        final user = MockUser(uid: 'u100', email: 'u100@test.com');
+        await roleService.ensureUserProfile(user);
+        final doc = await db.collection('users').doc('u100').get();
+        expect(doc.data()?['role'], 'user');
+        expect(doc.data()?['email'], 'u100@test.com');
+        expect(doc.data()?['updatedAt'], isNotNull);
+      },
+    );
 
     test('AuthService signIn/signUp delegates and ensures profile', () async {
       var ensuredCount = 0;
@@ -689,10 +898,7 @@ void main() {
 
     test('AuthService isAdmin returns false when no current user', () async {
       final auth = MockFirebaseAuth(signedIn: false);
-      final service = AuthService(
-        auth: auth,
-        ensureUserProfile: (_) async {},
-      );
+      final service = AuthService(auth: auth, ensureUserProfile: (_) async {});
       expect(await service.isAdmin, isFalse);
     });
 
@@ -718,33 +924,33 @@ void main() {
       expect(await userService.isAdmin, isFalse);
     });
 
-    test('AuthService signUp does not fail when ensure profile throws', () async {
-      final auth = MockFirebaseAuth(
-        mockUser: MockUser(uid: 'u-throw', email: 'u-throw@test.com'),
-      );
-      final service = AuthService(
-        auth: auth,
-        ensureUserProfile: (_) async {
-          throw Exception('permission-denied');
-        },
-      );
-      final credential = await service.signUp(
-        email: 'u-throw@test.com',
-        password: '123456',
-      );
-      expect(credential.user, isNotNull);
-      expect(service.currentUser, isNotNull);
-    });
+    test(
+      'AuthService signUp does not fail when ensure profile throws',
+      () async {
+        final auth = MockFirebaseAuth(
+          mockUser: MockUser(uid: 'u-throw', email: 'u-throw@test.com'),
+        );
+        final service = AuthService(
+          auth: auth,
+          ensureUserProfile: (_) async {
+            throw Exception('permission-denied');
+          },
+        );
+        final credential = await service.signUp(
+          email: 'u-throw@test.com',
+          password: '123456',
+        );
+        expect(credential.user, isNotNull);
+        expect(service.currentUser, isNotNull);
+      },
+    );
 
     test('AuthService authStateChanges stream emits signed in user', () async {
       final auth = MockFirebaseAuth(
         mockUser: MockUser(uid: 'u-stream', email: 'u-stream@test.com'),
         signedIn: true,
       );
-      final service = AuthService(
-        auth: auth,
-        ensureUserProfile: (_) async {},
-      );
+      final service = AuthService(auth: auth, ensureUserProfile: (_) async {});
       final user = await service.authStateChanges.firstWhere((u) => u != null);
       expect(user?.uid, 'u-stream');
     });
@@ -764,28 +970,44 @@ void main() {
       expect(result.balanceAfter, 2);
       expect(await service.getBalance('u-token'), 2);
 
-      final logs = await db.collection('users').doc('u-token').collection('tokenLogs').get();
+      final logs = await db
+          .collection('users')
+          .doc('u-token')
+          .collection('tokenLogs')
+          .get();
       expect(logs.docs.length, 1);
       expect(logs.docs.first.data()['type'], 'consume');
-      expect(logs.docs.first.data()['service'], AdvancedServiceType.obituaryGenerate.name);
-    });
-
-    test('TokenWalletService consume fails when balance is insufficient', () async {
-      final db = FakeFirebaseFirestore();
-      final service = TokenWalletService(firestore: db);
-      await db.collection('users').doc('u-token-low').set({'tokenBalance': 0});
-
-      final result = await service.consume(
-        uid: 'u-token-low',
-        type: AdvancedServiceType.memorialPreview,
+      expect(
+        logs.docs.first.data()['service'],
+        AdvancedServiceType.obituaryGenerate.name,
       );
-
-      expect(result.ok, isFalse);
-      expect(result.balanceAfter, 0);
-      expect(result.message, contains('點數不足'));
-      final logs = await db.collection('users').doc('u-token-low').collection('tokenLogs').get();
-      expect(logs.docs, isEmpty);
     });
+
+    test(
+      'TokenWalletService consume fails when balance is insufficient',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final service = TokenWalletService(firestore: db);
+        await db.collection('users').doc('u-token-low').set({
+          'tokenBalance': 0,
+        });
+
+        final result = await service.consume(
+          uid: 'u-token-low',
+          type: AdvancedServiceType.memorialPreview,
+        );
+
+        expect(result.ok, isFalse);
+        expect(result.balanceAfter, 0);
+        expect(result.message, contains('點數不足'));
+        final logs = await db
+            .collection('users')
+            .doc('u-token-low')
+            .collection('tokenLogs')
+            .get();
+        expect(logs.docs, isEmpty);
+      },
+    );
 
     test('TokenWalletService balance stream defaults to zero', () async {
       final db = FakeFirebaseFirestore();
@@ -793,27 +1015,37 @@ void main() {
       expect(await service.balanceStream('u-none').first, 0);
     });
 
-    test('UserProfileService onboarding methods update profile correctly', () async {
-      final db = FakeFirebaseFirestore();
-      final service = UserProfileService(firestore: db);
-      const uid = 'u-profile';
+    test(
+      'UserProfileService onboarding methods update profile correctly',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final service = UserProfileService(firestore: db);
+        const uid = 'u-profile';
 
-      await service.setSelectedService(uid, 'memorial');
-      await service.markOnboardingStep(uid, UserProfileService.onboardingStepFirstDraft);
-      // Re-marking an existing step should not duplicate it.
-      await service.markOnboardingStep(uid, UserProfileService.onboardingStepFirstDraft);
+        await service.setSelectedService(uid, 'memorial');
+        await service.markOnboardingStep(
+          uid,
+          UserProfileService.onboardingStepFirstDraft,
+        );
+        // Re-marking an existing step should not duplicate it.
+        await service.markOnboardingStep(
+          uid,
+          UserProfileService.onboardingStepFirstDraft,
+        );
 
-      final profile = await service.getProfile(uid);
-      expect(
-        service.completedStepsCount(profile),
-        2,
-      );
-      final steps = (profile?['onboardingSteps'] as List<dynamic>).whereType<String>().toList();
-      expect(
-        steps.where((s) => s == UserProfileService.onboardingStepFirstDraft).length,
-        1,
-      );
-    });
+        final profile = await service.getProfile(uid);
+        expect(service.completedStepsCount(profile), 2);
+        final steps = (profile?['onboardingSteps'] as List<dynamic>)
+            .whereType<String>()
+            .toList();
+        expect(
+          steps
+              .where((s) => s == UserProfileService.onboardingStepFirstDraft)
+              .length,
+          1,
+        );
+      },
+    );
 
     test('UserProfileService profile stream emits null then value', () async {
       final db = FakeFirebaseFirestore();
@@ -827,25 +1059,32 @@ void main() {
       expect(next?['role'], 'user');
     });
 
-    test('UserProfileService submits top up request with pending status', () async {
-      final db = FakeFirebaseFirestore();
-      final service = UserProfileService(firestore: db);
+    test(
+      'UserProfileService submits top up request with pending status',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final service = UserProfileService(firestore: db);
 
-      await service.submitTopUpRequest(
-        uid: 'u-topup',
-        requestedTokens: 20,
-        note: '  need more for family  ',
-      );
+        await service.submitTopUpRequest(
+          uid: 'u-topup',
+          requestedTokens: 20,
+          note: '  need more for family  ',
+        );
 
-      final docs = await db.collection('users').doc('u-topup').collection('topupRequests').get();
-      expect(docs.docs.length, 1);
-      final data = docs.docs.first.data();
-      expect(data['requestedTokens'], 20);
-      expect(data['status'], 'pending');
-      expect(data['note'], 'need more for family');
-      expect(data['createdAt'], isNotNull);
-      expect(data['updatedAt'], isNotNull);
-    });
+        final docs = await db
+            .collection('users')
+            .doc('u-topup')
+            .collection('topupRequests')
+            .get();
+        expect(docs.docs.length, 1);
+        final data = docs.docs.first.data();
+        expect(data['requestedTokens'], 20);
+        expect(data['status'], 'pending');
+        expect(data['note'], 'need more for family');
+        expect(data['createdAt'], isNotNull);
+        expect(data['updatedAt'], isNotNull);
+      },
+    );
 
     test('UserProfileService completed steps ignores unknown values', () {
       final service = UserProfileService(firestore: FakeFirebaseFirestore());

@@ -49,7 +49,6 @@ class _AppShellState extends State<AppShell>
 
   bool _isAdmin = false;
   bool _loadingRole = true;
-  bool _onboardingPrompted = false;
   int _selectedIndex = 0;
   StreamSubscription<String>? _roleSub;
   int? _queuedTabIndex;
@@ -92,13 +91,6 @@ class _AppShellState extends State<AppShell>
                 _selectedIndex = _destinations.length - 1;
               }
             });
-            if (!_isAdmin && !_onboardingPrompted) {
-              _onboardingPrompted = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                _showOnboardingIfNeeded(user.uid);
-              });
-            }
           },
           onError: (_) {
             if (!mounted) return;
@@ -140,6 +132,16 @@ class _AppShellState extends State<AppShell>
         centerTitle: false,
         actions: [
           if (!_isAdmin) _buildTokenBalanceChip(),
+          if (!_isAdmin)
+            IconButton(
+              icon: const Icon(Icons.tips_and_updates_outlined),
+              tooltip: '使用引導',
+              onPressed: () {
+                final uid = AuthService.instance.currentUser?.uid;
+                if (uid == null) return;
+                _showOnboardingIfNeeded(uid, forceOpen: true);
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.logout_outlined),
             tooltip: '登出',
@@ -328,7 +330,10 @@ class _AppShellState extends State<AppShell>
     );
   }
 
-  Future<void> _showOnboardingIfNeeded(String uid) async {
+  Future<void> _showOnboardingIfNeeded(
+    String uid, {
+    bool forceOpen = false,
+  }) async {
     Map<String, dynamic>? profile;
     try {
       profile = await UserProfileService.instance.getProfile(uid);
@@ -336,7 +341,10 @@ class _AppShellState extends State<AppShell>
       return;
     }
     final done = UserProfileService.instance.completedStepsCount(profile);
-    if (done >= UserProfileService.onboardingTotalSteps || !mounted) return;
+    if (!forceOpen && done >= UserProfileService.onboardingTotalSteps ||
+        !mounted) {
+      return;
+    }
 
     Future<void> chooseService(String service) async {
       await UserProfileService.instance.setSelectedService(uid, service);

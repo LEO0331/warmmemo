@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class MotionTokens {
-  const MotionTokens._();
+  const MotionTokens._(); // coverage:ignore-line
 
   static const Duration button = Duration(milliseconds: 180);
   static const Duration reveal = Duration(milliseconds: 460);

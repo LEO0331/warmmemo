@@ -10,6 +10,7 @@ import '../../core/layout/app_shell.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../landing/landing_page.dart';
 import '../memorial/public_memorial_page.dart';
+import '../obituary/public_obituary_page.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -25,6 +26,10 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final obituaryPayload = _resolvePublicObituaryPayload();
+    if (obituaryPayload != null) {
+      return PublicObituaryPage(encodedPayload: obituaryPayload);
+    }
     final publicSlug = _resolvePublicMemorialSlug();
     if (publicSlug != null) {
       return PublicMemorialPage(slug: publicSlug);
@@ -73,9 +78,7 @@ class _AuthGateState extends State<AuthGate> {
             }
             return const SelectionArea(child: LandingPage());
           }
-          return SelectionArea(
-            child: AppShell(initialIndex: _initialTabIndex),
-          );
+          return SelectionArea(child: AppShell(initialIndex: _initialTabIndex));
         }
 
         return const SelectionArea(child: LandingPage());
@@ -127,9 +130,48 @@ class _AuthGateState extends State<AuthGate> {
   String? _resolvePublicMemorialSlug() {
     if (!kIsWeb) return null;
     final segments = Uri.base.pathSegments;
-    if (segments.length < 2) return null;
-    if (segments.first.toLowerCase() != 'm') return null;
-    final slug = segments[1].trim().toLowerCase();
-    return slug.isEmpty ? null : slug;
+    if (segments.length >= 2 && segments.first.toLowerCase() == 'm') {
+      final slug = segments[1].trim().toLowerCase();
+      return slug.isEmpty ? null : slug;
+    }
+
+    final fragment = Uri.base.fragment.trim();
+    if (fragment.isEmpty) return null;
+    final normalized = fragment.startsWith('/')
+        ? fragment.substring(1)
+        : fragment;
+    final fragSegments = normalized
+        .split('/')
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (fragSegments.length >= 2 && fragSegments.first.toLowerCase() == 'm') {
+      final slug = fragSegments[1].trim().toLowerCase();
+      return slug.isEmpty ? null : slug;
+    }
+    return null;
+  }
+
+  String? _resolvePublicObituaryPayload() {
+    if (!kIsWeb) return null;
+
+    final segments = Uri.base.pathSegments;
+    if (segments.isNotEmpty && segments.first.toLowerCase() == 'o') {
+      final payload = Uri.base.queryParameters['d']?.trim();
+      if (payload != null && payload.isNotEmpty) return payload;
+    }
+
+    final fragment = Uri.base.fragment.trim();
+    if (fragment.isEmpty) return null;
+    final normalized = fragment.startsWith('/')
+        ? fragment.substring(1)
+        : fragment;
+    final fragUri = Uri.tryParse('/$normalized');
+    if (fragUri == null) return null;
+    if (fragUri.pathSegments.isNotEmpty &&
+        fragUri.pathSegments.first.toLowerCase() == 'o') {
+      final payload = fragUri.queryParameters['d']?.trim();
+      if (payload != null && payload.isNotEmpty) return payload;
+    }
+    return null;
   }
 }

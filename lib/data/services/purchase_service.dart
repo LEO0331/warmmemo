@@ -20,8 +20,19 @@ class OrderWorkflow {
   };
 
   static const Map<String, Set<String>> _paymentTransitions = {
-    'awaiting_checkout': {'awaiting_checkout', 'checkout_created', 'cancelled', 'expired'},
-    'checkout_created': {'checkout_created', 'paid', 'failed', 'cancelled', 'expired'},
+    'awaiting_checkout': {
+      'awaiting_checkout',
+      'checkout_created',
+      'cancelled',
+      'expired',
+    },
+    'checkout_created': {
+      'checkout_created',
+      'paid',
+      'failed',
+      'cancelled',
+      'expired',
+    },
     'paid': {'paid'},
     'failed': {'failed', 'checkout_created'},
     'cancelled': {'cancelled', 'checkout_created'},
@@ -32,7 +43,10 @@ class OrderWorkflow {
     return _caseTransitions[from]?.contains(to) ?? false;
   }
 
-  static bool canChangePaymentStatus({required String from, required String to}) {
+  static bool canChangePaymentStatus({
+    required String from,
+    required String to,
+  }) {
     return _paymentTransitions[from]?.contains(to) ?? false;
   }
 }
@@ -67,26 +81,24 @@ class BatchUpdateReport {
 
 class PurchaseService {
   PurchaseService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static final PurchaseService instance = PurchaseService();
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
 
   Future<Purchase> createOrder({
     required String uid,
     required Purchase purchase,
   }) async {
-    final doc = await _users.doc(uid).collection('orders').add(
-          purchase.copyWith(userId: uid).toMap(),
-        );
-    return purchase.copyWith(
-      id: doc.id,
-      userId: uid,
-      docPath: doc.path,
-    );
+    final doc = await _users
+        .doc(uid)
+        .collection('orders')
+        .add(purchase.copyWith(userId: uid).toMap());
+    return purchase.copyWith(id: doc.id, userId: uid, docPath: doc.path);
   }
 
   Stream<List<Purchase>> userOrders(String uid) {
@@ -95,23 +107,54 @@ class PurchaseService {
         .collection('orders')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Purchase.fromMap(doc.data(), id: doc.id, docPath: doc.reference.path))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => Purchase.fromMap(
+                  doc.data(),
+                  id: doc.id,
+                  docPath: doc.reference.path,
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  Future<List<Purchase>> fetchUserOrders(String uid, {int? limit}) async {
+    Query<Map<String, dynamic>> query = _users
+        .doc(uid)
+        .collection('orders')
+        .orderBy('createdAt', descending: true);
+    if (limit != null) {
+      query = query.limit(limit);
+    }
+    final snapshot = await query.get();
+    return snapshot.docs
+        .map(
+          (doc) => Purchase.fromMap(
+            doc.data(),
+            id: doc.id,
+            docPath: doc.reference.path,
+          ),
+        )
+        .toList();
   }
 
   Stream<List<Purchase>> adminOrders() {
-    return _firestore.collectionGroup('orders').snapshots().map(
-      (snapshot) => snapshot.docs.map((doc) {
-        final userId = doc.reference.parent.parent?.id;
-        return Purchase.fromMap(
-          doc.data(),
-          id: doc.id,
-          userId: userId,
-          docPath: doc.reference.path,
+    return _firestore
+        .collectionGroup('orders')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final userId = doc.reference.parent.parent?.id;
+            return Purchase.fromMap(
+              doc.data(),
+              id: doc.id,
+              userId: userId,
+              docPath: doc.reference.path,
+            );
+          }).toList(),
         );
-      }).toList(),
-    );
   }
 
   Future<({List<Purchase> items, String? cursor})> adminOrdersPage({
@@ -127,32 +170,42 @@ class PurchaseService {
     }
     final snapshot = await query.get();
     final items = snapshot.docs
-        .map((doc) => Purchase.fromMap(
-              doc.data(),
-              id: doc.id,
-              userId: doc.reference.parent.parent?.id,
-              docPath: doc.reference.path,
-            ))
+        .map(
+          (doc) => Purchase.fromMap(
+            doc.data(),
+            id: doc.id,
+            userId: doc.reference.parent.parent?.id,
+            docPath: doc.reference.path,
+          ),
+        )
         .toList();
-    final nextCursor =
-        snapshot.docs.isNotEmpty ? snapshot.docs.last.reference.path : null;
+    final nextCursor = snapshot.docs.isNotEmpty
+        ? snapshot.docs.last.reference.path
+        : null;
     return (items: items, cursor: nextCursor);
   }
 
   Future<void> updateOrder({
     required String uid,
     required Purchase purchase,
+    String? mutationId,
   }) async {
     if (purchase.id == null) return;
+    final payload = purchase.toMap();
+    if (mutationId != null && mutationId.isNotEmpty) {
+      payload['clientMutationId'] = mutationId;
+      payload['clientUpdatedAt'] = DateTime.now().toIso8601String();
+    }
     final docPath = purchase.docPath;
     if (docPath != null && docPath.isNotEmpty) {
-      await _firestore.doc(docPath).set(purchase.toMap(), SetOptions(merge: true));
+      await _firestore.doc(docPath).set(payload, SetOptions(merge: true));
       return;
     }
-    await _users.doc(uid).collection('orders').doc(purchase.id).set(
-      purchase.toMap(),
-      SetOptions(merge: true),
-    );
+    await _users
+        .doc(uid)
+        .collection('orders')
+        .doc(purchase.id)
+        .set(payload, SetOptions(merge: true));
   }
 
   Future<BatchUpdateReport> adminBatchUpdate({
@@ -162,7 +215,11 @@ class PurchaseService {
     String? actor,
   }) async {
     if (purchases.isEmpty) {
-      return BatchUpdateReport(selectedCount: 0, updatedCount: 0, skipped: const []);
+      return BatchUpdateReport(
+        selectedCount: 0,
+        updatedCount: 0,
+        skipped: const [],
+      );
     }
     var updatedCount = 0;
     final skipped = <BatchUpdateSkip>[];
@@ -182,7 +239,10 @@ class PurchaseService {
       var next = order;
       final changes = <String>[];
       if (caseStatus != null && caseStatus != order.status) {
-        if (!OrderWorkflow.canChangeCaseStatus(from: order.status, to: caseStatus)) {
+        if (!OrderWorkflow.canChangeCaseStatus(
+          from: order.status,
+          to: caseStatus,
+        )) {
           skipped.add(
             BatchUpdateSkip(
               orderId: order.id ?? '-',
@@ -198,7 +258,10 @@ class PurchaseService {
       }
       final currentPayment = order.paymentStatus ?? 'checkout_created';
       if (paymentStatus != null && paymentStatus != order.paymentStatus) {
-        if (!OrderWorkflow.canChangePaymentStatus(from: currentPayment, to: paymentStatus)) {
+        if (!OrderWorkflow.canChangePaymentStatus(
+          from: currentPayment,
+          to: paymentStatus,
+        )) {
           skipped.add(
             BatchUpdateSkip(
               orderId: order.id ?? '-',

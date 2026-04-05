@@ -5,10 +5,7 @@ import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
 
 class PublicMemorialPage extends StatefulWidget {
-  const PublicMemorialPage({
-    super.key,
-    required this.slug,
-  });
+  const PublicMemorialPage({super.key, required this.slug});
 
   final String slug;
 
@@ -20,14 +17,18 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
   late final Future<PublicMemorialProfile?> _profileFuture = _loadProfile();
 
   Future<PublicMemorialProfile?> _loadProfile() async {
-    final profile = await FirebaseDraftService.instance.loadPublicMemorialBySlug(
-      widget.slug,
-    );
+    final profile = await FirebaseDraftService.instance
+        .loadPublicMemorialBySlug(widget.slug);
     if (profile != null && profile.ownerUid.isNotEmpty) {
-      await FirebaseDraftService.instance.incrementStats(
-        profile.ownerUid,
-        readDelta: 1,
-      );
+      try {
+        await FirebaseDraftService.instance.incrementStats(
+          profile.ownerUid,
+          readDelta: 1,
+        );
+      } catch (_) {
+        // Public visitors may not have write permission for owner stats.
+        // Keep page rendering even when telemetry update fails.
+      }
     }
     return profile;
   }
@@ -37,29 +38,30 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
     return Scaffold(
       body: WarmBackdrop(
         child: SafeArea(
-          child: FutureBuilder<PublicMemorialProfile?>(
-            future: _profileFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: SkeletonOrderList(count: 2),
-                );
-              }
+          child: SelectionArea(
+            child: FutureBuilder<PublicMemorialProfile?>(
+              future: _profileFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: SkeletonOrderList(count: 2),
+                  );
+                }
 
-              final profile = snapshot.data;
-              if (profile == null) {
-                return const _PublicMemorialUnavailable();
-              }
+                final profile = snapshot.data;
+                if (profile == null) {
+                  return const _PublicMemorialUnavailable();
+                }
 
-              final displayName = (profile.nickname?.trim().isNotEmpty ?? false)
-                  ? profile.nickname!.trim()
-                  : (profile.name?.trim().isNotEmpty ?? false)
-                      ? profile.name!.trim()
-                      : 'WarmMemo 紀念頁';
+                final displayName =
+                    (profile.nickname?.trim().isNotEmpty ?? false)
+                    ? profile.nickname!.trim()
+                    : (profile.name?.trim().isNotEmpty ?? false)
+                    ? profile.name!.trim()
+                    : 'WarmMemo 紀念頁';
 
-              return SelectionArea(
-                child: SingleChildScrollView(
+                return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,13 +107,17 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (profile.obituaryRelationship?.trim().isNotEmpty ??
+                              if (profile.obituaryRelationship
+                                      ?.trim()
+                                      .isNotEmpty ??
                                   false)
                                 _InfoRow(
                                   label: '關係',
                                   value: profile.obituaryRelationship!.trim(),
                                 ),
-                              if (profile.obituaryServiceDate?.trim().isNotEmpty ??
+                              if (profile.obituaryServiceDate
+                                      ?.trim()
+                                      .isNotEmpty ??
                                   false)
                                 _InfoRow(
                                   label: '時間',
@@ -123,7 +129,9 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                                   label: '地點',
                                   value: profile.obituaryLocation!.trim(),
                                 ),
-                              if (profile.obituaryCustomNote?.trim().isNotEmpty ??
+                              if (profile.obituaryCustomNote
+                                      ?.trim()
+                                      .isNotEmpty ??
                                   false) ...[
                                 const SizedBox(height: 8),
                                 Text(profile.obituaryCustomNote!.trim()),
@@ -133,9 +141,9 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                         ),
                     ],
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -172,10 +180,7 @@ class _PublicMemorialUnavailable extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _InfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -191,9 +196,9 @@ class _InfoRow extends StatelessWidget {
             width: 52,
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           Expanded(child: Text(value)),
