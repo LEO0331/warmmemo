@@ -1,62 +1,184 @@
-# 功能流程說明（Flow）
+# WarmMemo — 功能流程說明
 
-本文件用人類看得懂的方式說明：按下每個按鈕後，程式碼哪些部分會被執行、會發生什麼事。
+本文件用人類看得懂的方式說明：按下每個按鈕後，程式碼的哪些部分會被執行，以及發生了什麼事。
 
-## 1) 進站與登入
+---
 
-- 入口：`lib/features/auth/auth_gate.dart`
-- 主要流程：
-  - App 啟動後先進 `AuthGate`，判斷是否為公開頁路由（`#/m/:slug`、`#/o?...`）。
-  - 若是公開頁：直接渲染公開紀念頁或公開訃聞頁。
-  - 若不是公開頁：監聽 Firebase Auth 狀態。
-  - 已登入：進 `AppShell`。
-  - 未登入：進 `LandingPage` 或 `AuthPage`。
+## 一、主要執行環境
 
-### 常見按鈕
+WarmMemo（Flutter Web + Firebase）主要可分為三層：
 
-- `登入 / 註冊`：呼叫 `AuthService`；成功後回到 `AuthGate` 進入內頁。
-- `登出`：呼叫 `AuthService.signOut()`，回到未登入畫面。
+```
+┌────────────────────────────┐
+│         Flutter UI         │
+│  features/* + core/layout  │
+└─────────────┬──────────────┘
+              │ 呼叫 service/repository
+┌─────────────▼──────────────┐
+│   Data / Domain Layer      │
+│ data/services + repositories│
+└─────────────┬──────────────┘
+              │ Firebase SDK
+┌─────────────▼──────────────┐
+│ Firebase (Auth/Firestore)  │
+│  firestore.rules 控制權限   │
+└────────────────────────────┘
+```
 
-## 2) 簡易紀念頁（Memorial）
+- UI 層：顯示頁面、處理按鈕事件、展示 loading/error。
+- Data 層：封裝查詢、寫入、快取、樂觀更新。
+- Firebase：身份驗證、資料持久化、權限管控。
 
-- 主檔：`lib/features/memorial/memorial_page_tab.dart`
-- 輸入欄位更新：先走輸入正規化（文字/日期/數字 guard），再進本地 state。
-- `儲存草稿`：寫入 `FirebaseDraftService.load/saveMemorial` 對應資料。
-- `發佈 / 關閉發佈`：更新 `slug`、公開狀態與公開資料。
-- `QR / 公開連結`：組合 `_effectivePublicUrl`，可複製、下載 QR、開新頁。
-- `提案送出`（商業作業區）：送出 `proposal`，再由 Admin 端接續審核/指派/排程。
+---
 
-## 3) 數位訃聞（Obituary）
+## 二、核心模組對照
 
-- 主檔：`lib/features/obituary/digital_obituary_tab.dart`
-- `產生訃聞文案`：組合輸入，呼叫生成流程（含點數檢查）。
-- `一鍵重寫`：以現有內容再生成更清楚版本。
-- `分享 / QR / 複製連結`：建立公開 payload，產出可分享 URL 與 QR。
-- `匯出 PDF/圖片`：呼叫匯出器；字型改為「匯出時才載入」。
+| 檔案 | 負責內容 |
+|------|---------|
+| `lib/features/auth/auth_gate.dart` | 路由入口、登入狀態判斷、公開頁路由解析 |
+| `lib/features/memorial/memorial_page_tab.dart` | 簡易紀念頁編輯、公開連結/QR、提案送出 |
+| `lib/features/obituary/digital_obituary_tab.dart` | 數位訃聞生成/重寫、分享連結/QR、匯出 |
+| `lib/features/admin/admin_dashboard.dart` | Admin 訂單漏斗、供應商/材質/排程管理 |
+| `lib/data/services/*` | Firebase 寫入與查詢 |
+| `lib/data/repositories/*` | request policy、cache、optimistic 包裝 |
+| `lib/core/export/pdf_exporter.dart` | 紀念頁/訃聞 PDF 匯出 |
+| `lib/core/export/compliance_exporter.dart` | 歷史與合規資料匯出 |
 
-## 4) Admin 商務流程
+---
 
-- 主要頁：`lib/features/admin/admin_dashboard.dart`
-- 訂單流程：`提案 -> 審核 -> 供應商指派 -> 材質確認 -> 交付里程碑`
-- 常用操作：
-  - 供應商啟用/停用
-  - 指派供應商到訂單
-  - 材質 tier 與價格帶確認
-  - 更新交付里程碑（設計確認 / 製作中 / 已交付）
-- 漏斗指標：提案率、審核通過率、指派完成率、交付完成率 + 每週趨勢。
+## 三、按鈕流程
 
-## 5) 匯出（PDF/CSV）
+### 3-1. 進站與登入
 
-- `PdfExporter`：紀念頁/訃聞 PDF。
-- `ComplianceExporter`：通知歷史與合規草稿匯出。
-- 字型策略：
-  - 優先使用 Google Fonts `Noto Serif HK`（on-demand）。
-  - 其次嘗試本地 `NotoSansTC-Subset.ttf`（若存在）。
-  - 再退回本地大型字型或 Helvetica。
+```
+AuthGate.build()
+  ├─ _resolvePublicObituaryPayload() / _resolvePublicMemorialSlug()
+  │    ├─ 命中公開路由：PublicObituaryPage / PublicMemorialPage
+  │    └─ 未命中：進登入狀態判斷
+  └─ StreamBuilder(authStateChanges)
+       ├─ hasData: AppShell
+       └─ noData : LandingPage
+```
 
-## 6) Firestore 權限（概念）
+- `登入 / 註冊`：`AuthService` 處理；成功後 `authStateChanges` 觸發進內頁。
+- `登出`：`AuthService.signOut()`；回到 Landing/Auth。
 
-- `proposal`：一般使用者可寫。
-- `vendorAssignment/materialSelection/deliverySchedule/vendors`：僅 Admin 可寫。
-- 付款與既有訂單規則維持原本規範。
+---
+
+### 3-2. 簡易紀念頁：`儲存草稿`
+
+```
+MemorialPageTab._saveDraft()
+  ├─ 輸入正規化（single/multiline/date/number guard）
+  ├─ 組裝 MemorialDraft
+  └─ FirebaseDraftService.saveMemorial(uid, draft)
+```
+
+結果：草稿寫入 Firestore，重新進頁可回填。
+
+---
+
+### 3-3. 簡易紀念頁：`發佈/關閉發佈`、`QR/複製連結`
+
+```
+發佈切換
+  ├─ slug 檢核 + 可用性檢查
+  ├─ 更新 draft.isPublished / slug
+  └─ 寫入 public profile
+
+QR/連結
+  ├─ _effectivePublicUrl
+  └─ 產生 QR / copy / open link
+```
+
+結果：公開頁可由 `#/m/:slug` 存取。
+
+---
+
+### 3-4. 商業作業區：`提案送出`
+
+```
+MemorialPageTab -> ProposalController.submit()
+  ├─ proposal 欄位檢核
+  ├─ 防重複提交
+  └─ PurchaseService / Repository update proposal
+```
+
+結果：訂單進入漏斗第一步（proposal）。
+
+---
+
+### 3-5. 數位訃聞：`產生訃聞文案` / `一鍵重寫`
+
+```
+DigitalObituaryTab
+  ├─ 欄位檢核與格式化
+  ├─ 點數檢查（token wallet）
+  ├─ 呼叫生成/重寫邏輯
+  └─ 寫回草稿 + 更新 UI 狀態
+```
+
+結果：生成內容顯示於頁面，可進一步分享或匯出。
+
+---
+
+### 3-6. 數位訃聞：`分享 / QR / 匯出`
+
+```
+分享連結
+  ├─ 建立 payload
+  └─ 組公開 URL（#/o?...）
+
+QR
+  ├─ 以分享連結產生 QR
+  └─ 下載或複製連結
+
+PDF/圖片匯出
+  └─ PdfExporter / ComplianceExporter
+```
+
+---
+
+### 3-7. Admin：`供應商/材質/排程`
+
+```
+AdminDashboard
+  ├─ load() -> orders/vendors/notifications
+  ├─ 指派供應商 -> update vendorAssignment
+  ├─ 材質確認   -> update materialSelection
+  └─ 排程更新   -> update deliverySchedule milestones
+```
+
+結果：漏斗可追蹤到交付完成，並反映在每週趨勢。
+
+---
+
+## 四、漏斗狀態（業務視角）
+
+`提案送出 -> Admin 審核 -> 供應商指派 -> 材質確認 -> 排程建立/交付`
+
+- 提案率：有 proposal / 全訂單
+- 審核通過率：符合審核條件
+- 指派完成率：vendorAssignment 完整
+- 交付完成率：delivery milestone 完成
+
+---
+
+## 五、字型與匯出流程
+
+Web 首屏不綁大型中文字型，改系統字型 fallback。
+
+匯出字型解析順序：
+1. `PdfGoogleFonts.notoSerifHK*`（on-demand）
+2. `assets/fonts/NotoSansTC-Subset.ttf`（若存在）
+3. `assets/fonts/NotoSansTC-VariableFont_wght.ttf`
+4. Helvetica fallback
+
+---
+
+## 六、權限重點（Firestore）
+
+- 使用者可寫：`proposal`
+- Admin 可寫：`vendorAssignment`、`materialSelection`、`deliverySchedule`、`vendors`
+- 既有付款與訂單規則保持不變
 

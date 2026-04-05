@@ -1,38 +1,72 @@
-# 專案進度紀錄
+# WarmMemo — 專案進度紀錄
 
-## 目前里程碑
+> 最後更新：2026-04-05
 
-- V2 商務作業區：已落地
-  - 供應商管理（啟停、主檔）
-  - 材質選單（tier/價格帶）
-  - 交付排程（三里程碑）
-  - 提案到交付漏斗指標與每週趨勢
-- UX/Guardrails：已加強
-  - 輕量 loading/error states
-  - 輸入清理與欄位級錯誤提示
-  - 可選取文字（多頁）與引導調整
-- 測試與品質：已提升
-  - `flutter analyze`: pass
-  - 全量測試：pass
-  - 目標資料夾 coverage 已提升（core/theme、data/models）
-- Web 部署：已改為 GitHub Actions
-  - `ci.yml`：PR/main 跑 analyze + test
-  - `deploy.yml`：僅 CI success 後部署 Pages
+---
 
-## 近期優化
+## 專案簡介
 
-- 修正 `final_countdown_tab_test` 兩個 off-screen tap warning（改為 scroll+tap）。
-- Landing 搜尋友善區塊加入圖片卡。
-- 字型載入策略調整，降低 Web 首載卡頓。
+WarmMemo 是 Flutter Web + Firebase 應用，目標是把「紀念內容準備 + 商務訂單流程」整合成可追蹤、可管理、可交付的產品。
 
-## 進行中 / 待辦
+核心商務路徑：`提案 -> 審核 -> 供應商指派 -> 材質確認 -> 排程/交付`。
 
-- 可選：提供真正的 `NotoSansTC-Subset.ttf`（本地字型子集）以提升離線匯出穩定性。
-- 可選：為 CI 加入 coverage report artifact 與最低門檻檢查。
-- 可選：補強 smoke checklist 文件（demo/上線前）。
+---
 
-## 風險備註
+## 技術棧
 
-- 若未提供 subset 字型且外網受限，PDF 匯出可能降級到 Helvetica（中文可能缺字）。
-- GitHub Pages 需設定為 `GitHub Actions` source 才會正確走新部署流程。
+| 項目 | 說明 |
+|------|------|
+| Frontend | Flutter Web |
+| Backend | Firebase Auth + Firestore |
+| Data layer | Service + Repository（request policy / cache / optimistic） |
+| CI | GitHub Actions (`ci.yml`) |
+| CD | GitHub Pages (`deploy.yml`) |
+
+---
+
+## 目前進度（v0.2）
+
+### 已完成
+
+| 模組 | 狀態 | 備註 |
+|------|------|------|
+| V2 商務作業區 | ✅ | 供應商管理、材質確認、交付排程 |
+| 漏斗指標 | ✅ | 提案率/審核率/指派率/交付率 + 每週趨勢 |
+| 輸入 guardrails | ✅ | 日期/數字/文字清理 + 欄位級錯誤提示 |
+| QR/公開頁流程 | ✅ | 公開連結路由與分享流程修正 |
+| 測試穩定性 | ✅ | off-screen tap warning 已清理 |
+| CI/CD | ✅ | CI 通過後才部署 Pages |
+| 文件基礎 | ✅ | `docs/flow.md`, `docs/info.md`, `docs/progress.md`, `claude.md` |
+
+---
+
+## 近期變更摘要
+
+1. **GitHub Pages 部署強化**
+- 改為 GitHub 官方 Pages actions。
+- 加入 SPA fallback (`404.html`) 與 `.nojekyll`。
+- Deploy 由 CI success 觸發。
+
+2. **字型載入策略優化**
+- Web UI 不再啟動時綁大型中文字型。
+- 匯出改為 on-demand 字型解析（Google fonts -> subset -> full -> fallback）。
+
+3. **Landing 內容優化**
+- 搜尋友善區塊改為圖文卡片。
+- 指定文案對應圖片已替換。
+
+---
+
+## 已知風險 / 限制
+
+- 若外網受限且本地 subset 字型不存在，PDF 中文可能退回不完整字型。
+- GitHub Pages 若瀏覽器快取舊 service worker，可能仍短暫請求舊資源（需 hard refresh）。
+
+---
+
+## 下一步建議
+
+- 補入真正的 `assets/fonts/NotoSansTC-Subset.ttf`（可離線穩定匯出中文）。
+- 在 CI 增加 coverage artifact 與閾值檢查。
+- 增加 release checklist 腳本化（analyze/test/build 一鍵執行）。
 
