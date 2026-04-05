@@ -1,10 +1,11 @@
 # WarmMemo
 
 [![version](https://img.shields.io/badge/version-0.2.0--rc-blue)](pubspec.yaml)
+[![deploy](https://github.com/leo0331/warmmemo/actions/workflows/deploy.yml/badge.svg)](https://github.com/leo0331/warmmemo/actions/workflows/deploy.yml)
 ![platform](https://img.shields.io/badge/platform-Flutter%20Web-42A5F5)
 ![analyze](https://img.shields.io/badge/flutter%20analyze-passing-success)
 ![tests](https://img.shields.io/badge/tests-78%20passed-success)
-![coverage](https://img.shields.io/badge/coverage-81.22%25-yellowgreen)
+![coverage](https://img.shields.io/badge/coverage-94.5%25-green)
 
 WarmMemo is a Flutter Web + Firebase app for memorial drafting, obituary generation, package checkout, and admin-side order operations.
 
