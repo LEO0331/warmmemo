@@ -558,7 +558,7 @@ class LandingPage extends StatelessWidget {
     final items = const [
       {
         'url':
-            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=85',
+            'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1400&q=85',
         'caption': '把想說的話先寫下來，讓家人不必猜。',
       },
       {
@@ -760,6 +760,23 @@ class LandingPage extends StatelessWidget {
   }
 
   Widget _buildSearchResourceSection(ThemeData theme) {
+    const resources = [
+      {
+        'title': '數位訃聞教學',
+        'desc': '一步步完成訃聞內容、分享連結與 QR，方便親友接收資訊。',
+        'url': 'https://leo0331.github.io/warmmemo/obituary-guide.html',
+        'image':
+            'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        'title': '固定方案比較',
+        'desc': '快速比較方案內容與適用情境，協助家屬做出合適決策。',
+        'url': 'https://leo0331.github.io/warmmemo/package-comparison.html',
+        'image':
+            'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+      },
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SectionCard(
@@ -770,25 +787,58 @@ class LandingPage extends StatelessWidget {
           children: [
             Text('以下主題頁提供更完整內容，方便搜尋與快速理解：', style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _openExternal(
-                    'https://leo0331.github.io/warmmemo/obituary-guide.html',
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: resources.length,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 420,
+                mainAxisExtent: 245,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+                final item = resources[index];
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF6EF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE8D7CC)),
                   ),
-                  icon: const Icon(Icons.campaign_outlined),
-                  label: const Text('數位訃聞教學'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _openExternal(
-                    'https://leo0331.github.io/warmmemo/package-comparison.html',
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _networkImage(
+                          url: item['image']!,
+                          height: 118,
+                          semanticLabel: '${item['title']} 封面圖',
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          item['title']!,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(item['desc']!, style: theme.textTheme.bodySmall),
+                        const Spacer(),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openExternal(item['url']!),
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text('開啟教學頁'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  icon: const Icon(Icons.compare_arrows_outlined),
-                  label: const Text('固定方案比較'),
-                ),
-              ],
+                );
+              },
             ),
           ],
         ),
@@ -835,7 +885,7 @@ class LandingPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SectionCard(
-        title: 'FAQ 文字版（搜尋友善）',
+        title: 'FAQ',
         icon: Icons.find_in_page_outlined,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

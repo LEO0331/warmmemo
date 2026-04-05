@@ -27,11 +27,7 @@ class PdfExporter {
     MemorialDraft draft, {
     String? publicUrl,
   }) async {
-    final fontData = await rootBundle.load(
-      'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
-    );
-    final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(fontData);
+    final (myFont, fontBold) = await _resolvePdfFonts();
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -83,11 +79,7 @@ class PdfExporter {
   }
 
   static Future<pw.Page> _buildObituaryPage(ObituaryDraft draft) async {
-    final fontData = await rootBundle.load(
-      'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
-    );
-    final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(fontData);
+    final (myFont, fontBold) = await _resolvePdfFonts();
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -121,6 +113,18 @@ class PdfExporter {
     final doc = pw.Document();
     doc.addPage(page);
     return doc.save();
+  }
+
+  static Future<(pw.Font, pw.Font)> _resolvePdfFonts() async {
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
+      );
+      final font = pw.Font.ttf(fontData);
+      return (font, font);
+    } catch (_) {
+      return (pw.Font.helvetica(), pw.Font.helveticaBold());
+    }
   }
 
   static pw.Widget _labelValue(String label, String value) {

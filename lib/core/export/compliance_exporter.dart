@@ -47,9 +47,7 @@ class ComplianceExporter {
 
   static Future<Uint8List> _buildPdf(List<NotificationEvent> events, DraftMetrics metrics) async {
     final doc = pw.Document();
-    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
-    final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(fontData);
+    final (myFont, fontBold) = await _resolvePdfFonts();
     doc.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
       theme: pw.ThemeData.withFont(
@@ -106,9 +104,7 @@ class ComplianceExporter {
 
   static Future<Uint8List> _buildDraftPdf(List<UserComplianceSnapshot> bundles) async {
     final doc = pw.Document();
-    final fontData = await rootBundle.load("assets/fonts/NotoSansTC-VariableFont_wght.ttf");
-    final myFont = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(fontData);
+    final (myFont, fontBold) = await _resolvePdfFonts();
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       theme: pw.ThemeData.withFont(
@@ -166,5 +162,17 @@ class ComplianceExporter {
       );
     }
     return Uint8List.fromList(utf8.encode(buffer.toString()));
+  }
+
+  static Future<(pw.Font, pw.Font)> _resolvePdfFonts() async {
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
+      );
+      final font = pw.Font.ttf(fontData);
+      return (font, font);
+    } catch (_) {
+      return (pw.Font.helvetica(), pw.Font.helveticaBold());
+    }
   }
 }
