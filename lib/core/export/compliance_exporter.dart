@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/models/admin_models.dart';
@@ -165,12 +166,31 @@ class ComplianceExporter {
   }
 
   static Future<(pw.Font, pw.Font)> _resolvePdfFonts() async {
+    // Prefer on-demand smaller CJK font for export-only usage.
+    try {
+      final base = await PdfGoogleFonts.notoSerifHKRegular();
+      final bold = await PdfGoogleFonts.notoSerifHKBold();
+      return (base, bold);
+    } catch (_) {
+      // Continue to local fallback.
+    }
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansTC-Subset.ttf',
+      );
+      final base = pw.Font.ttf(fontData);
+      final bold = pw.Font.ttf(fontData);
+      return (base, bold);
+    } catch (_) {
+      // Continue to platform fallback.
+    }
     try {
       final fontData = await rootBundle.load(
         'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
       );
-      final font = pw.Font.ttf(fontData);
-      return (font, font);
+      final base = pw.Font.ttf(fontData);
+      final bold = pw.Font.ttf(fontData);
+      return (base, bold);
     } catch (_) {
       return (pw.Font.helvetica(), pw.Font.helveticaBold());
     }

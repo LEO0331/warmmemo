@@ -116,12 +116,32 @@ class PdfExporter {
   }
 
   static Future<(pw.Font, pw.Font)> _resolvePdfFonts() async {
+    // Prefer on-demand smaller CJK font from Google Fonts for export only.
+    // This avoids loading large bundled TTF on app startup.
+    try {
+      final base = await PdfGoogleFonts.notoSerifHKRegular();
+      final bold = await PdfGoogleFonts.notoSerifHKBold();
+      return (base, bold);
+    } catch (_) {
+      // Continue to local fallback.
+    }
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansTC-Subset.ttf',
+      );
+      final base = pw.Font.ttf(fontData);
+      final bold = pw.Font.ttf(fontData);
+      return (base, bold);
+    } catch (_) {
+      // Continue to platform fallback.
+    }
     try {
       final fontData = await rootBundle.load(
         'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
       );
-      final font = pw.Font.ttf(fontData);
-      return (font, font);
+      final base = pw.Font.ttf(fontData);
+      final bold = pw.Font.ttf(fontData);
+      return (base, bold);
     } catch (_) {
       return (pw.Font.helvetica(), pw.Font.helveticaBold());
     }
