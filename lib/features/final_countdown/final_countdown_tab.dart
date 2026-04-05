@@ -481,18 +481,24 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                       key: const Key('current_age_field'),
                       label: '目前年齡',
                       controller: _currentAgeController,
+                      min: _minAge,
+                      max: _maxAge,
                     ),
                     const SizedBox(height: 10),
                     _numberField(
                       key: const Key('life_expectancy_field'),
                       label: '預估壽命（歲）',
                       controller: _lifeExpectancyController,
+                      min: _minLifeExpectancy,
+                      max: _maxLifeExpectancy,
                     ),
                     const SizedBox(height: 10),
                     _numberField(
                       key: const Key('retire_year_field'),
                       label: '退休年份',
                       controller: _retireYearController,
+                      min: _minRetireYear,
+                      max: _maxRetireYear,
                     ),
                     const SizedBox(height: 10),
                     Wrap(
@@ -765,9 +771,10 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                 child: TextFormField(
                   controller: item.nameController,
                   onChanged: (_) => _refreshAndSave(),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '項目名稱',
                     isDense: true,
+                    errorText: _planNameError(item.nameController.text),
                   ),
                 ),
               ),
@@ -865,6 +872,8 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     Key? key,
     required String label,
     required TextEditingController controller,
+    required int min,
+    required int max,
   }) {
     return TextFormField(
       key: key,
@@ -875,8 +884,38 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(4),
       ],
-      decoration: InputDecoration(labelText: label, isDense: true),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        errorText: _numberErrorText(
+          controller.text,
+          min: min,
+          max: max,
+          label: label,
+        ),
+      ),
     );
+  }
+
+  String? _numberErrorText(
+    String text, {
+    required int min,
+    required int max,
+    required String label,
+  }) {
+    final value = text.trim();
+    if (value.isEmpty) return '請輸入$label';
+    final parsed = int.tryParse(value);
+    if (parsed == null) return '請輸入有效數字';
+    if (parsed < min || parsed > max) return '$label需介於 $min 到 $max';
+    return null;
+  }
+
+  String? _planNameError(String text) {
+    if (_sanitizePlanName(text).isEmpty) {
+      return '請輸入項目名稱';
+    }
+    return null;
   }
 
   Widget _metricChip(String label, String value, {Key? key}) {

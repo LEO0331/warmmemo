@@ -350,7 +350,12 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               TextField(
                 controller: _proposalScheduleController,
                 inputFormatters: [LengthLimitingTextInputFormatter(80)],
-                decoration: const InputDecoration(labelText: '希望完成時間'),
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: '希望完成時間',
+                  hintText: '例如：2026-12 或 2026-12-31',
+                  errorText: _proposalScheduleErrorText,
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -454,6 +459,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     required String uid,
     required Purchase order,
   }) async {
+    if (_proposalScheduleErrorText != null) {
+      _showMessage('希望完成時間格式有誤，請改用 YYYY-MM 或 YYYY-MM-DD。');
+      return;
+    }
     if (!_hasProposalInput()) {
       _showMessage('請至少填寫一項偏好。');
       return;
@@ -1305,6 +1314,23 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       }
     }
     return cleaned;
+  }
+
+  String? get _proposalScheduleErrorText {
+    final raw = _proposalScheduleController.text.trim();
+    if (raw.isEmpty) return null;
+    if (!_looksLikeDateIntent(raw)) return null;
+    final normalized = _sanitizeDateOrOpenText(raw, maxLength: 80);
+    final isDate = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(normalized);
+    final isYearMonth = RegExp(r'^\d{4}-\d{2}$').hasMatch(normalized);
+    return (isDate || isYearMonth) ? null : '日期格式請使用 YYYY-MM 或 YYYY-MM-DD';
+  }
+
+  bool _looksLikeDateIntent(String input) {
+    final value = input.trim();
+    if (value.isEmpty) return false;
+    return RegExp(r'^[\d/\-\s]+$').hasMatch(value) &&
+        RegExp(r'\d').hasMatch(value);
   }
 
   Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
