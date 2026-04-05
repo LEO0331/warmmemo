@@ -11,6 +11,11 @@ SOP 文件：
 - [Customer Support SOP](./sop/phase1_customer_support_sop.md)
 - [Admin Operations SOP](./sop/phase1_admin_operations_sop.md)
 
+Prompt 模式選擇：
+
+- Use `skills.md` for full mode
+- Use `skills-lite.md` for low-token mode
+
 建議閱讀順序：
 
 1. `flow.md`：先理解按鈕到程式執行流程

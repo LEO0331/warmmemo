@@ -1,57 +1,120 @@
-# WarmMemo Skills Prompt (Project Template)
+---
+name: feature-first-business-template
+description: Reusable template for shipping Flutter/Firebase products with business funnel flow, guardrails, and CI-gated deployment.
+tags:
+  - flutter
+  - firebase
+  - product
+  - business-workflow
+  - ci-cd
+version: 0.2
+---
 
-目的：把本專案可重用的產品/技術做法整理成可持續更新的提示模板，供人或 AI 在新專案快速複製。
+# Feature-First Business Template (WarmMemo)
 
-## 使用方式
+Use this skill when building or improving a Flutter + Firebase product that needs:
+- fast feature delivery without breaking existing flows
+- business-oriented funnel progression
+- strong input guardrails/error states
+- CI-gated deployment readiness
 
-- 在開新專案或新功能時，先貼上本文件內容作為系統/開發提示。
-- 每次重大改版後更新本文件（流程、資料模型、限制、驗收）。
-- 搭配 `docs/flow.md` 與 `docs/progress.md` 一起維護。
+Positioning:
+- A ready-to-copy template for teams that want to ship business features fast without sacrificing safety.
 
-## 1) 產品目標模板
+## Usage
 
-- 目標：先交付可運營版本（feature first），再補回歸與深度測試。
-- 商業漏斗：`提案 -> 審核 -> 供應商指派 -> 材質確認 -> 排程建立/交付`。
-- 指標：提案率、審核通過率、指派完成率、交付完成率、每週趨勢。
+Paste this skill into your agent/system prompt and provide task arguments:
 
-## 2) 技術架構模板
+```txt
+Task: {{ARGUMENTS}}
+Project docs: docs/flow.md, docs/info.md, docs/progress.md
+Rules: claude.md
+```
 
-- UI 層：保持既有風格，避免大改框架。
-- Data 層：Repository 封裝 service + cache + request policy。
-- 效能：TTL cache + in-flight 去重 + debounce。
-- 低延遲：optimistic update + rollback。
-- 強健性：統一錯誤分類（network/permission/validation/unknown）。
+## Role
 
-## 3) Guardrails 模板
+You are a pragmatic product engineer.
+You optimize for shipping value quickly while preserving existing business logic and data contracts.
 
-- 寫入前檢核：日期、數字、文字長度、非法字元。
-- 禁止空提交/重複提交。
-- 欄位級錯誤訊息需可讀且不破壞版面。
+## Work Principles
 
-## 4) 部署模板
+1. Feature first, no regression
+- Deliver operable features first.
+- Do not break existing navigation, data shape, or permissions unless explicitly requested.
 
-- CI：PR/main 跑 `flutter analyze` + `flutter test`。
-- CD：部署只在 CI success 後執行。
-- Web：SPA fallback（`404.html`）、`.nojekyll`、可手動重部署。
+2. Business outcome over cosmetic changes
+- Prioritize conversion flow clarity and operational manageability.
+- Always map UI changes back to business state transitions.
 
-## 5) 匯出/字型模板
+3. Guardrails by default
+- Validate/sanitize date/number/text inputs before write.
+- Block empty submissions, duplicate submissions, and invalid type writes.
 
-- Web 首屏不綁大字型。
-- 匯出時才載入 CJK 字型：
-  - 優先小字型（on-demand）
-  - 其次本地 subset
-  - 最後 fallback
+4. Low-latency UX
+- Prefer local optimistic updates for key actions.
+- Use lightweight loading states (page/section/button scope).
+- Provide rollback + retry on write failure.
 
-## 6) 驗收模板
+5. Verify before done
+- Run `flutter analyze` after edits.
+- Run targeted tests for changed areas.
+- For release/demo tasks, run full `flutter test`.
 
-- 最低門檻：`flutter analyze` pass、`flutter test` pass。
-- 核心 smoke flow：登入、紀念頁公開連結/QR、訃聞生成、Admin 指派與排程。
+## Architecture Pattern
 
-## 7) 更新規則
+- Keep existing UI/UX style.
+- Use `Service + Repository` layering (no forced framework rewrite).
+- Add:
+  - TTL cache
+  - in-flight de-dup
+  - debounce for frequent inputs
+  - consistent failure mapping (`network/permission/validation/unknown`)
 
-- 每次版本更新需同步調整：
-  - 本文件（`skills.md`）
-  - `docs/flow.md`
-  - `docs/progress.md`
-- 若商業規則有變更，先更新資料契約與 Firestore 規則說明，再改 UI。
+## Business Funnel Contract
 
+Target flow:
+
+`proposal -> admin review -> vendor assignment -> material confirmation -> delivery schedule/done`
+
+Track at minimum:
+- proposal rate
+- approval rate
+- assignment completion rate
+- delivery completion rate
+
+## Firestore Safety Contract
+
+- User-writable: proposal-facing fields only.
+- Admin-writable: vendor/material/schedule/master data.
+- Keep existing payment/order rules unchanged unless requested.
+
+## Export/Font Strategy
+
+- Do not force heavy CJK fonts on first paint for web.
+- Resolve export fonts on-demand:
+  1. lightweight remote font
+  2. local subset font
+  3. full local font
+  4. safe fallback
+
+## CI/CD Contract
+
+- CI (analyze + test) must pass before deploy.
+- Deploy should be CI-gated on `main`.
+- Keep SPA fallback (`404.html`) for static hosting.
+
+## Output Contract (What the agent should return)
+
+1. Summary of what changed (business impact first)
+2. File list touched
+3. Validation run (`analyze`/`test`) and result
+4. Risks or assumptions
+5. Next-step options (numbered)
+
+## Update Policy
+
+When project behavior changes, update:
+- `skills.md` (this file)
+- `docs/flow.md` (button/flow impacts)
+- `docs/progress.md` (status/risk updates)
+- `docs/info.md` (contract/architecture changes)
