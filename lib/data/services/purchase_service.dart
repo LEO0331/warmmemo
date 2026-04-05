@@ -188,20 +188,24 @@ class PurchaseService {
   Future<void> updateOrder({
     required String uid,
     required Purchase purchase,
+    String? mutationId,
   }) async {
     if (purchase.id == null) return;
+    final payload = purchase.toMap();
+    if (mutationId != null && mutationId.isNotEmpty) {
+      payload['clientMutationId'] = mutationId;
+      payload['clientUpdatedAt'] = DateTime.now().toIso8601String();
+    }
     final docPath = purchase.docPath;
     if (docPath != null && docPath.isNotEmpty) {
-      await _firestore
-          .doc(docPath)
-          .set(purchase.toMap(), SetOptions(merge: true));
+      await _firestore.doc(docPath).set(payload, SetOptions(merge: true));
       return;
     }
     await _users
         .doc(uid)
         .collection('orders')
         .doc(purchase.id)
-        .set(purchase.toMap(), SetOptions(merge: true));
+        .set(payload, SetOptions(merge: true));
   }
 
   Future<BatchUpdateReport> adminBatchUpdate({

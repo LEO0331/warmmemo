@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/utils/input_guard.dart';
 import '../../core/widgets/common_widgets.dart';
 
 enum _AmountKind { oneTime, annual }
@@ -106,9 +107,6 @@ class FinalCountdownTab extends StatefulWidget {
 
 class _FinalCountdownTabState extends State<FinalCountdownTab> {
   static const _prefsKey = 'final_countdown_tab_v1';
-  static final RegExp _controlChars = RegExp(
-    r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]',
-  );
   static const int _minAge = 0;
   static const int _maxAge = 130;
   static const int _minLifeExpectancy = 1;
@@ -275,8 +273,12 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     required int min,
     required int max,
   }) {
-    final parsed = int.tryParse(controller.text.trim()) ?? fallback;
-    return parsed.clamp(min, max);
+    return InputGuard.boundedInt(
+      controller.text,
+      fallback: fallback,
+      min: min,
+      max: max,
+    );
   }
 
   int _readBoundedIntFromDynamic(
@@ -295,9 +297,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   }
 
   double _readAmount(TextEditingController controller) {
-    final parsed = double.tryParse(controller.text.replaceAll(',', '').trim());
-    if (parsed == null || parsed.isNaN || parsed.isInfinite) return 0;
-    return parsed.clamp(0, _maxAmount);
+    return InputGuard.boundedAmount(controller.text, max: _maxAmount);
   }
 
   double _sumItems(
@@ -382,9 +382,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   }
 
   double _parseAmount(String text) {
-    final value = double.tryParse(text.replaceAll(',', '').trim());
-    if (value == null || value.isNaN || value.isInfinite) return 0;
-    return value.clamp(0, _maxAmount);
+    return InputGuard.boundedAmount(text, max: _maxAmount);
   }
 
   String _formatAmount(double value) {
@@ -395,11 +393,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   }
 
   String _sanitizePlanName(String input) {
-    var value = input.replaceAll(_controlChars, '');
-    value = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ');
-    value = value.replaceAll('<', '＜').replaceAll('>', '＞').trim();
-    if (value.length > 40) value = value.substring(0, 40).trim();
-    return value;
+    return InputGuard.singleLine(input, maxLength: 40);
   }
 
   void _refreshAndSave() {
@@ -771,6 +765,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                 child: TextFormField(
                   controller: item.nameController,
                   onChanged: (_) => _refreshAndSave(),
+                  onEditingComplete: _normalizeInputsForPersistence,
                   decoration: InputDecoration(
                     labelText: '項目名稱',
                     isDense: true,
@@ -790,6 +785,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
           TextFormField(
             controller: item.amountController,
             onChanged: (_) => _refreshAndSave(),
+            onEditingComplete: _normalizeInputsForPersistence,
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               _formatter,
@@ -880,6 +876,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       controller: controller,
       keyboardType: TextInputType.number,
       onChanged: (_) => _refreshAndSave(),
+      onEditingComplete: _normalizeInputsForPersistence,
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(4),
@@ -887,6 +884,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
+        helperText: '範圍：$min - $max',
         errorText: _numberErrorText(
           controller.text,
           min: min,

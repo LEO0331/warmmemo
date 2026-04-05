@@ -341,12 +341,16 @@ class LabeledTextField extends StatelessWidget {
     required this.controller,
     this.maxLines = 1,
     this.validator,
+    this.helperText,
+    this.onEditingComplete,
   });
 
   final String label;
   final TextEditingController controller;
   final int maxLines;
   final String? Function(String?)? validator;
+  final String? helperText;
+  final VoidCallback? onEditingComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -366,9 +370,11 @@ class LabeledTextField extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           validator: validator,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
+          onEditingComplete: onEditingComplete,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
             isDense: true,
+            helperText: helperText,
           ),
         ),
       ],

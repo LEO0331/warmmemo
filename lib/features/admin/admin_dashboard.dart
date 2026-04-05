@@ -1093,9 +1093,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
     if (inProgress.isNotEmpty) {
       final latest = inProgress.last;
-      return '${latest.label}（in_progress）';
+      final overdueTag = _isMilestoneOverdue(latest) ? '｜逾期' : '';
+      return '${latest.label}（in_progress$overdueTag）';
     }
-    return '${order.deliverySchedule.first.label}（pending）';
+    final pending = order.deliverySchedule.first;
+    final overdueTag = _isMilestoneOverdue(pending) ? '｜逾期' : '';
+    return '${pending.label}（pending$overdueTag）';
+  }
+
+  bool _isMilestoneOverdue(DeliveryMilestone milestone) {
+    if (milestone.status == 'done') return false;
+    final target = milestone.targetDate;
+    if (target == null) return false;
+    final today = DateTime.now();
+    final due = DateTime(target.year, target.month, target.day, 23, 59, 59);
+    return today.isAfter(due);
   }
 
   Future<void> _resendCheckoutLink(Purchase order) async {

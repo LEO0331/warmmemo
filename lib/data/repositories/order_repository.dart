@@ -67,7 +67,11 @@ class OrderRepository {
   }) async {
     final orderId = next.id;
     if (orderId == null || orderId.isEmpty) {
-      await _service.updateOrder(uid: uid, purchase: next);
+      await _service.updateOrder(
+        uid: uid,
+        purchase: next,
+        mutationId: _mutationId(uid, next.id),
+      );
       return;
     }
 
@@ -86,18 +90,16 @@ class OrderRepository {
       _cache.set(key, replaced);
     }
 
+    var success = false;
     try {
-      await _service.updateOrder(uid: uid, purchase: next);
-      optimisticMap.remove(orderId);
-      if (optimisticMap.isEmpty) {
-        _optimisticByUid.remove(uid);
-      }
+      await _service.updateOrder(
+        uid: uid,
+        purchase: next,
+        mutationId: _mutationId(uid, orderId),
+      );
+      success = true;
       _cache.invalidate(key);
     } catch (_) {
-      optimisticMap.remove(orderId);
-      if (optimisticMap.isEmpty) {
-        _optimisticByUid.remove(uid);
-      }
       if (cached != null) {
         final rollback = cached
             .map((item) => item.id == orderId ? previous : item)
@@ -105,6 +107,14 @@ class OrderRepository {
         _cache.set(key, rollback);
       }
       rethrow;
+    } finally {
+      optimisticMap.remove(orderId);
+      if (optimisticMap.isEmpty) {
+        _optimisticByUid.remove(uid);
+      }
+      if (success) {
+        _cache.invalidate(key);
+      }
     }
   }
 
@@ -119,4 +129,9 @@ class OrderRepository {
   }
 
   String _cacheKey(String uid) => 'orders:$uid';
+
+  String _mutationId(String uid, String? orderId) {
+    final suffix = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+    return '$uid:${orderId ?? 'na'}:$suffix';
+  }
 }

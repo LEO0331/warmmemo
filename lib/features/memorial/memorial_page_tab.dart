@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/export/pdf_exporter.dart';
 import '../../core/utils/download_bytes_stub.dart'
     if (dart.library.html) '../../core/utils/download_bytes_web.dart';
+import '../../core/utils/app_error_message.dart';
+import '../../core/utils/input_guard.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
@@ -31,9 +32,6 @@ class MemorialPageTab extends StatefulWidget {
 }
 
 class _MemorialPageTabState extends State<MemorialPageTab> {
-  static final RegExp _controlChars = RegExp(
-    r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]',
-  );
   final _formKey = GlobalKey<FormState>();
   final _previewKey = GlobalKey();
   final _qrKey = GlobalKey();
@@ -121,6 +119,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       LabeledTextField(
                         label: '姓名',
                         controller: _nameController,
+                        helperText: '例如：王大明',
+                        onEditingComplete: _normalizeMemorialInputs,
                         validator: (value) {
                           final sanitized = _sanitizeSingleLine(
                             value ?? '',
@@ -133,29 +133,34 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                       LabeledTextField(
                         label: '稱呼 / 暱稱',
                         controller: _nicknameController,
+                        onEditingComplete: _normalizeMemorialInputs,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
                         label: '座右銘',
                         controller: _mottoController,
+                        onEditingComplete: _normalizeMemorialInputs,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
                         label: '簡易自傳',
                         controller: _bioController,
                         maxLines: 5,
+                        onEditingComplete: _normalizeMemorialInputs,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
                         label: '人生重點',
                         controller: _highlightsController,
                         maxLines: 4,
+                        onEditingComplete: _normalizeMemorialInputs,
                       ),
                       const SizedBox(height: 8),
                       LabeledTextField(
                         label: '給家人的話',
                         controller: _willNoteController,
                         maxLines: 4,
+                        onEditingComplete: _normalizeMemorialInputs,
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -317,10 +322,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 '最近里程碑：${_latestMilestoneSummary(selectedOrder)}',
                 style: theme.textTheme.bodySmall,
               ),
+              const SizedBox(height: 4),
+              SelectableText(
+                '建議下一步：${_nextActionHint(selectedOrder)}',
+                style: theme.textTheme.bodySmall,
+              ),
               const SizedBox(height: 10),
               TextField(
                 controller: _proposalVendorController,
                 inputFormatters: [LengthLimitingTextInputFormatter(60)],
+                onEditingComplete: _normalizeMemorialInputs,
                 decoration: const InputDecoration(labelText: '偏好的供應商（若有）'),
               ),
               const SizedBox(height: 8),
@@ -351,16 +362,19 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                 controller: _proposalScheduleController,
                 inputFormatters: [LengthLimitingTextInputFormatter(80)],
                 onChanged: (_) => setState(() {}),
+                onEditingComplete: _normalizeMemorialInputs,
                 decoration: InputDecoration(
                   labelText: '希望完成時間',
                   hintText: '例如：2026-12 或 2026-12-31',
                   errorText: _proposalScheduleErrorText,
+                  helperText: '也可填：儘快安排、下月前完成',
                 ),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _proposalNoteController,
                 inputFormatters: [LengthLimitingTextInputFormatter(240)],
+                onEditingComplete: _normalizeMemorialInputs,
                 decoration: const InputDecoration(
                   labelText: '補充說明（預算/安裝條件/限制）',
                 ),
@@ -453,6 +467,22 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       return '${latest.label}（in_progress）';
     }
     return '${order.deliverySchedule.first.label}（pending）';
+  }
+
+  String _nextActionHint(Purchase order) {
+    final step = _conversionStep(order);
+    switch (step) {
+      case '待提案':
+        return '填寫偏好後送出提案，讓團隊可開始評估。';
+      case '待指派供應商':
+        return '提案已送出，等待管理員完成供應商媒合。';
+      case '待確認材質':
+        return '供應商已安排，等待最終材質確認與報價。';
+      case '待建立排程':
+        return '材質已確認，接下來安排製作與交付時程。';
+      default:
+        return '案件已進入製作，請持續追蹤里程碑進度。';
+    }
   }
 
   Future<void> _submitOrderProposal({
@@ -1262,58 +1292,15 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   String _sanitizeSingleLine(String input, {required int maxLength}) {
-    var value = input.replaceAll(_controlChars, '');
-    value = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ');
-    value = value.replaceAll('<', '＜').replaceAll('>', '＞');
-    value = value.trim();
-    if (value.length > maxLength) {
-      value = value.substring(0, maxLength).trim();
-    }
-    return value;
+    return InputGuard.singleLine(input, maxLength: maxLength);
   }
 
   String _sanitizeMultiline(String input, {required int maxLength}) {
-    var value = input.replaceAll(_controlChars, '');
-    value = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    value = value.replaceAll(RegExp(r'\n{3,}'), '\n\n');
-    value = value.replaceAll('<', '＜').replaceAll('>', '＞');
-    value = value.trim();
-    if (value.length > maxLength) {
-      value = value.substring(0, maxLength).trim();
-    }
-    return value;
+    return InputGuard.multiline(input, maxLength: maxLength);
   }
 
   String _sanitizeDateOrOpenText(String input, {required int maxLength}) {
-    final cleaned = _sanitizeSingleLine(input, maxLength: maxLength);
-    if (cleaned.isEmpty) return '';
-    final normalized = cleaned.replaceAll('/', '-');
-    final dateMatch = RegExp(
-      r'^(\d{4})-(\d{1,2})-(\d{1,2})$',
-    ).firstMatch(normalized);
-    if (dateMatch != null) {
-      final year = int.tryParse(dateMatch.group(1) ?? '');
-      final month = int.tryParse(dateMatch.group(2) ?? '');
-      final day = int.tryParse(dateMatch.group(3) ?? '');
-      if (year != null &&
-          month != null &&
-          day != null &&
-          month >= 1 &&
-          month <= 12 &&
-          day >= 1 &&
-          day <= 31) {
-        return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
-      }
-    }
-    final monthMatch = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(normalized);
-    if (monthMatch != null) {
-      final year = int.tryParse(monthMatch.group(1) ?? '');
-      final month = int.tryParse(monthMatch.group(2) ?? '');
-      if (year != null && month != null && month >= 1 && month <= 12) {
-        return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
-      }
-    }
-    return cleaned;
+    return InputGuard.dateOrText(input, maxLength: maxLength);
   }
 
   String? get _proposalScheduleErrorText {
@@ -1437,13 +1424,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   String _friendlyErrorMessage(Object error, {required String fallback}) {
-    if (error is FirebaseException) {
-      if (error.code == 'permission-denied') {
-        return '權限不足，請部署新版 Firestore 規則後再重試。';
-      }
-      return error.message ?? fallback;
-    }
-    return fallback;
+    return appErrorMessage(error, fallback: fallback);
   }
 
   void _showMessage(String message) {

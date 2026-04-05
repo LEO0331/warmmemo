@@ -1,9 +1,11 @@
+import 'app_policies.dart';
+
 class RequestPolicy {
   const RequestPolicy({
-    this.ttl = const Duration(seconds: 30),
-    this.debounce = const Duration(milliseconds: 350),
-    this.retryCount = 2,
-    this.backoffBase = const Duration(milliseconds: 250),
+    this.ttl = AppPolicies.cacheTtl,
+    this.debounce = AppPolicies.debounce,
+    this.retryCount = AppPolicies.retryCount,
+    this.backoffBase = AppPolicies.backoffBase,
   });
 
   final Duration ttl;
