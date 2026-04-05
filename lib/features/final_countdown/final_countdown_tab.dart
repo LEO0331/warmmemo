@@ -972,7 +972,12 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     required String errorCode,
     String? message,
   }) {
-    final uid = AuthService.instance.currentUser?.uid;
+    String? uid;
+    try {
+      uid = AuthService.instance.currentUser?.uid;
+    } catch (_) {
+      uid = null;
+    }
     if (uid == null) return;
     final key = 'countdown:$field:$errorCode';
     final now = DateTime.now();

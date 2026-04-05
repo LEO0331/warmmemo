@@ -14,6 +14,7 @@ import '../../data/repositories/vendor_repository.dart';
 import '../../data/services/purchase_service.dart';
 import '../../data/services/user_role_service.dart';
 import 'controllers/admin_vendor_controller.dart';
+import 'models/weekly_funnel.dart';
 import 'order_detail_page.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -62,7 +63,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _metricsMemoKey;
   _MetricsSnapshot? _metricsMemo;
   String? _weeklyFunnelMemoKey;
-  _WeeklyFunnelSnapshot? _weeklyFunnelMemo;
+  WeeklyFunnelSnapshot? _weeklyFunnelMemo;
   String? _overviewMemoKey;
   _OverviewSnapshot? _overviewMemo;
 
@@ -865,7 +866,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _weeklyRow(_WeeklyFunnelBucket bucket, int maxCount) {
+  Widget _weeklyRow(WeeklyFunnelBucket bucket, int maxCount) {
     final baseline = maxCount <= 0 ? 1.0 : maxCount.toDouble();
     return Row(
       children: [
@@ -1395,55 +1396,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return snapshot;
   }
 
-  _WeeklyFunnelSnapshot _getWeeklyFunnelSnapshot() {
+  WeeklyFunnelSnapshot _getWeeklyFunnelSnapshot() {
     final key = '$_ordersVersion';
     if (_weeklyFunnelMemoKey == key && _weeklyFunnelMemo != null) {
       return _weeklyFunnelMemo!;
     }
-
-    final now = DateTime.now();
-    final thisWeekStart = _weekStart(now);
-    final weekStarts = List<DateTime>.generate(
-      8,
-      (index) => thisWeekStart.subtract(Duration(days: 7 * (7 - index))),
-    );
-    final byWeek = <String, _WeeklyFunnelBucket>{
-      for (final week in weekStarts)
-        _weekKey(week): _WeeklyFunnelBucket(
-          label: _weekLabel(week),
-          proposal: 0,
-          approved: 0,
-          assigned: 0,
-          delivered: 0,
-        ),
-    };
-
-    for (final order in _allOrders) {
-      final proposalAt = _proposalAt(order);
-      final approvedAt = _approvedAt(order);
-      final assignedAt = _assignedAt(order);
-      final deliveredAt = _deliveredAt(order);
-      _incrementWeek(byWeek, proposalAt, (bucket) => bucket.proposal += 1);
-      _incrementWeek(byWeek, approvedAt, (bucket) => bucket.approved += 1);
-      _incrementWeek(byWeek, assignedAt, (bucket) => bucket.assigned += 1);
-      _incrementWeek(byWeek, deliveredAt, (bucket) => bucket.delivered += 1);
-    }
-
-    final buckets = weekStarts.map((week) => byWeek[_weekKey(week)]!).toList();
-    final maxCount = buckets.fold<int>(1, (prev, bucket) {
-      final localMax = [
-        bucket.proposal,
-        bucket.approved,
-        bucket.assigned,
-        bucket.delivered,
-      ].reduce((a, b) => a > b ? a : b);
-      return localMax > prev ? localMax : prev;
-    });
-
-    final snapshot = _WeeklyFunnelSnapshot(
-      buckets: buckets,
-      maxCount: maxCount,
-    );
+    final snapshot = buildWeeklyFunnelSnapshot(_allOrders, now: DateTime.now());
     _weeklyFunnelMemoKey = key;
     _weeklyFunnelMemo = snapshot;
     return snapshot;
@@ -1463,71 +1421,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String _dateKey(DateTime? value) {
     if (value == null) return '-';
     return '${value.year}-${value.month}-${value.day}';
-  }
-
-  DateTime _weekStart(DateTime date) {
-    final normalized = DateTime(date.year, date.month, date.day);
-    final weekday = normalized.weekday; // Mon=1..Sun=7
-    return normalized.subtract(Duration(days: weekday - 1));
-  }
-
-  String _weekKey(DateTime weekStart) {
-    return '${weekStart.year}-${weekStart.month}-${weekStart.day}';
-  }
-
-  String _weekLabel(DateTime weekStart) {
-    final weekEnd = weekStart.add(const Duration(days: 6));
-    final start = '${weekStart.month}/${weekStart.day}';
-    final end = '${weekEnd.month}/${weekEnd.day}';
-    return '$start-$end';
-  }
-
-  void _incrementWeek(
-    Map<String, _WeeklyFunnelBucket> byWeek,
-    DateTime? value,
-    void Function(_WeeklyFunnelBucket bucket) increment,
-  ) {
-    if (value == null) return;
-    final week = _weekStart(value);
-    final bucket = byWeek[_weekKey(week)];
-    if (bucket == null) return;
-    increment(bucket);
-  }
-
-  DateTime? _proposalAt(Purchase order) {
-    if (!_hasProposal(order)) return null;
-    return order.proposal?.submittedAt ?? order.createdAt;
-  }
-
-  DateTime? _approvedAt(Purchase order) {
-    if (!_isApproved(order)) return null;
-    return order.verifiedAt ??
-        _latestVerificationAt(order) ??
-        _proposalAt(order) ??
-        order.createdAt;
-  }
-
-  DateTime? _assignedAt(Purchase order) {
-    if (!_hasVendorAssignment(order)) return null;
-    return order.verifiedAt ??
-        _latestVerificationAt(order) ??
-        _approvedAt(order);
-  }
-
-  DateTime? _deliveredAt(Purchase order) {
-    if (!_isDeliveryCompleted(order)) return null;
-    final delivered = order.deliverySchedule
-        .where((item) => item.code == 'delivered' && item.status == 'done')
-        .toList();
-    if (delivered.isNotEmpty) {
-      return delivered.last.updatedAt ?? delivered.last.targetDate;
-    }
-    return order.verifiedAt ?? _assignedAt(order);
-  }
-
-  DateTime? _latestVerificationAt(Purchase order) {
-    if (order.verificationLogs.isEmpty) return null;
-    return order.verificationLogs.last.actedAt;
   }
 
   List<Purchase> _mergeOrdersByCreatedAtDesc(
@@ -1701,29 +1594,6 @@ class _OverviewSnapshot {
   final List<String> verifiers;
   final int paidCount;
   final int totalCount;
-}
-
-class _WeeklyFunnelSnapshot {
-  const _WeeklyFunnelSnapshot({required this.buckets, required this.maxCount});
-
-  final List<_WeeklyFunnelBucket> buckets;
-  final int maxCount;
-}
-
-class _WeeklyFunnelBucket {
-  _WeeklyFunnelBucket({
-    required this.label,
-    required this.proposal,
-    required this.approved,
-    required this.assigned,
-    required this.delivered,
-  });
-
-  final String label;
-  int proposal;
-  int approved;
-  int assigned;
-  int delivered;
 }
 
 class _LegendChip extends StatelessWidget {

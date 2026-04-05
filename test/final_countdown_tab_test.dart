@@ -55,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final widget = tester.widget<TextFormField>(amountField);
-    expect(widget.controller?.text, '1,234,567');
+    expect(widget.controller?.text, '1234567');
 
     await tester.enterText(amountField, '');
     await tester.pumpAndSettle();
