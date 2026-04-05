@@ -61,6 +61,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   List<Purchase> _filterMemoResult = const <Purchase>[];
   String? _metricsMemoKey;
   _MetricsSnapshot? _metricsMemo;
+  String? _weeklyFunnelMemoKey;
+  _WeeklyFunnelSnapshot? _weeklyFunnelMemo;
   String? _overviewMemoKey;
   _OverviewSnapshot? _overviewMemo;
 
@@ -243,6 +245,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
             const SizedBox(height: 16),
             _buildMetricsPanel(),
+            const SizedBox(height: 16),
+            _buildWeeklyFunnelPanel(),
             const SizedBox(height: 16),
             _buildVendorManagement(),
             const SizedBox(height: 16),
@@ -826,6 +830,84 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildWeeklyFunnelPanel() {
+    final weekly = _getWeeklyFunnelSnapshot();
+    return SectionCard(
+      title: 'Funnel 每週趨勢（近 8 週）',
+      icon: Icons.show_chart_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              _LegendChip(label: '提案', color: Color(0xFF7C5C4B)),
+              _LegendChip(label: '審核通過', color: Color(0xFF4E8A69)),
+              _LegendChip(label: '指派完成', color: Color(0xFF4C6FAF)),
+              _LegendChip(label: '交付完成', color: Color(0xFF9C6B2F)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (weekly.buckets.isEmpty)
+            const Text('目前尚無足夠資料生成每週趨勢。')
+          else
+            Column(
+              children: weekly.buckets.map((bucket) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _weeklyRow(bucket, weekly.maxCount),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weeklyRow(_WeeklyFunnelBucket bucket, int maxCount) {
+    final baseline = maxCount <= 0 ? 1.0 : maxCount.toDouble();
+    return Row(
+      children: [
+        SizedBox(width: 72, child: Text(bucket.label)),
+        Expanded(
+          child: Row(
+            children: [
+              _barSegment(bucket.proposal, baseline, const Color(0xFF7C5C4B)),
+              const SizedBox(width: 6),
+              _barSegment(bucket.approved, baseline, const Color(0xFF4E8A69)),
+              const SizedBox(width: 6),
+              _barSegment(bucket.assigned, baseline, const Color(0xFF4C6FAF)),
+              const SizedBox(width: 6),
+              _barSegment(bucket.delivered, baseline, const Color(0xFF9C6B2F)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _barSegment(int value, double baseline, Color color) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: value / baseline,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFF1E4DA),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text('$value', style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
   Future<void> _createVendor() async {
     final name = _vendorNameController.text.trim();
     if (name.isEmpty) {
@@ -1313,18 +1395,139 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return snapshot;
   }
 
+  _WeeklyFunnelSnapshot _getWeeklyFunnelSnapshot() {
+    final key = '$_ordersVersion';
+    if (_weeklyFunnelMemoKey == key && _weeklyFunnelMemo != null) {
+      return _weeklyFunnelMemo!;
+    }
+
+    final now = DateTime.now();
+    final thisWeekStart = _weekStart(now);
+    final weekStarts = List<DateTime>.generate(
+      8,
+      (index) => thisWeekStart.subtract(Duration(days: 7 * (7 - index))),
+    );
+    final byWeek = <String, _WeeklyFunnelBucket>{
+      for (final week in weekStarts)
+        _weekKey(week): _WeeklyFunnelBucket(
+          label: _weekLabel(week),
+          proposal: 0,
+          approved: 0,
+          assigned: 0,
+          delivered: 0,
+        ),
+    };
+
+    for (final order in _allOrders) {
+      final proposalAt = _proposalAt(order);
+      final approvedAt = _approvedAt(order);
+      final assignedAt = _assignedAt(order);
+      final deliveredAt = _deliveredAt(order);
+      _incrementWeek(byWeek, proposalAt, (bucket) => bucket.proposal += 1);
+      _incrementWeek(byWeek, approvedAt, (bucket) => bucket.approved += 1);
+      _incrementWeek(byWeek, assignedAt, (bucket) => bucket.assigned += 1);
+      _incrementWeek(byWeek, deliveredAt, (bucket) => bucket.delivered += 1);
+    }
+
+    final buckets = weekStarts.map((week) => byWeek[_weekKey(week)]!).toList();
+    final maxCount = buckets.fold<int>(1, (prev, bucket) {
+      final localMax = [
+        bucket.proposal,
+        bucket.approved,
+        bucket.assigned,
+        bucket.delivered,
+      ].reduce((a, b) => a > b ? a : b);
+      return localMax > prev ? localMax : prev;
+    });
+
+    final snapshot = _WeeklyFunnelSnapshot(
+      buckets: buckets,
+      maxCount: maxCount,
+    );
+    _weeklyFunnelMemoKey = key;
+    _weeklyFunnelMemo = snapshot;
+    return snapshot;
+  }
+
   void _markOrdersChanged() {
     _ordersVersion += 1;
     _filterMemoKey = null;
     _metricsMemoKey = null;
+    _weeklyFunnelMemoKey = null;
     _overviewMemoKey = null;
     _metricsMemo = null;
+    _weeklyFunnelMemo = null;
     _overviewMemo = null;
   }
 
   String _dateKey(DateTime? value) {
     if (value == null) return '-';
     return '${value.year}-${value.month}-${value.day}';
+  }
+
+  DateTime _weekStart(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final weekday = normalized.weekday; // Mon=1..Sun=7
+    return normalized.subtract(Duration(days: weekday - 1));
+  }
+
+  String _weekKey(DateTime weekStart) {
+    return '${weekStart.year}-${weekStart.month}-${weekStart.day}';
+  }
+
+  String _weekLabel(DateTime weekStart) {
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    final start = '${weekStart.month}/${weekStart.day}';
+    final end = '${weekEnd.month}/${weekEnd.day}';
+    return '$start-$end';
+  }
+
+  void _incrementWeek(
+    Map<String, _WeeklyFunnelBucket> byWeek,
+    DateTime? value,
+    void Function(_WeeklyFunnelBucket bucket) increment,
+  ) {
+    if (value == null) return;
+    final week = _weekStart(value);
+    final bucket = byWeek[_weekKey(week)];
+    if (bucket == null) return;
+    increment(bucket);
+  }
+
+  DateTime? _proposalAt(Purchase order) {
+    if (!_hasProposal(order)) return null;
+    return order.proposal?.submittedAt ?? order.createdAt;
+  }
+
+  DateTime? _approvedAt(Purchase order) {
+    if (!_isApproved(order)) return null;
+    return order.verifiedAt ??
+        _latestVerificationAt(order) ??
+        _proposalAt(order) ??
+        order.createdAt;
+  }
+
+  DateTime? _assignedAt(Purchase order) {
+    if (!_hasVendorAssignment(order)) return null;
+    return order.verifiedAt ??
+        _latestVerificationAt(order) ??
+        _approvedAt(order);
+  }
+
+  DateTime? _deliveredAt(Purchase order) {
+    if (!_isDeliveryCompleted(order)) return null;
+    final delivered = order.deliverySchedule
+        .where((item) => item.code == 'delivered' && item.status == 'done')
+        .toList();
+    if (delivered.isNotEmpty) {
+      return delivered.last.updatedAt ?? delivered.last.targetDate;
+    }
+    return order.verifiedAt ?? _assignedAt(order);
+  }
+
+  DateTime? _latestVerificationAt(Purchase order) {
+    if (order.verificationLogs.isEmpty) return null;
+    return order.verificationLogs.last.actedAt;
   }
 
   List<Purchase> _mergeOrdersByCreatedAtDesc(
@@ -1498,6 +1701,59 @@ class _OverviewSnapshot {
   final List<String> verifiers;
   final int paidCount;
   final int totalCount;
+}
+
+class _WeeklyFunnelSnapshot {
+  const _WeeklyFunnelSnapshot({required this.buckets, required this.maxCount});
+
+  final List<_WeeklyFunnelBucket> buckets;
+  final int maxCount;
+}
+
+class _WeeklyFunnelBucket {
+  _WeeklyFunnelBucket({
+    required this.label,
+    required this.proposal,
+    required this.approved,
+    required this.assigned,
+    required this.delivered,
+  });
+
+  final String label;
+  int proposal;
+  int approved;
+  int assigned;
+  int delivered;
+}
+
+class _LegendChip extends StatelessWidget {
+  const _LegendChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
+    );
+  }
 }
 
 class _MetricsSnapshot {

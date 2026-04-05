@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/utils/input_guard.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../data/firebase/auth_service.dart';
+import '../../data/services/input_analytics_service.dart';
 
 enum _AmountKind { oneTime, annual }
 
@@ -122,6 +124,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   final List<_PlanItem> _costItems = <_PlanItem>[];
   final List<_PlanItem> _assetItems = <_PlanItem>[];
   final _formatter = _CurrencyInputFormatter();
+  final Map<String, DateTime> _validationTrackTs = <String, DateTime>{};
   Timer? _saveDebounce;
 
   @override
@@ -473,6 +476,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                   children: [
                     _numberField(
                       key: const Key('current_age_field'),
+                      fieldKey: 'current_age',
                       label: '目前年齡',
                       controller: _currentAgeController,
                       min: _minAge,
@@ -481,6 +485,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                     const SizedBox(height: 10),
                     _numberField(
                       key: const Key('life_expectancy_field'),
+                      fieldKey: 'life_expectancy',
                       label: '預估壽命（歲）',
                       controller: _lifeExpectancyController,
                       min: _minLifeExpectancy,
@@ -489,6 +494,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                     const SizedBox(height: 10),
                     _numberField(
                       key: const Key('retire_year_field'),
+                      fieldKey: 'retire_year',
                       label: '退休年份',
                       controller: _retireYearController,
                       min: _minRetireYear,
@@ -764,7 +770,10 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
               Expanded(
                 child: TextFormField(
                   controller: item.nameController,
-                  onChanged: (_) => _refreshAndSave(),
+                  onChanged: (value) => _onPlanNameChanged(
+                    value,
+                    isCost: _costItems.contains(item),
+                  ),
                   onEditingComplete: _normalizeInputsForPersistence,
                   decoration: InputDecoration(
                     labelText: '項目名稱',
@@ -784,7 +793,8 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
           const SizedBox(height: 8),
           TextFormField(
             controller: item.amountController,
-            onChanged: (_) => _refreshAndSave(),
+            onChanged: (value) =>
+                _onAmountChanged(value, isCost: _costItems.contains(item)),
             onEditingComplete: _normalizeInputsForPersistence,
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
@@ -866,6 +876,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
 
   Widget _numberField({
     Key? key,
+    required String fieldKey,
     required String label,
     required TextEditingController controller,
     required int min,
@@ -875,7 +886,8 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       key: key,
       controller: controller,
       keyboardType: TextInputType.number,
-      onChanged: (_) => _refreshAndSave(),
+      onChanged: (value) =>
+          _onNumberChanged(fieldKey, label, value, min: min, max: max),
       onEditingComplete: _normalizeInputsForPersistence,
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.digitsOnly,
@@ -914,6 +926,72 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       return '請輸入項目名稱';
     }
     return null;
+  }
+
+  void _onNumberChanged(
+    String fieldKey,
+    String label,
+    String value, {
+    required int min,
+    required int max,
+  }) {
+    _refreshAndSave();
+    final error = _numberErrorText(value, min: min, max: max, label: label);
+    if (error == null) return;
+    _trackValidationError(
+      field: fieldKey,
+      errorCode: 'number_invalid',
+      message: error,
+    );
+  }
+
+  void _onPlanNameChanged(String value, {required bool isCost}) {
+    _refreshAndSave();
+    final error = _planNameError(value);
+    if (error == null) return;
+    _trackValidationError(
+      field: isCost ? 'cost_item_name' : 'asset_item_name',
+      errorCode: 'name_required',
+      message: error,
+    );
+  }
+
+  void _onAmountChanged(String value, {required bool isCost}) {
+    _refreshAndSave();
+    final error = _amountError(value);
+    if (error == null) return;
+    _trackValidationError(
+      field: isCost ? 'cost_item_amount' : 'asset_item_amount',
+      errorCode: 'amount_invalid',
+      message: error,
+    );
+  }
+
+  void _trackValidationError({
+    required String field,
+    required String errorCode,
+    String? message,
+  }) {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    final key = 'countdown:$field:$errorCode';
+    final now = DateTime.now();
+    final last = _validationTrackTs[key];
+    if (last != null && now.difference(last).inSeconds < 30) {
+      return;
+    }
+    _validationTrackTs[key] = now;
+    InputAnalyticsService.instance
+        .trackFieldError(
+          uid: uid,
+          screen: 'final_countdown',
+          field: field,
+          errorCode: errorCode,
+          message: message,
+        )
+        .catchError((_) {
+          // best-effort analytics only; never block user flow.
+        });
   }
 
   Widget _metricChip(String label, String value, {Key? key}) {

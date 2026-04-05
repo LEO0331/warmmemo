@@ -20,6 +20,7 @@ import '../../data/models/draft_models.dart';
 import '../../data/models/purchase.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/input_analytics_service.dart';
 import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_profile_service.dart';
 import '../../features/memorial/controllers/proposal_controller.dart';
@@ -58,6 +59,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   String? _proposalMaterialCode;
   DraftStats? _stats;
   Timer? _slugCheckDebounce;
+  final Map<String, DateTime> _validationTrackTs = <String, DateTime>{};
   late final ProposalController _proposalController;
 
   @override
@@ -361,7 +363,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               TextField(
                 controller: _proposalScheduleController,
                 inputFormatters: [LengthLimitingTextInputFormatter(80)],
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => _onProposalScheduleChanged(),
                 onEditingComplete: _normalizeMemorialInputs,
                 decoration: InputDecoration(
                   labelText: '希望完成時間',
@@ -490,6 +492,11 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     required Purchase order,
   }) async {
     if (_proposalScheduleErrorText != null) {
+      _trackValidationError(
+        field: 'proposal_schedule',
+        errorCode: 'date_format_invalid',
+        message: _proposalScheduleErrorText,
+      );
       _showMessage('希望完成時間格式有誤，請改用 YYYY-MM 或 YYYY-MM-DD。');
       return;
     }
@@ -1318,6 +1325,44 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     if (value.isEmpty) return false;
     return RegExp(r'^[\d/\-\s]+$').hasMatch(value) &&
         RegExp(r'\d').hasMatch(value);
+  }
+
+  void _onProposalScheduleChanged() {
+    setState(() {});
+    final error = _proposalScheduleErrorText;
+    if (error == null) return;
+    _trackValidationError(
+      field: 'proposal_schedule',
+      errorCode: 'date_format_invalid',
+      message: error,
+    );
+  }
+
+  void _trackValidationError({
+    required String field,
+    required String errorCode,
+    String? message,
+  }) {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    final key = 'memorial:$field:$errorCode';
+    final now = DateTime.now();
+    final last = _validationTrackTs[key];
+    if (last != null && now.difference(last).inSeconds < 30) {
+      return;
+    }
+    _validationTrackTs[key] = now;
+    InputAnalyticsService.instance
+        .trackFieldError(
+          uid: uid,
+          screen: 'memorial_page',
+          field: field,
+          errorCode: errorCode,
+          message: message,
+        )
+        .catchError((_) {
+          // best-effort analytics only; never block user flow.
+        });
   }
 
   Future<bool> _consumeTokenOrShowTopUp(AdvancedServiceType type) async {
