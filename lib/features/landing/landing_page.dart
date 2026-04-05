@@ -100,8 +100,6 @@ class LandingPage extends StatelessWidget {
                   const SizedBox(height: 24),
                   _buildFaqSection(),
                   const SizedBox(height: 24),
-                  _buildCrawlableFaqText(theme),
-                  const SizedBox(height: 24),
                   _buildFooter(theme, isWide),
                   const SizedBox(height: 32),
                 ],
@@ -698,19 +696,19 @@ class LandingPage extends StatelessWidget {
         'title': '異地家屬協作',
         'desc': '兄弟姊妹不在同一城市，透過同一份草稿同步內容與通知。',
         'image':
-            'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=80',
       },
       {
         'title': '長輩可讀版本',
         'desc': '把紀念頁匯出成 PDF/圖片，長輩可直接轉傳或列印保存。',
         'image':
-            'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1476820865390-c52aeebb9891?auto=format&fit=crop&w=900&q=80',
       },
       {
         'title': '客服追蹤案件',
         'desc': '後台可查看狀態、核對紀錄與通知進度，回覆更即時。',
         'image':
-            'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1554224155-1696413565d3?auto=format&fit=crop&w=900&q=80',
       },
     ];
     return Padding(
@@ -722,7 +720,7 @@ class LandingPage extends StatelessWidget {
           crossAxisCount: isWide ? 3 : 1,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: isWide ? 0.95 : 1.15,
+          childAspectRatio: isWide ? 1.22 : 1.42,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: cases
@@ -738,11 +736,11 @@ class LandingPage extends StatelessWidget {
                     children: [
                       _networkImage(
                         url: item['image']!,
-                        height: isWide ? 130 : 120,
+                        height: isWide ? 96 : 88,
                         semanticLabel: '${item['title']} 情境圖片',
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Text(
                         item['title']!,
                         style: theme.textTheme.titleSmall?.copyWith(
@@ -905,44 +903,4 @@ class LandingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCrawlableFaqText(ThemeData theme) {
-    const items = [
-      {'q': 'WarmMemo 可以做什麼？', 'a': '可建立數位訃聞、簡易紀念頁、追蹤訂單與通知狀態，並匯出 PDF/圖片。'},
-      {'q': '點數如何使用？', 'a': '新註冊贈送 5 點，進階功能如生成、重寫、匯出會扣點，點數不足可提交加值申請。'},
-      {'q': '如何確認資料安全？', 'a': '系統採 Firebase 權限控管，僅本人與授權管理員可存取相關資料。'},
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SectionCard(
-        title: 'FAQ',
-        icon: Icons.find_in_page_outlined,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: items
-              .map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['q']!,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      SelectableText(
-                        item['a']!,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
 }
