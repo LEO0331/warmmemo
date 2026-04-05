@@ -3,6 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ] # 當推送到 main 分支時觸發
+  workflow_dispatch:
 
 jobs:
   build:
@@ -24,17 +25,25 @@ jobs:
       - name: Write payment config
         run: |
           mkdir -p env
-          cat > env/payment.dev.json << 'EOF'
+          if [ -n "${{ secrets.PAYMENT_DEV_JSON }}" ]; then
+            cat > env/payment.dev.json << 'EOF'
           ${{ secrets.PAYMENT_DEV_JSON }}
           EOF
+          else
+            echo "{}" > env/payment.dev.json
+          fi
           
       - name: Build Web
         # 重要：不使用 --web-renderer 參數（新版已移除），改由 index.html 控制
         # 確保 base-href 與你的 Repo 名稱一致
         run: flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env/payment.dev.json
 
+      - name: Add SPA fallback for GitHub Pages
+        run: cp build/web/index.html build/web/404.html
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
+          enable_jekyll: false
