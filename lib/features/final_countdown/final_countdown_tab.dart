@@ -15,6 +15,60 @@ enum _AmountKind { oneTime, annual }
 
 enum _AnnualPhase { allYears, beforeRetire, afterRetire }
 
+enum _ExperienceCategory { family, travel, learning, contribution }
+
+extension _ExperienceCategoryX on _ExperienceCategory {
+  String get label => switch (this) {
+    _ExperienceCategory.family => '家庭',
+    _ExperienceCategory.travel => '旅行',
+    _ExperienceCategory.learning => '學習',
+    _ExperienceCategory.contribution => '貢獻',
+  };
+}
+
+class _ExperienceItem {
+  _ExperienceItem({
+    required String title,
+    this.completed = false,
+    this.satisfaction = 3,
+    this.category = _ExperienceCategory.family,
+  }) : titleController = TextEditingController(text: title);
+
+  final TextEditingController titleController;
+  bool completed;
+  int satisfaction;
+  _ExperienceCategory category;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'title': titleController.text,
+      'completed': completed,
+      'satisfaction': satisfaction,
+      'category': category.name,
+    };
+  }
+
+  static _ExperienceItem fromJson(Map<String, dynamic> json) {
+    final rawScore = json['satisfaction'];
+    final score = rawScore is num
+        ? rawScore.toInt()
+        : int.tryParse((rawScore as String? ?? '').trim()) ?? 3;
+    return _ExperienceItem(
+      title: (json['title'] as String?) ?? '',
+      completed: json['completed'] == true,
+      satisfaction: score.clamp(1, 5),
+      category: _ExperienceCategory.values.firstWhere(
+        (v) => v.name == (json['category'] as String?),
+        orElse: () => _ExperienceCategory.family,
+      ),
+    );
+  }
+
+  void dispose() {
+    titleController.dispose();
+  }
+}
+
 class _PlanItem {
   _PlanItem({
     required String name,
@@ -116,13 +170,32 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   static const int _minRetireYear = 1900;
   static const int _maxRetireYear = 2300;
   static const double _maxAmount = 999999999999;
+  static const List<String> _healthDimensions = <String>[
+    'physical',
+    'sleep',
+    'stress',
+    'chronic',
+    'social',
+  ];
+  static const Map<String, String> _healthLabels = <String, String>{
+    'physical': '體力',
+    'sleep': '睡眠',
+    'stress': '壓力管理',
+    'chronic': '慢性病管理',
+    'social': '社交活力',
+  };
 
   late final TextEditingController _currentAgeController;
   late final TextEditingController _lifeExpectancyController;
   late final TextEditingController _retireYearController;
+  late final TextEditingController _targetLifeExpectancyController;
+  late final TextEditingController _targetEndBalanceController;
 
   final List<_PlanItem> _costItems = <_PlanItem>[];
   final List<_PlanItem> _assetItems = <_PlanItem>[];
+  final List<_ExperienceItem> _experienceItems = <_ExperienceItem>[];
+  final Map<String, int> _healthCurrent = <String, int>{};
+  final Map<String, int> _healthTarget = <String, int>{};
   final _formatter = _CurrencyInputFormatter();
   final Map<String, DateTime> _validationTrackTs = <String, DateTime>{};
   Timer? _saveDebounce;
@@ -134,6 +207,8 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     _currentAgeController = TextEditingController(text: '35');
     _lifeExpectancyController = TextEditingController(text: '85');
     _retireYearController = TextEditingController(text: '${nowYear + 25}');
+    _targetLifeExpectancyController = TextEditingController(text: '85');
+    _targetEndBalanceController = TextEditingController(text: '0');
     _seedDefaults();
     _loadDraft();
   }
@@ -168,6 +243,21 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
           phase: _AnnualPhase.beforeRetire,
         ),
       ]);
+    _experienceItems
+      ..clear()
+      ..addAll(<_ExperienceItem>[
+        _ExperienceItem(title: '完成一次深度家庭旅行', completed: false, satisfaction: 3),
+        _ExperienceItem(
+          title: '與摯愛完成一場長談',
+          completed: true,
+          satisfaction: 4,
+          category: _ExperienceCategory.family,
+        ),
+      ]);
+    for (final key in _healthDimensions) {
+      _healthCurrent[key] = 3;
+      _healthTarget[key] = 4;
+    }
   }
 
   Future<void> _loadDraft() async {
@@ -185,6 +275,19 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
               .whereType<Map<String, dynamic>>()
               .map(_PlanItem.fromJson)
               .toList();
+      final experiences =
+          ((map['experienceItems'] as List<dynamic>?) ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(_ExperienceItem.fromJson)
+              .toList();
+      final loadedHealthCurrent = _readHealthScoreMap(
+        map['healthCurrent'],
+        fallback: 3,
+      );
+      final loadedHealthTarget = _readHealthScoreMap(
+        map['healthTarget'],
+        fallback: 4,
+      );
       if (!mounted) return;
       setState(() {
         final currentAge = _readBoundedIntFromDynamic(
@@ -208,6 +311,11 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
         _currentAgeController.text = '$currentAge';
         _lifeExpectancyController.text = '$life';
         _retireYearController.text = '$retire';
+        _targetLifeExpectancyController.text =
+            '${_readBoundedIntFromDynamic(map['targetLifeExpectancy'], fallback: life, min: _minLifeExpectancy, max: _maxLifeExpectancy)}';
+        _targetEndBalanceController.text = _formatAmount(
+          _readAmountFromDynamic(map['targetEndBalance']),
+        );
         if (costs.isNotEmpty) {
           for (final item in _costItems) {
             item.dispose();
@@ -223,6 +331,20 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
           _assetItems
             ..clear()
             ..addAll(assets);
+        }
+        _healthCurrent
+          ..clear()
+          ..addAll(loadedHealthCurrent);
+        _healthTarget
+          ..clear()
+          ..addAll(loadedHealthTarget);
+        if (experiences.isNotEmpty) {
+          for (final item in _experienceItems) {
+            item.dispose();
+          }
+          _experienceItems
+            ..clear()
+            ..addAll(experiences);
         }
       });
     } catch (_) {
@@ -254,6 +376,23 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
           min: _minRetireYear,
           max: _maxRetireYear,
         ),
+        'targetLifeExpectancy': _readBoundedInt(
+          _targetLifeExpectancyController,
+          fallback: _readBoundedInt(
+            _lifeExpectancyController,
+            fallback: 85,
+            min: _minLifeExpectancy,
+            max: _maxLifeExpectancy,
+          ),
+          min: _minLifeExpectancy,
+          max: _maxLifeExpectancy,
+        ),
+        'targetEndBalance': _parseAmount(_targetEndBalanceController.text),
+        'healthCurrent': _healthCurrent,
+        'healthTarget': _healthTarget,
+        'experienceItems': _experienceItems
+            .map(_sanitizedExperienceJson)
+            .toList(),
         'costItems': _costItems.map(_sanitizedItemJson).toList(),
         'assetItems': _assetItems.map(_sanitizedItemJson).toList(),
       };
@@ -299,8 +438,31 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     return fallback.clamp(min, max);
   }
 
+  Map<String, int> _readHealthScoreMap(dynamic raw, {required int fallback}) {
+    final result = <String, int>{};
+    final source = raw is Map
+        ? raw.cast<String, dynamic>()
+        : <String, dynamic>{};
+    for (final key in _healthDimensions) {
+      final value = source[key];
+      final score = value is num
+          ? value.toInt()
+          : int.tryParse((value as String? ?? '').trim()) ?? fallback;
+      result[key] = score.clamp(1, 5);
+    }
+    return result;
+  }
+
   double _readAmount(TextEditingController controller) {
     return InputGuard.boundedAmount(controller.text, max: _maxAmount);
+  }
+
+  double _readAmountFromDynamic(dynamic raw) {
+    if (raw is num) return raw.toDouble().clamp(0, _maxAmount);
+    if (raw is String) {
+      return InputGuard.boundedAmount(raw, max: _maxAmount);
+    }
+    return 0;
   }
 
   double _sumItems(
@@ -360,11 +522,25 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
         '${_readBoundedInt(_lifeExpectancyController, fallback: 85, min: _minLifeExpectancy, max: _maxLifeExpectancy)}';
     _retireYearController.text =
         '${_readBoundedInt(_retireYearController, fallback: DateTime.now().year + 25, min: _minRetireYear, max: _maxRetireYear)}';
+    _targetLifeExpectancyController.text =
+        '${_readBoundedInt(
+          _targetLifeExpectancyController,
+          fallback: _readBoundedInt(_lifeExpectancyController, fallback: 85, min: _minLifeExpectancy, max: _maxLifeExpectancy),
+          min: _minLifeExpectancy,
+          max: _maxLifeExpectancy,
+        )}';
+    _targetEndBalanceController.text = _formatAmount(
+      _parseAmount(_targetEndBalanceController.text),
+    );
     for (final item in _costItems) {
       _normalizePlanItem(item);
     }
     for (final item in _assetItems) {
       _normalizePlanItem(item);
+    }
+    for (final item in _experienceItems) {
+      item.titleController.text = _sanitizePlanName(item.titleController.text);
+      item.satisfaction = item.satisfaction.clamp(1, 5);
     }
   }
 
@@ -381,6 +557,15 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       'amount': _parseAmount(item.amountController.text),
       'kind': item.kind.name,
       'phase': item.phase.name,
+    };
+  }
+
+  Map<String, dynamic> _sanitizedExperienceJson(_ExperienceItem item) {
+    return <String, dynamic>{
+      'title': _sanitizePlanName(item.titleController.text),
+      'completed': item.completed,
+      'satisfaction': item.satisfaction.clamp(1, 5),
+      'category': item.category.name,
     };
   }
 
@@ -445,6 +630,14 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       afterRetire: afterRetire,
     );
     final net = totalAsset - totalCost;
+    final targetEndBalance = _parseAmount(_targetEndBalanceController.text);
+    final targetLife = _readInt(
+      _targetLifeExpectancyController,
+      fallback: life,
+      min: _minLifeExpectancy,
+      max: _maxLifeExpectancy,
+    );
+    final targetRemainingYears = math.max(0, targetLife - currentAge);
     final annualTarget = remainingYears > 0 ? totalAsset / remainingYears : 0.0;
     final monthlyTarget = annualTarget / 12;
     final balanceBase = math.max(
@@ -452,6 +645,62 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
       math.max(totalAsset.abs(), totalCost.abs()),
     );
     final score = (1 - (net.abs() / balanceBase)).clamp(0.0, 1.0);
+    final healthCurrentScore =
+        (_healthCurrent.values.fold<int>(0, (a, b) => a + b) /
+            (5 * _healthDimensions.length)) *
+        100;
+    final healthTargetScore =
+        (_healthTarget.values.fold<int>(0, (a, b) => a + b) /
+            (5 * _healthDimensions.length)) *
+        100;
+    final healthGap = healthTargetScore - healthCurrentScore;
+    final wealthGap = targetEndBalance - net;
+    final lifetimeGap = targetRemainingYears - remainingYears;
+
+    final completionRate = _experienceItems.isEmpty
+        ? 0.0
+        : _experienceItems.where((item) => item.completed).length /
+              _experienceItems.length;
+    final satisfactionRate = _experienceItems.isEmpty
+        ? 0.0
+        : _experienceItems.map((e) => e.satisfaction).reduce((a, b) => a + b) /
+              (5 * _experienceItems.length);
+    final memoryProgress = (completionRate * 0.7 + satisfactionRate * 0.3)
+        .clamp(0.0, 1.0);
+    final categoryCounts = <_ExperienceCategory, int>{
+      for (final category in _ExperienceCategory.values) category: 0,
+    };
+    for (final item in _experienceItems) {
+      categoryCounts[item.category] = (categoryCounts[item.category] ?? 0) + 1;
+    }
+
+    final healthAlignment =
+        (1 - (healthGap.abs() / math.max(healthTargetScore.abs(), 1))).clamp(
+          0.0,
+          1.0,
+        );
+    final wealthAlignment =
+        (1 -
+                (wealthGap.abs() /
+                    math.max(1, math.max(targetEndBalance.abs(), net.abs()))))
+            .clamp(0.0, 1.0);
+    final lifetimeAlignment =
+        (1 -
+                (lifetimeGap.abs() /
+                    math.max(
+                      1,
+                      math.max(
+                        targetRemainingYears.abs(),
+                        remainingYears.abs(),
+                      ),
+                    )))
+            .clamp(0.0, 1.0);
+    final overallReadiness =
+        (healthAlignment * 0.3 +
+                wealthAlignment * 0.3 +
+                lifetimeAlignment * 0.2 +
+                memoryProgress * 0.2)
+            .clamp(0.0, 1.0);
 
     return WarmBackdrop(
       child: SafeArea(
@@ -515,6 +764,168 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                SectionCard(
+                  title: '目標參數',
+                  icon: Icons.flag_outlined,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        key: const Key('target_life_expectancy_field'),
+                        controller: _targetLifeExpectancyController,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => _refreshAndSave(),
+                        onEditingComplete: _normalizeInputsForPersistence,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(4),
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: '目標壽命（歲）',
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        key: const Key('target_end_balance_field'),
+                        controller: _targetEndBalanceController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        onChanged: (_) => _refreshAndSave(),
+                        onEditingComplete: _normalizeInputsForPersistence,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                          _formatter,
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: '目標期末結餘（NT\$）',
+                          isDense: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '健康自評表',
+                  icon: Icons.health_and_safety_outlined,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ..._healthDimensions.map((dimension) {
+                        final label = _healthLabels[dimension] ?? dimension;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 110, child: Text(label)),
+                              Expanded(
+                                child: DropdownButtonFormField<int>(
+                                  key: Key('health_current_$dimension'),
+                                  initialValue: _healthCurrent[dimension] ?? 3,
+                                  decoration: const InputDecoration(
+                                    labelText: '現況',
+                                    isDense: true,
+                                  ),
+                                  items: List<DropdownMenuItem<int>>.generate(
+                                    5,
+                                    (index) => DropdownMenuItem<int>(
+                                      value: index + 1,
+                                      child: Text('${index + 1}'),
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    _healthCurrent[dimension] = value.clamp(
+                                      1,
+                                      5,
+                                    );
+                                    _refreshAndSave();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: DropdownButtonFormField<int>(
+                                  key: Key('health_target_$dimension'),
+                                  initialValue: _healthTarget[dimension] ?? 4,
+                                  decoration: const InputDecoration(
+                                    labelText: '目標',
+                                    isDense: true,
+                                  ),
+                                  items: List<DropdownMenuItem<int>>.generate(
+                                    5,
+                                    (index) => DropdownMenuItem<int>(
+                                      value: index + 1,
+                                      child: Text('${index + 1}'),
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    _healthTarget[dimension] = value.clamp(
+                                      1,
+                                      5,
+                                    );
+                                    _refreshAndSave();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _metricChip(
+                            '健康現況',
+                            '${healthCurrentScore.toStringAsFixed(0)} / 100',
+                            key: const Key('health_current_score'),
+                          ),
+                          _metricChip(
+                            '健康目標',
+                            '${healthTargetScore.toStringAsFixed(0)} / 100',
+                            key: const Key('health_target_score'),
+                          ),
+                          _metricChip(
+                            '健康差距',
+                            '${healthGap >= 0 ? '+' : ''}${healthGap.toStringAsFixed(0)}',
+                            key: const Key('health_gap_score'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '三軸現況 vs 目標',
+                  icon: Icons.compare_arrows_outlined,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _metricChip(
+                        '健康',
+                        '${healthCurrentScore.toStringAsFixed(0)} / ${healthTargetScore.toStringAsFixed(0)}',
+                        key: const Key('compare_health'),
+                      ),
+                      _metricChip(
+                        '財務',
+                        '${_currency(net)} / ${_currency(targetEndBalance)}',
+                        key: const Key('compare_wealth'),
+                      ),
+                      _metricChip(
+                        '壽命',
+                        '$remainingYears 年 / $targetRemainingYears 年',
+                        key: const Key('compare_lifetime'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 1000;
@@ -536,6 +947,194 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                       ],
                     );
                   },
+                ),
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '記憶體驗進度',
+                  icon: Icons.favorite_border_outlined,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _metricChip(
+                        '記憶進度',
+                        '${(memoryProgress * 100).toStringAsFixed(0)}%',
+                        key: const Key('memory_progress'),
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          minHeight: 10,
+                          value: memoryProgress,
+                          backgroundColor: const Color(0xFFF1E4DA),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _ExperienceCategory.values
+                            .map((category) {
+                              final count = categoryCounts[category] ?? 0;
+                              final ratio = _experienceItems.isEmpty
+                                  ? 0.0
+                                  : count / _experienceItems.length;
+                              final percent = (ratio * 100).toStringAsFixed(0);
+                              return _metricChip(
+                                '${category.label}分佈',
+                                '$percent%',
+                                key: Key(
+                                  'category_distribution_${category.name}',
+                                ),
+                              );
+                            })
+                            .toList(growable: false),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_experienceItems.isEmpty)
+                        const EmptyStateCard(
+                          title: '尚未新增體驗項目',
+                          description: '新增你想完成或已完成的記憶體驗。',
+                          icon: Icons.auto_awesome_outlined,
+                        )
+                      else
+                        Column(
+                          children: List.generate(_experienceItems.length, (
+                            index,
+                          ) {
+                            final item = _experienceItems[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFCFA),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFE8D7CC),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: item.titleController,
+                                            onChanged: (_) => _refreshAndSave(),
+                                            decoration: const InputDecoration(
+                                              labelText: '體驗項目',
+                                              isDense: true,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: '刪除體驗',
+                                          onPressed: () {
+                                            final target = _experienceItems
+                                                .removeAt(index);
+                                            target.dispose();
+                                            _refreshAndSave();
+                                          },
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: CheckboxListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            title: const Text('已完成'),
+                                            value: item.completed,
+                                            onChanged: (value) {
+                                              item.completed = value == true;
+                                              _refreshAndSave();
+                                            },
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 120,
+                                          child:
+                                              DropdownButtonFormField<
+                                                _ExperienceCategory
+                                              >(
+                                                key: Key(
+                                                  'experience_category_$index',
+                                                ),
+                                                initialValue: item.category,
+                                                decoration:
+                                                    const InputDecoration(
+                                                      labelText: '類別',
+                                                      isDense: true,
+                                                    ),
+                                                items: _ExperienceCategory
+                                                    .values
+                                                    .map(
+                                                      (category) =>
+                                                          DropdownMenuItem<
+                                                            _ExperienceCategory
+                                                          >(
+                                                            value: category,
+                                                            child: Text(
+                                                              category.label,
+                                                            ),
+                                                          ),
+                                                    )
+                                                    .toList(growable: false),
+                                                onChanged: (value) {
+                                                  if (value == null) return;
+                                                  item.category = value;
+                                                  _refreshAndSave();
+                                                },
+                                              ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 120,
+                                          child: DropdownButtonFormField<int>(
+                                            key: Key('experience_score_$index'),
+                                            initialValue: item.satisfaction,
+                                            decoration: const InputDecoration(
+                                              labelText: '滿意度',
+                                              isDense: true,
+                                            ),
+                                            items: List.generate(
+                                              5,
+                                              (i) => DropdownMenuItem<int>(
+                                                value: i + 1,
+                                                child: Text('${i + 1}'),
+                                              ),
+                                            ),
+                                            onChanged: (value) {
+                                              if (value == null) return;
+                                              item.satisfaction = value;
+                                              _refreshAndSave();
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      FilledButton.icon(
+                        onPressed: () {
+                          _experienceItems.add(
+                            _ExperienceItem(title: '', satisfaction: 3),
+                          );
+                          _refreshAndSave();
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('新增體驗項目'),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SectionCard(
@@ -566,6 +1165,11 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                             ),
                             _metricChip('建議年預算', _currency(annualTarget)),
                             _metricChip('建議月預算', _currency(monthlyTarget)),
+                            _metricChip(
+                              'Die with Zero 準備度',
+                              '${(overallReadiness * 100).toStringAsFixed(0)}%',
+                              key: const Key('overall_readiness'),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -584,6 +1188,10 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                               : net > 0
                               ? '目前有剩餘資金，可增加體驗型支出。'
                               : '目前預估不足，建議補強資產或下修支出。',
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '綜合指標 = 健康對齊 30% + 財務對齊 30% + 壽命對齊 20% + 記憶進度 20%',
                         ),
                       ],
                     ),
@@ -1019,10 +1627,15 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     _currentAgeController.dispose();
     _lifeExpectancyController.dispose();
     _retireYearController.dispose();
+    _targetLifeExpectancyController.dispose();
+    _targetEndBalanceController.dispose();
     for (final item in _costItems) {
       item.dispose();
     }
     for (final item in _assetItems) {
+      item.dispose();
+    }
+    for (final item in _experienceItems) {
       item.dispose();
     }
     super.dispose();

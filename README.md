@@ -35,6 +35,10 @@ Target: `v0.2.0` (release candidate)
   - Assignment completion rate
   - Delivery completion rate
 - Weekly funnel trend panel (last 8 weeks) in Admin dashboard
+- Final countdown planning upgraded:
+  - health self-assessment (5 dimensions, current vs target)
+  - three-axis comparison (health / wealth / lifetime)
+  - memory experience progress with category distribution
 
 ### Production Hardening
 
@@ -61,6 +65,10 @@ Target: `v0.2.0` (release candidate)
   - share link + QR + export options
 - Final countdown planner:
   - asset/cost planning with zero-balance guidance
+  - target controls (target lifetime / target end-balance)
+  - memory experience checklist with categories:
+    `家庭 / 旅行 / 學習 / 貢獻`
+  - Die with Zero readiness score (composite index)
 - Package checkout and order status tracking
 - Notification center (unread filter + mark read)
 - Digital clone skill generator:
