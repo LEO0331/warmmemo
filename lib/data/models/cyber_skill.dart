@@ -70,20 +70,22 @@ class CyberSkillProfile {
   };
 
   factory CyberSkillProfile.fromMap(Map<String, dynamic> map) {
-    final name = (map['name'] as String? ?? '').trim();
+    final name = _sanitizeText(map['name'] as String?, maxLength: 80);
     if (name.isEmpty) {
       throw const FormatException('profile.name 是必填欄位。');
     }
     return CyberSkillProfile(
       name: name,
-      company: _safe(map['company'] as String?),
-      level: _safe(map['level'] as String?),
-      role: _safe(map['role'] as String?),
-      gender: _safe(map['gender'] as String?),
-      mbti: _safe(map['mbti'] as String?),
+      company: _safe(_sanitizeText(map['company'] as String?, maxLength: 80)),
+      level: _safe(_sanitizeText(map['level'] as String?, maxLength: 40)),
+      role: _safe(_sanitizeText(map['role'] as String?, maxLength: 80)),
+      gender: _safe(_sanitizeText(map['gender'] as String?, maxLength: 20)),
+      mbti: _safe(_sanitizeText(map['mbti'] as String?, maxLength: 16)),
       personaTags: _stringList(map['personaTags']),
       cultureTags: _stringList(map['cultureTags']),
-      impression: _safe(map['impression'] as String?),
+      impression: _safe(
+        _sanitizeText(map['impression'] as String?, maxLength: 280),
+      ),
     );
   }
 }
@@ -106,15 +108,17 @@ class RawMessage {
   };
 
   factory RawMessage.fromMap(Map<String, dynamic> map) {
-    final sender = (map['sender'] as String? ?? '').trim();
-    final content = (map['content'] as String? ?? '').trim();
+    final sender = _sanitizeText(map['sender'] as String?, maxLength: 80);
+    final content = _sanitizeText(map['content'] as String?, maxLength: 4000);
     if (content.isEmpty) {
       throw const FormatException('materials.messages[].content 不可為空。');
     }
     return RawMessage(
       sender: sender.isEmpty ? 'unknown' : sender,
       content: content,
-      timestamp: _safe(map['timestamp'] as String?),
+      timestamp: _safe(
+        _sanitizeText(map['timestamp'] as String?, maxLength: 64),
+      ),
     );
   }
 }
@@ -133,15 +137,15 @@ class RawDocument {
   };
 
   factory RawDocument.fromMap(Map<String, dynamic> map) {
-    final content = (map['content'] as String? ?? '').trim();
+    final content = _sanitizeText(map['content'] as String?, maxLength: 12000);
     if (content.isEmpty) {
       throw const FormatException('materials.documents[].content 不可為空。');
     }
-    final title = (map['title'] as String? ?? '').trim();
+    final title = _sanitizeText(map['title'] as String?, maxLength: 120);
     return RawDocument(
       title: title.isEmpty ? '未命名文件' : title,
       content: content,
-      source: _safe(map['source'] as String?),
+      source: _safe(_sanitizeText(map['source'] as String?, maxLength: 120)),
     );
   }
 }
@@ -167,17 +171,17 @@ class RawEmail {
   };
 
   factory RawEmail.fromMap(Map<String, dynamic> map) {
-    final body = (map['body'] as String? ?? '').trim();
+    final body = _sanitizeText(map['body'] as String?, maxLength: 8000);
     if (body.isEmpty) {
       throw const FormatException('materials.emails[].body 不可為空。');
     }
-    final from = (map['from'] as String? ?? '').trim();
-    final subject = (map['subject'] as String? ?? '').trim();
+    final from = _sanitizeText(map['from'] as String?, maxLength: 120);
+    final subject = _sanitizeText(map['subject'] as String?, maxLength: 200);
     return RawEmail(
       from: from.isEmpty ? 'unknown' : from,
       subject: subject.isEmpty ? '(無主旨)' : subject,
       body: body,
-      date: _safe(map['date'] as String?),
+      date: _safe(_sanitizeText(map['date'] as String?, maxLength: 64)),
     );
   }
 }
@@ -406,8 +410,9 @@ List<String> _stringList(Object? raw) {
   if (raw is! List) return const <String>[];
   return raw
       .whereType<String>()
-      .map((e) => e.trim())
+      .map((e) => _sanitizeText(e, maxLength: 80))
       .where((e) => e.isNotEmpty)
+      .take(20)
       .toList(growable: false);
 }
 
@@ -423,4 +428,19 @@ DateTime _parseDate(Object? raw) {
     if (parsed != null) return parsed;
   }
   return DateTime.now();
+}
+
+String _sanitizeText(String? raw, {required int maxLength}) {
+  if (raw == null) return '';
+  var value = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  value = value.replaceAll('```', "'''");
+  value = value.replaceAll(
+    RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]'),
+    '',
+  );
+  value = value.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  if (value.length > maxLength) {
+    value = value.substring(0, maxLength);
+  }
+  return value;
 }

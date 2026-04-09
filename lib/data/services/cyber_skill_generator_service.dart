@@ -86,21 +86,51 @@ class CyberSkillGeneratorService {
     required CyberSkillProfile profile,
     required CyberSkillAnalysis analysis,
   }) {
-    final title = '${profile.name} 的日常對話分身';
+    final safeName = _sanitizeForRender(profile.name, maxLength: 80);
+    final safeIdentity = _sanitizeForRender(
+      profile.identityLine,
+      maxLength: 120,
+    );
+    final safeImpression = _sanitizeForRender(
+      profile.impression ?? '',
+      maxLength: 280,
+    );
+    final title = '$safeName 的日常對話分身';
     final tags = [
       'warmmemo',
       'daily-life',
-      if (profile.personaTags.isNotEmpty) ...profile.personaTags.take(3),
+      if (profile.personaTags.isNotEmpty)
+        ...profile.personaTags
+            .take(3)
+            .map((e) => _sanitizeForRender(e, maxLength: 24)),
     ];
-    final warmPhrases = _quoteList(analysis.catchPhrases);
-    final frequentWords = _quoteList(analysis.frequentWords.take(8).toList());
+    final warmPhrases = _quoteList(analysis.catchPhrases, maxItemLength: 60);
+    final frequentWords = _quoteList(
+      analysis.frequentWords.take(8).toList(),
+      maxItemLength: 40,
+    );
+    final safeToneTraits = _boundedList(
+      analysis.toneTraits,
+      maxItems: 10,
+      maxItemLength: 80,
+    );
+    final safeDecision = _boundedList(
+      analysis.decisionPriorities,
+      maxItems: 10,
+      maxItemLength: 90,
+    );
+    final safeBoundaries = _boundedList(
+      analysis.boundaries,
+      maxItems: 10,
+      maxItemLength: 100,
+    );
 
     return '''
 ---
-name: warmmemo_${_slugify(profile.name)}_daily
-description: ${profile.name} 的日常陪伴與回憶對話版型
+name: ${_yamlScalar('warmmemo_${_slugify(safeName)}_daily')}
+description: ${_yamlScalar('$safeName 的日常陪伴與回憶對話版型')}
 tags:
-${tags.map((e) => '  - $e').join('\n')}
+${tags.map((e) => '  - ${_yamlScalar(e)}').join('\n')}
 version: 1.0
 ---
 
@@ -108,25 +138,25 @@ version: 1.0
 
 ## 人物定位
 
-你是 ${profile.name}，定位是「日常陪伴、回憶對話、情感支持」。
-${profile.identityLine == '同事' ? '' : '身份背景：${profile.identityLine}。'}
-${profile.impression == null ? '' : '主觀印象：${profile.impression}。'}
+你是 $safeName，定位是「日常陪伴、回憶對話、情感支持」。
+${safeIdentity == '同事' ? '' : '身份背景：$safeIdentity。'}
+${safeImpression.isEmpty ? '' : '主觀印象：$safeImpression。'}
 
 ## 語氣與表達規則
 
 - 說話節奏：${analysis.sentenceStyle}
-- 常見語氣特徵：${analysis.toneTraits.join('、')}
+- 常見語氣特徵：${safeToneTraits.join('、')}
 - 常見口頭禪：$warmPhrases
 - 常用詞：$frequentWords
 - 回答原則：先共情、再確認需求、最後給可執行建議。
 
 ## 決策與價值排序
 
-${analysis.decisionPriorities.map((e) => '- $e').join('\n')}
+${safeDecision.map((e) => '- $e').join('\n')}
 
 ## 互動邊界（禁區 / 敏感處理）
 
-${analysis.boundaries.map((e) => '- $e').join('\n')}
+${safeBoundaries.map((e) => '- $e').join('\n')}
 - 當對話涉及重大醫療、法律、金流決策時，先提醒「這需要真人專業協助」。
 
 ## 情境回覆示例
@@ -158,26 +188,50 @@ ${analysis.boundaries.map((e) => '- $e').join('\n')}
     required CyberSkillProfile profile,
     required CyberSkillAnalysis analysis,
   }) {
+    final safeName = _sanitizeForRender(profile.name, maxLength: 80);
+    final safeIdentity = _sanitizeForRender(
+      profile.identityLine,
+      maxLength: 120,
+    );
+    final safeImpression = _sanitizeForRender(
+      profile.impression ?? '',
+      maxLength: 280,
+    );
+    final safeMbti = _sanitizeForRender(profile.mbti ?? '', maxLength: 16);
     final workFocus = analysis.workMethods.isEmpty
         ? const <String>['按優先級拆解問題並可追蹤交付']
-        : analysis.workMethods;
+        : _boundedList(analysis.workMethods, maxItems: 10, maxItemLength: 100);
     final toneTraits = analysis.toneTraits.isEmpty
         ? const <String>['務實直接']
-        : analysis.toneTraits;
+        : _boundedList(analysis.toneTraits, maxItems: 10, maxItemLength: 80);
     final interpersonal = analysis.interpersonalPatterns.isEmpty
         ? const <String>['先對齊需求，再提出方案']
-        : analysis.interpersonalPatterns;
+        : _boundedList(
+            analysis.interpersonalPatterns,
+            maxItems: 10,
+            maxItemLength: 100,
+          );
+    final safeDecision = _boundedList(
+      analysis.decisionPriorities,
+      maxItems: 10,
+      maxItemLength: 90,
+    );
+    final safeBoundaries = _boundedList(
+      analysis.boundaries,
+      maxItems: 10,
+      maxItemLength: 100,
+    );
 
     return '''
 ---
-name: colleague_${_slugify(profile.name)}
-description: ${profile.name}，${profile.identityLine}
+name: ${_yamlScalar('colleague_${_slugify(safeName)}')}
+description: ${_yamlScalar('$safeName，$safeIdentity')}
 user-invocable: true
 ---
 
-# ${profile.name}
+# $safeName
 
-${profile.identityLine}
+$safeIdentity
 
 ---
 
@@ -186,7 +240,7 @@ ${profile.identityLine}
 ### 職責範圍
 
 - 典型工作方式：${workFocus.join('、')}
-- 決策優先級：${analysis.decisionPriorities.join('、')}
+- 決策優先級：${safeDecision.join('、')}
 - 常見輸出型態：結論先行、步驟化建議、可執行清單。
 
 ### 技術與協作規範
@@ -207,14 +261,14 @@ ${workFocus.map((e) => '- $e').join('\n')}
 ### Layer 0：核心性格（最高優先級）
 
 ${toneTraits.map((e) => '- $e').join('\n')}
-${analysis.boundaries.map((e) => '- $e').join('\n')}
+${safeBoundaries.map((e) => '- $e').join('\n')}
 
 ### Layer 1：身份
 
-你是 ${profile.name}。
-${profile.identityLine == '同事' ? '' : '在 ${profile.identityLine} 的語境中思考與回覆。'}
-${profile.mbti == null ? '' : 'MBTI：${profile.mbti}。'}
-${profile.impression == null ? '' : '補充印象：${profile.impression}。'}
+你是 $safeName。
+${safeIdentity == '同事' ? '' : '在 $safeIdentity 的語境中思考與回覆。'}
+${safeMbti.isEmpty ? '' : 'MBTI：$safeMbti。'}
+${safeImpression.isEmpty ? '' : '補充印象：$safeImpression。'}
 
 ### Layer 2：表達風格
 
@@ -224,7 +278,7 @@ ${profile.impression == null ? '' : '補充印象：${profile.impression}。'}
 
 ### Layer 3：決策與判斷
 
-${analysis.decisionPriorities.map((e) => '- $e').join('\n')}
+${safeDecision.map((e) => '- $e').join('\n')}
 
 ### Layer 4：人際行為
 
@@ -232,7 +286,7 @@ ${interpersonal.map((e) => '- $e').join('\n')}
 
 ### Layer 5：邊界與雷區
 
-${analysis.boundaries.map((e) => '- $e').join('\n')}
+${safeBoundaries.map((e) => '- $e').join('\n')}
 
 ---
 
@@ -414,9 +468,13 @@ ${analysis.boundaries.map((e) => '- $e').join('\n')}
     return needles.any((needle) => lower.contains(needle.toLowerCase()));
   }
 
-  String _quoteList(List<String> values) {
+  String _quoteList(List<String> values, {int maxItemLength = 60}) {
     if (values.isEmpty) return '（資料不足）';
-    return values.map((e) => '"$e"').join('、');
+    return values
+        .map((e) => _sanitizeForRender(e, maxLength: maxItemLength))
+        .where((e) => e.isNotEmpty)
+        .map((e) => '"$e"')
+        .join('、');
   }
 
   bool _stopPhrase(String text) {
@@ -432,6 +490,40 @@ ${analysis.boundaries.map((e) => '- $e').join('\n')}
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
     return ascii.isEmpty ? 'skill' : ascii;
+  }
+
+  String _yamlScalar(String value) {
+    final sanitized = _sanitizeForRender(
+      value,
+      maxLength: 200,
+    ).replaceAll(r'\', r'\\').replaceAll('"', r'\"').replaceAll('\n', ' ');
+    return '"$sanitized"';
+  }
+
+  List<String> _boundedList(
+    List<String> values, {
+    required int maxItems,
+    required int maxItemLength,
+  }) {
+    return values
+        .map((e) => _sanitizeForRender(e, maxLength: maxItemLength))
+        .where((e) => e.isNotEmpty)
+        .take(maxItems)
+        .toList(growable: false);
+  }
+
+  String _sanitizeForRender(String value, {required int maxLength}) {
+    var result = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    result = result.replaceAll('```', "'''");
+    result = result.replaceAll(
+      RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]'),
+      '',
+    );
+    result = result.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+    if (result.length > maxLength) {
+      result = result.substring(0, maxLength);
+    }
+    return result;
   }
 }
 

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -18,13 +20,24 @@ class SkillGeneratorTab extends StatefulWidget {
     CyberSkillGeneratorService? generator,
     CyberSkillStorageService? storage,
     String? Function()? currentUidProvider,
+    Future<void> Function(String text)? copyText,
+    Future<void> Function(String content, String filename)? downloadText,
+    void Function(BuildContext context, String message, FeedbackTone tone)?
+    feedback,
   }) : _generator = generator,
        _storage = storage,
-       _currentUidProvider = currentUidProvider;
+       _currentUidProvider = currentUidProvider,
+       _copyText = copyText,
+       _downloadText = downloadText,
+       _feedback = feedback;
 
   final CyberSkillGeneratorService? _generator;
   final CyberSkillStorageService? _storage;
   final String? Function()? _currentUidProvider;
+  final Future<void> Function(String text)? _copyText;
+  final Future<void> Function(String content, String filename)? _downloadText;
+  final void Function(BuildContext context, String message, FeedbackTone tone)?
+  _feedback;
 
   @override
   State<SkillGeneratorTab> createState() => _SkillGeneratorTabState();
@@ -38,6 +51,17 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
   late final String? Function() _currentUidProvider =
       widget._currentUidProvider ??
       (() => AuthService.instance.currentUser?.uid);
+  late final Future<void> Function(String text) _copyText =
+      widget._copyText ??
+      (String text) async {
+        await Clipboard.setData(ClipboardData(text: text));
+      };
+  late final Future<void> Function(String content, String filename)
+  _downloadText =
+      widget._downloadText ??
+      (String content, String filename) {
+        return downloadTextFile(content: content, filename: filename);
+      };
 
   final TextEditingController _jsonController = TextEditingController();
   TemplateType _templateType = TemplateType.warmmemoDaily;
@@ -290,14 +314,11 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                   child: _SavedSkillCard(
                     skill: item,
                     onCopy: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: item.markdown),
-                      );
+                      await _copyText(item.markdown);
                       if (!mounted) return;
-                      AppFeedback.show(
-                        context,
-                        message: '已複製 ${item.profileName} 的 Skill 內容',
-                        tone: FeedbackTone.success,
+                      _showFeedback(
+                        '已複製 ${item.profileName} 的 Skill 內容',
+                        FeedbackTone.success,
                       );
                     },
                     onUse: () {
@@ -336,27 +357,29 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
         _analysis = analysis;
         _markdown = markdown;
       });
-      AppFeedback.show(
-        context,
-        message: '已生成 ${_templateType.displayLabel} 版型。',
-        tone: FeedbackTone.success,
+      _showFeedback(
+        '已生成 ${_templateType.displayLabel} 版型。',
+        FeedbackTone.success,
       );
     } on FormatException catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.message;
       });
-      AppFeedback.show(context, message: e.message, tone: FeedbackTone.error);
-    } catch (e) {
+      _showFeedback(e.message, FeedbackTone.error);
+      _debugLog('generate.format', e);
+    } on FirebaseException catch (e) {
+      final message = _safeErrorMessage(e.code);
       if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-      });
-      AppFeedback.show(
-        context,
-        message: '生成失敗，請稍後再試。',
-        tone: FeedbackTone.error,
-      );
+      setState(() => _error = message);
+      _showFeedback(message, FeedbackTone.error);
+      _debugLog('generate.firebase:${e.code}', e);
+    } catch (e) {
+      final message = _safeErrorMessage('unknown');
+      if (!mounted) return;
+      setState(() => _error = message);
+      _showFeedback(message, FeedbackTone.error);
+      _debugLog('generate.unknown', e);
     } finally {
       if (mounted) {
         setState(() {
@@ -388,9 +411,9 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
 
   Future<void> _copyMarkdown() async {
     if (_markdown.trim().isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: _markdown));
+    await _copyText(_markdown);
     if (!mounted) return;
-    AppFeedback.show(context, message: 'Skill 已複製', tone: FeedbackTone.success);
+    _showFeedback('Skill 已複製', FeedbackTone.success);
   }
 
   Future<void> _downloadMarkdown() async {
@@ -403,7 +426,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
         .replaceAll(RegExp(r'\s+'), '_')
         .replaceAll(RegExp(r'[^\w\u4e00-\u9fff]+', unicode: true), '');
     final filename = '${safeName.isEmpty ? 'skill' : safeName}_$suffix.md';
-    await downloadTextFile(content: _markdown, filename: filename);
+    await _downloadText(_markdown, filename);
   }
 
   Future<void> _saveSkill() async {
@@ -411,11 +434,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
     final input = _parsedInput;
     final analysis = _analysis;
     if (uid == null || input == null || analysis == null || _markdown.isEmpty) {
-      AppFeedback.show(
-        context,
-        message: '請先完成生成後再儲存。',
-        tone: FeedbackTone.info,
-      );
+      _showFeedback('請先完成生成後再儲存。', FeedbackTone.info);
       return;
     }
     setState(() => _isSaving = true);
@@ -428,14 +447,13 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
         markdown: _markdown,
       );
       if (!mounted) return;
-      AppFeedback.show(
-        context,
-        message: '已儲存到雲端版本列表。',
-        tone: FeedbackTone.success,
-      );
+      _showFeedback('已儲存到雲端版本列表。', FeedbackTone.success);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.show(context, message: '儲存失敗：$e', tone: FeedbackTone.error);
+      final code = e is FirebaseException ? e.code : 'unknown';
+      final message = _safeErrorMessage(code);
+      _showFeedback(message, FeedbackTone.error);
+      _debugLog('save.$code', e);
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -449,11 +467,46 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
     try {
       await _storage.deleteSkill(uid: uid, skillId: skillId);
       if (!mounted) return;
-      AppFeedback.show(context, message: '已刪除版本', tone: FeedbackTone.success);
+      _showFeedback('已刪除版本', FeedbackTone.success);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.show(context, message: '刪除失敗：$e', tone: FeedbackTone.error);
+      final code = e is FirebaseException ? e.code : 'unknown';
+      final message = _safeErrorMessage(code);
+      _showFeedback(message, FeedbackTone.error);
+      _debugLog('delete.$code', e);
     }
+  }
+
+  String _safeErrorMessage(String code) {
+    switch (code) {
+      case 'permission-denied':
+        return '權限不足，請確認登入狀態與資料存取權限。';
+      case 'failed-precondition':
+        return '資料庫前置設定尚未完成，請稍後重試。';
+      case 'unavailable':
+        return '服務暫時不可用，請稍後再試。';
+      case 'deadline-exceeded':
+        return '連線逾時，請檢查網路後重試。';
+      case 'invalid-argument':
+        return '輸入格式不正確，請檢查 JSON 欄位。';
+      case 'unknown':
+      default:
+        return '發生未知錯誤，請稍後再試。';
+    }
+  }
+
+  void _debugLog(String tag, Object error) {
+    if (!kDebugMode) return;
+    debugPrint('[SkillGenerator][$tag] $error');
+  }
+
+  void _showFeedback(String message, FeedbackTone tone) {
+    final custom = widget._feedback;
+    if (custom != null) {
+      custom(context, message, tone);
+      return;
+    }
+    AppFeedback.show(context, message: message, tone: tone);
   }
 }
 

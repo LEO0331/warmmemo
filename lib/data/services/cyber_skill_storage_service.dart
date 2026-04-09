@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/cyber_skill.dart';
 
@@ -29,23 +30,24 @@ class CyberSkillStorageService {
     required CyberSkillProfile profile,
     required CyberSkillAnalysis analysis,
     required String markdown,
-    String version = 'v1',
     String? existingId,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final ref = existingId == null
         ? _skills(uid).doc()
         : _skills(uid).doc(existingId);
-    final createdAt = await _resolveCreatedAt(ref, fallback: now);
+    final current = await ref.get();
+    final createdAt = _resolveCreatedAt(current.data(), fallback: now);
+    final nextVersion = _nextVersion(current.data()?['version'] as String?);
     final summary = _buildAnalysisSummary(analysis);
     final payload = SavedCyberSkill(
       id: ref.id,
       templateType: templateType,
-      profileName: profile.name,
-      profileIdentity: profile.identityLine,
+      profileName: _limit(profile.name, 80),
+      profileIdentity: _limit(profile.identityLine, 160),
       analysisSummary: summary,
-      markdown: markdown,
-      version: version,
+      markdown: _limit(markdown, 20000),
+      version: nextVersion,
       createdAt: createdAt,
       updatedAt: now,
     );
@@ -70,17 +72,35 @@ class CyberSkillStorageService {
     };
   }
 
-  Future<DateTime> _resolveCreatedAt(
-    DocumentReference<Map<String, dynamic>> ref, {
+  DateTime _resolveCreatedAt(
+    Map<String, dynamic>? currentData, {
     required DateTime fallback,
-  }) async {
-    if (!(await ref.get()).exists) return fallback;
-    final current = await ref.get();
-    final raw = current.data()?['createdAt'];
+  }) {
+    final raw = currentData?['createdAt'];
     if (raw is String) {
       final parsed = DateTime.tryParse(raw);
-      if (parsed != null) return parsed;
+      if (parsed != null) return parsed.toUtc();
     }
     return fallback;
+  }
+
+  String _nextVersion(String? raw) {
+    final fallback = 'v000001';
+    if (raw == null || raw.isEmpty) return fallback;
+    final matched = RegExp(r'^v(\d{6})$').firstMatch(raw.trim());
+    if (matched == null) return fallback;
+    final current = int.tryParse(matched.group(1)!);
+    if (current == null || current >= 999999) return fallback;
+    final next = current + 1;
+    final version = 'v${next.toString().padLeft(6, '0')}';
+    if (kDebugMode) {
+      debugPrint('CyberSkillStorageService version advanced: $raw -> $version');
+    }
+    return version;
+  }
+
+  String _limit(String value, int maxLength) {
+    if (value.length <= maxLength) return value;
+    return value.substring(0, maxLength);
   }
 }

@@ -119,6 +119,65 @@ service cloud.firestore {
         );
     }
 
+    function cyberSkillVersionValid(v) {
+      return v is string && v.matches('^v[0-9]{6}$');
+    }
+
+    function cyberSkillSourceStatsValid(summary) {
+      return !('sourceStats' in summary)
+        || (
+          summary.sourceStats is map
+          && summary.sourceStats.keys().hasOnly(['messages', 'documents', 'emails'])
+          && (!('messages' in summary.sourceStats) || summary.sourceStats.messages is int)
+          && (!('documents' in summary.sourceStats) || summary.sourceStats.documents is int)
+          && (!('emails' in summary.sourceStats) || summary.sourceStats.emails is int)
+        );
+    }
+
+    function cyberSkillSummaryValid(summary) {
+      return summary is map
+        && summary.keys().hasOnly([
+          'toneTraits',
+          'decisionPriorities',
+          'workMethods',
+          'boundaries',
+          'sourceStats'
+        ])
+        && (!('toneTraits' in summary) || (summary.toneTraits is list && summary.toneTraits.size() <= 10))
+        && (!('decisionPriorities' in summary) || (summary.decisionPriorities is list && summary.decisionPriorities.size() <= 10))
+        && (!('workMethods' in summary) || (summary.workMethods is list && summary.workMethods.size() <= 10))
+        && (!('boundaries' in summary) || (summary.boundaries is list && summary.boundaries.size() <= 10))
+        && cyberSkillSourceStatsValid(summary);
+    }
+
+    function cyberSkillCommonValid() {
+      return request.resource.data.keys().hasOnly([
+          'templateType',
+          'profileName',
+          'profileIdentity',
+          'analysisSummary',
+          'markdown',
+          'version',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.templateType in ['warmmemoDaily', 'colleagueWork']
+        && request.resource.data.profileName is string
+        && request.resource.data.profileName.size() > 0
+        && request.resource.data.profileName.size() <= 80
+        && request.resource.data.profileIdentity is string
+        && request.resource.data.profileIdentity.size() <= 160
+        && cyberSkillSummaryValid(request.resource.data.analysisSummary)
+        && request.resource.data.markdown is string
+        && request.resource.data.markdown.size() > 0
+        && request.resource.data.markdown.size() <= 20000
+        && cyberSkillVersionValid(request.resource.data.version)
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() <= 40
+        && request.resource.data.updatedAt is string
+        && request.resource.data.updatedAt.size() <= 40;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
@@ -163,25 +222,13 @@ service cloud.firestore {
 
       match /cyberSkills/{skillId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create, update: if (isOwner(userId) || isAdmin())
-          && request.resource.data.keys().hasOnly([
-            'templateType',
-            'profileName',
-            'profileIdentity',
-            'analysisSummary',
-            'markdown',
-            'version',
-            'createdAt',
-            'updatedAt'
-          ])
-          && request.resource.data.templateType in ['warmmemoDaily', 'colleagueWork']
-          && request.resource.data.profileName is string
-          && request.resource.data.profileIdentity is string
-          && request.resource.data.analysisSummary is map
-          && request.resource.data.markdown is string
-          && request.resource.data.version is string
-          && request.resource.data.createdAt is string
-          && request.resource.data.updatedAt is string;
+        allow create: if (isOwner(userId) || isAdmin())
+          && cyberSkillCommonValid()
+          && request.resource.data.version == 'v000001';
+        allow update: if (isOwner(userId) || isAdmin())
+          && cyberSkillCommonValid()
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.version > resource.data.version;
         allow delete: if isOwner(userId) || isAdmin();
       }
 
