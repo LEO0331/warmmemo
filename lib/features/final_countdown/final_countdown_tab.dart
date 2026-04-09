@@ -338,7 +338,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
         _healthTarget
           ..clear()
           ..addAll(loadedHealthTarget);
-        if (experiences.isNotEmpty) {
+        if (map.containsKey('experienceItems')) {
           for (final item in _experienceItems) {
             item.dispose();
           }

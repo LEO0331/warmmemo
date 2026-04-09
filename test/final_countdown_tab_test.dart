@@ -218,6 +218,46 @@ void main() {
     expect(find.textContaining('差額（資產 - 支出）：NT\$ 400'), findsOneWidget);
   });
 
+  testWidgets(
+    'loads empty experienceItems when field exists (does not restore defaults)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'final_countdown_tab_v1': jsonEncode(<String, Object>{
+          'currentAge': '40',
+          'lifeExpectancy': '60',
+          'retireYear': '${DateTime.now().year + 5}',
+          'experienceItems': <Object>[],
+          'costItems': <Map<String, Object>>[
+            <String, Object>{
+              'name': '測試支出',
+              'amount': '100',
+              'kind': 'oneTime',
+              'phase': 'allYears',
+            },
+          ],
+          'assetItems': <Map<String, Object>>[
+            <String, Object>{
+              'name': '測試資產',
+              'amount': '500',
+              'kind': 'oneTime',
+              'phase': 'allYears',
+            },
+          ],
+        }),
+      });
+
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('尚未新增體驗項目'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('尚未新增體驗項目'), findsOneWidget);
+    },
+  );
+
   testWidgets('quick add and delete item updates list', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
