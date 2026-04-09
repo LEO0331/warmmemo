@@ -455,140 +455,142 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
 
     return WarmBackdrop(
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const PageHero(
-                eyebrow: 'Planning',
-                icon: Icons.hourglass_bottom_outlined,
-                title: '人生倒數與零結餘規劃',
-                subtitle: '設定退休年份與預估壽命，讓資產與體驗支出在生命終點前盡量接近零結餘。',
-                badges: ['壽命預估', '資產支出平衡', '行動建議'],
-              ),
-              const SizedBox(height: 16),
-              SectionCard(
-                title: '倒數參數',
-                icon: Icons.hourglass_bottom_outlined,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _numberField(
-                      key: const Key('current_age_field'),
-                      fieldKey: 'current_age',
-                      label: '目前年齡',
-                      controller: _currentAgeController,
-                      min: _minAge,
-                      max: _maxAge,
-                    ),
-                    const SizedBox(height: 10),
-                    _numberField(
-                      key: const Key('life_expectancy_field'),
-                      fieldKey: 'life_expectancy',
-                      label: '預估壽命（歲）',
-                      controller: _lifeExpectancyController,
-                      min: _minLifeExpectancy,
-                      max: _maxLifeExpectancy,
-                    ),
-                    const SizedBox(height: 10),
-                    _numberField(
-                      key: const Key('retire_year_field'),
-                      fieldKey: 'retire_year',
-                      label: '退休年份',
-                      controller: _retireYearController,
-                      min: _minRetireYear,
-                      max: _maxRetireYear,
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _metricChip('剩餘年數', '$remainingYears 年'),
-                        _metricChip('距離退休', '$beforeRetire 年'),
-                        _metricChip('退休後年數', '$afterRetire 年'),
-                      ],
-                    ),
-                  ],
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const PageHero(
+                  eyebrow: 'Planning',
+                  icon: Icons.hourglass_bottom_outlined,
+                  title: '人生倒數與零結餘規劃',
+                  subtitle: '設定退休年份與預估壽命，讓資產與體驗支出在生命終點前盡量接近零結餘。',
+                  badges: ['壽命預估', '資產支出平衡', '行動建議'],
                 ),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 1000;
-                  if (!wide) {
-                    return Column(
-                      children: [
-                        _buildCostPanel(),
-                        const SizedBox(height: 16),
-                        _buildAssetPanel(),
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildCostPanel()),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildAssetPanel()),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              SectionCard(
-                title: '零結餘結果',
-                icon: Icons.balance_outlined,
-                child: SelectionArea(
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '倒數參數',
+                  icon: Icons.hourglass_bottom_outlined,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _numberField(
+                        key: const Key('current_age_field'),
+                        fieldKey: 'current_age',
+                        label: '目前年齡',
+                        controller: _currentAgeController,
+                        min: _minAge,
+                        max: _maxAge,
+                      ),
+                      const SizedBox(height: 10),
+                      _numberField(
+                        key: const Key('life_expectancy_field'),
+                        fieldKey: 'life_expectancy',
+                        label: '預估壽命（歲）',
+                        controller: _lifeExpectancyController,
+                        min: _minLifeExpectancy,
+                        max: _maxLifeExpectancy,
+                      ),
+                      const SizedBox(height: 10),
+                      _numberField(
+                        key: const Key('retire_year_field'),
+                        fieldKey: 'retire_year',
+                        label: '退休年份',
+                        controller: _retireYearController,
+                        min: _minRetireYear,
+                        max: _maxRetireYear,
+                      ),
+                      const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _metricChip(
-                            '總資產',
-                            _currency(totalAsset),
-                            key: const Key('summary_total_asset'),
-                          ),
-                          _metricChip(
-                            '總支出',
-                            _currency(totalCost),
-                            key: const Key('summary_total_cost'),
-                          ),
-                          _metricChip(
-                            '差額（資產 - 支出）',
-                            _currency(net),
-                            key: const Key('summary_net'),
-                          ),
-                          _metricChip('建議年預算', _currency(annualTarget)),
-                          _metricChip('建議月預算', _currency(monthlyTarget)),
+                          _metricChip('剩餘年數', '$remainingYears 年'),
+                          _metricChip('距離退休', '$beforeRetire 年'),
+                          _metricChip('退休後年數', '$afterRetire 年'),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          minHeight: 12,
-                          value: score,
-                          backgroundColor: const Color(0xFFF1E4DA),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        net.abs() < 1000
-                            ? '很接近零結餘，規劃相當平衡。'
-                            : net > 0
-                            ? '目前有剩餘資金，可增加體驗型支出。'
-                            : '目前預估不足，建議補強資產或下修支出。',
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 1000;
+                    if (!wide) {
+                      return Column(
+                        children: [
+                          _buildCostPanel(),
+                          const SizedBox(height: 16),
+                          _buildAssetPanel(),
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _buildCostPanel()),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildAssetPanel()),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '零結餘結果',
+                  icon: Icons.balance_outlined,
+                  child: SelectionArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _metricChip(
+                              '總資產',
+                              _currency(totalAsset),
+                              key: const Key('summary_total_asset'),
+                            ),
+                            _metricChip(
+                              '總支出',
+                              _currency(totalCost),
+                              key: const Key('summary_total_cost'),
+                            ),
+                            _metricChip(
+                              '差額（資產 - 支出）',
+                              _currency(net),
+                              key: const Key('summary_net'),
+                            ),
+                            _metricChip('建議年預算', _currency(annualTarget)),
+                            _metricChip('建議月預算', _currency(monthlyTarget)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            minHeight: 12,
+                            value: score,
+                            backgroundColor: const Color(0xFFF1E4DA),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          net.abs() < 1000
+                              ? '很接近零結餘，規劃相當平衡。'
+                              : net > 0
+                              ? '目前有剩餘資金，可增加體驗型支出。'
+                              : '目前預估不足，建議補強資產或下修支出。',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

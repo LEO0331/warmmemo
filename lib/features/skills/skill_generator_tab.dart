@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import '../../core/utils/download_text_stub.dart'
     if (dart.library.html) '../../core/utils/download_text_web.dart';
+import '../../core/utils/import_json_stub.dart'
+    if (dart.library.html) '../../core/utils/import_json_web.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
@@ -22,6 +24,7 @@ class SkillGeneratorTab extends StatefulWidget {
     String? Function()? currentUidProvider,
     Future<void> Function(String text)? copyText,
     Future<void> Function(String content, String filename)? downloadText,
+    Future<String?> Function()? importJsonText,
     void Function(BuildContext context, String message, FeedbackTone tone)?
     feedback,
   }) : _generator = generator,
@@ -29,6 +32,7 @@ class SkillGeneratorTab extends StatefulWidget {
        _currentUidProvider = currentUidProvider,
        _copyText = copyText,
        _downloadText = downloadText,
+       _importJsonText = importJsonText,
        _feedback = feedback;
 
   final CyberSkillGeneratorService? _generator;
@@ -36,6 +40,7 @@ class SkillGeneratorTab extends StatefulWidget {
   final String? Function()? _currentUidProvider;
   final Future<void> Function(String text)? _copyText;
   final Future<void> Function(String content, String filename)? _downloadText;
+  final Future<String?> Function()? _importJsonText;
   final void Function(BuildContext context, String message, FeedbackTone tone)?
   _feedback;
 
@@ -62,6 +67,8 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
       (String content, String filename) {
         return downloadTextFile(content: content, filename: filename);
       };
+  late final Future<String?> Function() _importJsonText =
+      widget._importJsonText ?? pickJsonTextFile;
 
   final TextEditingController _jsonController = TextEditingController();
   TemplateType _templateType = TemplateType.warmmemoDaily;
@@ -95,9 +102,8 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                 const PageHero(
                   eyebrow: 'Cyber-Immortality',
                   icon: Icons.psychology_alt_outlined,
-                  title: '數位分身 Skill 生成器',
-                  subtitle:
-                      '貼上標準化 JSON，快速生成可給 AI 使用的技能文件。可在「日常模式 WarmMemo」與「工作模式 Colleague」間切換。',
+                  title: '數位分身生成器',
+                  subtitle: '將冰冷的告別，化作溫暖的技能與你對話',
                   badges: ['雙版型切換', '可複製', '可下載', '可儲存'],
                 ),
                 const SizedBox(height: 16),
@@ -164,6 +170,11 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                             onPressed: _applySampleJson,
                             icon: const Icon(Icons.notes_outlined),
                             label: const Text('套用範例 JSON'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _importJsonFile,
+                            icon: const Icon(Icons.upload_file_outlined),
+                            label: const Text('匯入 JSON 檔'),
                           ),
                         ],
                       ),
@@ -407,6 +418,44 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
     _jsonController.text = const JsonEncoder.withIndent(
       '  ',
     ).convert(_sampleInputMap);
+    setState(() {
+      _error = null;
+      _parsedInput = null;
+      _analysis = null;
+      _markdown = '';
+    });
+  }
+
+  Future<void> _importJsonFile() async {
+    try {
+      final content = await _importJsonText();
+      if (!mounted) return;
+      final text = content?.trim() ?? '';
+      if (text.isEmpty) {
+        _showFeedback('未選擇檔案或檔案內容為空。', FeedbackTone.info);
+        return;
+      }
+      _generator.parseInput(text);
+      setState(() {
+        _jsonController.text = text;
+        _error = null;
+        _parsedInput = null;
+        _analysis = null;
+        _markdown = '';
+      });
+      _showFeedback('JSON 已匯入並通過格式驗證。', FeedbackTone.success);
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+      _showFeedback(e.message, FeedbackTone.error);
+      _debugLog('import.format', e);
+    } catch (e) {
+      if (!mounted) return;
+      final message = _safeErrorMessage('unknown');
+      setState(() => _error = message);
+      _showFeedback(message, FeedbackTone.error);
+      _debugLog('import.unknown', e);
+    }
   }
 
   Future<void> _copyMarkdown() async {

@@ -25,6 +25,7 @@ void main() {
     required _FakeGenerator generator,
     required _FakeStorage storage,
     String? uid = 'u1',
+    Future<String?> Function()? importJsonText,
     List<String>? feedbackLog,
     List<String>? copiedLog,
     List<String>? downloadedLog,
@@ -47,6 +48,7 @@ void main() {
             copyText: (text) async => copiedLog?.add(text),
             downloadText: (content, filename) async =>
                 downloadedLog?.add('$filename::$content'),
+            importJsonText: importJsonText,
             feedback: (_, message, tone) =>
                 feedbackLog?.add('${tone.name}:$message'),
           ),
@@ -97,6 +99,49 @@ void main() {
     expect(textField.controller!.text.contains('"materials"'), isTrue);
   });
 
+  testWidgets('import json file validates and fills text area', (tester) async {
+    final generator = _FakeGenerator();
+    final storage = _FakeStorage();
+    final feedback = <String>[];
+
+    await pumpSkillTab(
+      tester,
+      generator: generator,
+      storage: storage,
+      importJsonText: () async => _sampleJson,
+      feedbackLog: feedback,
+    );
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '匯入 JSON 檔'));
+    await pumpUi(tester);
+
+    final textField = tester.widget<TextField>(find.byType(TextField).first);
+    expect(textField.controller!.text, contains('"profile"'));
+    expect(feedback.last, contains('JSON 已匯入並通過格式驗證'));
+  });
+
+  testWidgets('import json file shows format error for invalid json', (
+    tester,
+  ) async {
+    final generator = _FakeGenerator();
+    final storage = _FakeStorage();
+    final feedback = <String>[];
+
+    await pumpSkillTab(
+      tester,
+      generator: generator,
+      storage: storage,
+      importJsonText: () async => '{"profile":{}}',
+      feedbackLog: feedback,
+    );
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '匯入 JSON 檔'));
+    await pumpUi(tester);
+
+    expect(find.textContaining('profile.name 是必填欄位'), findsWidgets);
+    expect(feedback.last, contains('profile.name 是必填欄位'));
+  });
+
   testWidgets('format/firebase/unknown errors map to safe messages', (
     tester,
   ) async {
@@ -105,7 +150,10 @@ void main() {
     final formatGenerator = _FakeGenerator()
       ..parseError = const FormatException('格式錯誤');
     final firebaseGenerator = _FakeGenerator()
-      ..parseError = FirebaseException(plugin: 'firebase_core', code: 'permission-denied');
+      ..parseError = FirebaseException(
+        plugin: 'firebase_core',
+        code: 'permission-denied',
+      );
     final unknownGenerator = _FakeGenerator()..parseError = Exception('boom');
 
     final feedback = <String>[];
@@ -196,7 +244,10 @@ void main() {
     expect(storage.saveCalls, 1);
     expect(feedback.last, contains('已儲存到雲端版本列表'));
 
-    storage.saveError = FirebaseException(plugin: 'firebase_core', code: 'failed-precondition');
+    storage.saveError = FirebaseException(
+      plugin: 'firebase_core',
+      code: 'failed-precondition',
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, '儲存到雲端'));
     await pumpUi(tester);
     expect(feedback.last, contains('資料庫前置設定尚未完成'));
@@ -243,7 +294,10 @@ void main() {
     await pumpUi(tester);
     expect(storage.deletedIds, contains('s2'));
 
-    storage.deleteError = FirebaseException(plugin: 'firebase_core', code: 'unavailable');
+    storage.deleteError = FirebaseException(
+      plugin: 'firebase_core',
+      code: 'unavailable',
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, '刪除').first);
     await pumpUi(tester);
     expect(feedback.last, contains('服務暫時不可用'));
