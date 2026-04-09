@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+typedef TransactionRunner =
+    Future<T> Function<T>(TransactionHandler<T> transactionHandler);
+
 enum AdvancedServiceType {
   memorialPreview,
   memorialExportPdf,
@@ -37,8 +40,13 @@ class TokenConsumeResult {
 }
 
 class TokenWalletService {
-  TokenWalletService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  TokenWalletService({
+    FirebaseFirestore? firestore,
+    TransactionRunner? transactionRunner,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _transactionRunner =
+           transactionRunner ??
+           (firestore ?? FirebaseFirestore.instance).runTransaction;
 
   static final TokenWalletService instance = TokenWalletService();
 
@@ -84,6 +92,7 @@ class TokenWalletService {
       };
 
   final FirebaseFirestore _firestore;
+  final TransactionRunner _transactionRunner;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
       _firestore.collection('users').doc(uid);
@@ -112,7 +121,7 @@ class TokenWalletService {
     final userRef = _userDoc(uid);
 
     try {
-      return await _firestore.runTransaction((tx) async {
+      return await _transactionRunner((tx) async {
         final snap = await tx.get(userRef);
         final balance = (snap.data()?['tokenBalance'] as num?)?.toInt() ?? 0;
         if (balance < definition.cost) {

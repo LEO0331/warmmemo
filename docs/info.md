@@ -12,6 +12,7 @@ For a human-readable button-by-button flow diagram, see `docs/flow.md`.
 - **Name**: WarmMemo
 - **Type**: Flutter Web + Firebase application
 - **Purpose**: 提供紀念頁、訃聞草稿、商務訂單流程（提案到交付）與 Admin 管理能力
+- **Current expansion**: 人生倒數頁已擴充健康自評、三軸目標比較與記憶分佈統計
 - **Primary use case**: 家屬與禮儀服務團隊協作，縮短從提案到交付的流程時間
 - **Tech stack**: Flutter, Firebase Auth, Cloud Firestore, GitHub Actions (CI/CD)
 
@@ -93,6 +94,7 @@ PDF 匯出字型策略（on-demand）：
 - `lib/features/memorial/memorial_page_tab.dart`
 - `lib/features/obituary/digital_obituary_tab.dart`
 - `lib/features/admin/admin_dashboard.dart`
+- `lib/features/final_countdown/final_countdown_tab.dart`
 - `lib/core/export/pdf_exporter.dart`
 - `lib/core/export/compliance_exporter.dart`
 - `lib/data/services/*`
@@ -124,3 +126,12 @@ After changing code:
 2. Run targeted tests (or full tests for release/demo)
 3. Update docs when architecture/flow/progress materially changes
 
+Recent documentation-relevant changes to keep in sync:
+- Final countdown now stores extended keys in `final_countdown_tab_v1`:
+  - `healthCurrent`, `healthTarget`
+  - `targetEndBalance`, `targetLifeExpectancy`
+  - `experienceItems` (with `category`, `completed`, `satisfaction`)
+- Utility stubs with dedicated tests:
+  - `lib/core/utils/download_text_stub.dart`
+  - `lib/core/utils/import_json_stub.dart`
+  - `test/core_utils_stub_test.dart`

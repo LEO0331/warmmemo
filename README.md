@@ -6,6 +6,9 @@
 ![analyze](https://img.shields.io/badge/flutter%20analyze-passing-success)
 ![tests](https://img.shields.io/badge/tests-78%20passed-success)
 ![coverage](https://img.shields.io/badge/coverage-94.5%25-green)
+![skill-generator](https://img.shields.io/badge/Skill%20Generator-WarmMemo%20%2B%20Colleague-ffb86b)
+![json-import](https://img.shields.io/badge/JSON%20Import-Validated-4caf50)
+![copy-friendly](https://img.shields.io/badge/UI-Selectable%20Text-8bc34a)
 
 WarmMemo is a Flutter Web + Firebase app for memorial drafting, obituary generation, package checkout, and admin-side order operations.
 
@@ -32,6 +35,10 @@ Target: `v0.2.0` (release candidate)
   - Assignment completion rate
   - Delivery completion rate
 - Weekly funnel trend panel (last 8 weeks) in Admin dashboard
+- Final countdown planning upgraded:
+  - health self-assessment (5 dimensions, current vs target)
+  - three-axis comparison (health / wealth / lifetime)
+  - memory experience progress with category distribution
 
 ### Production Hardening
 
@@ -47,6 +54,9 @@ Target: `v0.2.0` (release candidate)
 
 - Email/password login with role-based access (`user` / `admin`)
 - First-time onboarding (3 steps): select service, generate first draft, confirm token balance
+- Copy-friendly UI:
+  - major generated content supports text selection + copy
+  - final countdown page supports direct selection/copy
 - Memorial page:
   - public link + QR code generation/download
   - proposal submission for tombstone/columbarium purchase workflow
@@ -55,8 +65,15 @@ Target: `v0.2.0` (release candidate)
   - share link + QR + export options
 - Final countdown planner:
   - asset/cost planning with zero-balance guidance
+  - target controls (target lifetime / target end-balance)
+  - memory experience checklist with categories:
+    `家庭 / 旅行 / 學習 / 貢獻`
+  - Die with Zero readiness score (composite index)
 - Package checkout and order status tracking
 - Notification center (unread filter + mark read)
+- Digital clone skill generator:
+  - WarmMemo (daily) / Colleague (work) dual templates
+  - validated JSON input and one-click JSON file import (web)
 
 ### Admin
 

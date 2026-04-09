@@ -10,6 +10,14 @@ void main() {
     return const MaterialApp(home: Scaffold(body: FinalCountdownTab()));
   }
 
+  String metricText(WidgetTester tester, Key key) {
+    final textFinder = find.descendant(
+      of: find.byKey(key),
+      matching: find.byType(Text),
+    );
+    return tester.widget<Text>(textFinder.first).data ?? '';
+  }
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
@@ -20,11 +28,121 @@ void main() {
 
     expect(find.text('人生倒數與零結餘規劃'), findsOneWidget);
     expect(find.text('倒數參數'), findsOneWidget);
+    expect(find.text('目標參數'), findsOneWidget);
+    expect(find.text('健康自評表'), findsOneWidget);
+    expect(find.text('三軸現況 vs 目標'), findsOneWidget);
+    expect(find.text('記憶體驗進度'), findsOneWidget);
     expect(find.text('零結餘結果'), findsOneWidget);
+    expect(find.textContaining('Die with Zero 準備度'), findsOneWidget);
     expect(find.text('新增支出項目'), findsOneWidget);
     expect(find.text('新增資產項目'), findsOneWidget);
+    expect(find.text('新增體驗項目'), findsOneWidget);
     expect(find.text('退休前'), findsWidgets);
     expect(find.text('退休後'), findsWidgets);
+  });
+
+  testWidgets('health score update changes health comparison', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('健康：60 / 80'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('health_current_physical')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('health_current_physical')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('5').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('健康：68 / 80'), findsOneWidget);
+  });
+
+  testWidgets('memory progress reacts to completion and satisfaction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('memory_progress')), findsOneWidget);
+    expect(find.textContaining('記憶進度：56%'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byType(Checkbox).first,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('experience_score_0')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('experience_score_0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('5').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('記憶進度：97%'), findsOneWidget);
+  });
+
+  testWidgets('experience item supports category selection', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(
+      metricText(tester, const Key('category_distribution_family')),
+      contains('100%'),
+    );
+    expect(
+      metricText(tester, const Key('category_distribution_travel')),
+      contains('0%'),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('experience_category_0')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('experience_category_0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('旅行').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('旅行'), findsWidgets);
+    expect(
+      metricText(tester, const Key('category_distribution_family')),
+      contains('50%'),
+    );
+    expect(
+      metricText(tester, const Key('category_distribution_travel')),
+      contains('50%'),
+    );
+  });
+
+  testWidgets('target fields update wealth and lifetime comparison', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('target_life_expectancy_field')),
+      '100',
+    );
+    await tester.enterText(
+      find.byKey(const Key('target_end_balance_field')),
+      '100000',
+    );
+    await tester.pumpAndSettle();
+
+    final lifetime = metricText(tester, const Key('compare_lifetime'));
+    final wealth = metricText(tester, const Key('compare_wealth'));
+    expect(lifetime, contains('50 年 / 65 年'));
+    expect(wealth, contains('/ NT\$ 100,000'));
   });
 
   testWidgets('phase split changes net amount', (tester) async {
@@ -99,6 +217,46 @@ void main() {
     expect(currentAge.controller?.text, '40');
     expect(find.textContaining('差額（資產 - 支出）：NT\$ 400'), findsOneWidget);
   });
+
+  testWidgets(
+    'loads empty experienceItems when field exists (does not restore defaults)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'final_countdown_tab_v1': jsonEncode(<String, Object>{
+          'currentAge': '40',
+          'lifeExpectancy': '60',
+          'retireYear': '${DateTime.now().year + 5}',
+          'experienceItems': <Object>[],
+          'costItems': <Map<String, Object>>[
+            <String, Object>{
+              'name': '測試支出',
+              'amount': '100',
+              'kind': 'oneTime',
+              'phase': 'allYears',
+            },
+          ],
+          'assetItems': <Map<String, Object>>[
+            <String, Object>{
+              'name': '測試資產',
+              'amount': '500',
+              'kind': 'oneTime',
+              'phase': 'allYears',
+            },
+          ],
+        }),
+      });
+
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('尚未新增體驗項目'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('尚未新增體驗項目'), findsOneWidget);
+    },
+  );
 
   testWidgets('quick add and delete item updates list', (tester) async {
     await tester.pumpWidget(app());
