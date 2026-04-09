@@ -31,10 +31,18 @@ class CyberSkillProfile {
     this.company,
     this.level,
     this.role,
+    this.relationshipToUser,
+    this.familyRole,
+    this.lifeStage,
+    this.residenceCity,
+    this.occupation,
     this.gender,
     this.mbti,
     this.personaTags = const <String>[],
     this.cultureTags = const <String>[],
+    this.personalValues = const <String>[],
+    this.hobbies = const <String>[],
+    this.signatureMemory,
     this.impression,
   });
 
@@ -42,13 +50,21 @@ class CyberSkillProfile {
   final String? company;
   final String? level;
   final String? role;
+  final String? relationshipToUser;
+  final String? familyRole;
+  final String? lifeStage;
+  final String? residenceCity;
+  final String? occupation;
   final String? gender;
   final String? mbti;
   final List<String> personaTags;
   final List<String> cultureTags;
+  final List<String> personalValues;
+  final List<String> hobbies;
+  final String? signatureMemory;
   final String? impression;
 
-  String get identityLine {
+  String get workIdentityLine {
     final parts = <String>[
       if (_safe(company) != null) _safe(company)!,
       if (_safe(level) != null) _safe(level)!,
@@ -57,15 +73,42 @@ class CyberSkillProfile {
     return parts.isEmpty ? '同事' : parts.join(' ');
   }
 
+  String get warmIdentityLine {
+    final parts = <String>[
+      if (_safe(relationshipToUser) != null) _safe(relationshipToUser)!,
+      if (_safe(familyRole) != null) _safe(familyRole)!,
+      if (_safe(lifeStage) != null) _safe(lifeStage)!,
+    ];
+    return parts.isEmpty ? '家人般的陪伴者' : parts.join('，');
+  }
+
+  List<String> get personalContextLines => <String>[
+    if (_safe(residenceCity) != null) '生活地：${_safe(residenceCity)!}',
+    if (_safe(occupation) != null) '日常角色：${_safe(occupation)!}',
+    if (personalValues.isNotEmpty) '重視價值：${personalValues.join('、')}',
+    if (hobbies.isNotEmpty) '生活喜好：${hobbies.join('、')}',
+    if (_safe(signatureMemory) != null) '代表記憶：${_safe(signatureMemory)!}',
+  ];
+
+  String get identityLine => workIdentityLine;
+
   Map<String, Object?> toMap() => {
     'name': name,
     'company': company,
     'level': level,
     'role': role,
+    'relationshipToUser': relationshipToUser,
+    'familyRole': familyRole,
+    'lifeStage': lifeStage,
+    'residenceCity': residenceCity,
+    'occupation': occupation,
     'gender': gender,
     'mbti': mbti,
     'personaTags': personaTags,
     'cultureTags': cultureTags,
+    'personalValues': personalValues,
+    'hobbies': hobbies,
+    'signatureMemory': signatureMemory,
     'impression': impression,
   };
 
@@ -79,10 +122,30 @@ class CyberSkillProfile {
       company: _safe(_sanitizeText(map['company'] as String?, maxLength: 80)),
       level: _safe(_sanitizeText(map['level'] as String?, maxLength: 40)),
       role: _safe(_sanitizeText(map['role'] as String?, maxLength: 80)),
+      relationshipToUser: _safe(
+        _sanitizeText(map['relationshipToUser'] as String?, maxLength: 80),
+      ),
+      familyRole: _safe(
+        _sanitizeText(map['familyRole'] as String?, maxLength: 80),
+      ),
+      lifeStage: _safe(
+        _sanitizeText(map['lifeStage'] as String?, maxLength: 80),
+      ),
+      residenceCity: _safe(
+        _sanitizeText(map['residenceCity'] as String?, maxLength: 80),
+      ),
+      occupation: _safe(
+        _sanitizeText(map['occupation'] as String?, maxLength: 80),
+      ),
       gender: _safe(_sanitizeText(map['gender'] as String?, maxLength: 20)),
       mbti: _safe(_sanitizeText(map['mbti'] as String?, maxLength: 16)),
       personaTags: _stringList(map['personaTags']),
       cultureTags: _stringList(map['cultureTags']),
+      personalValues: _stringList(map['personalValues']),
+      hobbies: _stringList(map['hobbies']),
+      signatureMemory: _safe(
+        _sanitizeText(map['signatureMemory'] as String?, maxLength: 280),
+      ),
       impression: _safe(
         _sanitizeText(map['impression'] as String?, maxLength: 280),
       ),

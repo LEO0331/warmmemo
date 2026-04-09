@@ -65,4 +65,4 @@ firebase-debug.log*
 firestore-debug.log*
 serviceAccount.json
 
-.omx
+.omx/

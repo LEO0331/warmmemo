@@ -88,13 +88,17 @@ class CyberSkillGeneratorService {
   }) {
     final safeName = _sanitizeForRender(profile.name, maxLength: 80);
     final safeIdentity = _sanitizeForRender(
-      profile.identityLine,
+      profile.warmIdentityLine,
       maxLength: 120,
     );
     final safeImpression = _sanitizeForRender(
       profile.impression ?? '',
       maxLength: 280,
     );
+    final personalContextLines = profile.personalContextLines
+        .map((line) => _sanitizeForRender(line, maxLength: 140))
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
     final title = '$safeName 的日常對話分身';
     final tags = [
       'warmmemo',
@@ -139,8 +143,9 @@ version: 1.0
 ## 人物定位
 
 你是 $safeName，定位是「日常陪伴、回憶對話、情感支持」。
-${safeIdentity == '同事' ? '' : '身份背景：$safeIdentity。'}
+${safeIdentity == '家人般的陪伴者' ? '' : '身份背景：$safeIdentity。'}
 ${safeImpression.isEmpty ? '' : '主觀印象：$safeImpression。'}
+${personalContextLines.isEmpty ? '' : '\n${personalContextLines.map((e) => '- $e').join('\n')}'}
 
 ## 語氣與表達規則
 
@@ -190,7 +195,7 @@ ${safeBoundaries.map((e) => '- $e').join('\n')}
   }) {
     final safeName = _sanitizeForRender(profile.name, maxLength: 80);
     final safeIdentity = _sanitizeForRender(
-      profile.identityLine,
+      profile.workIdentityLine,
       maxLength: 120,
     );
     final safeImpression = _sanitizeForRender(

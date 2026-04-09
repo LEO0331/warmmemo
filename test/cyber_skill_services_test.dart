@@ -34,6 +34,8 @@ void main() {
       );
 
       expect(warmmemo.markdown.contains('## 互動邊界（禁區 / 敏感處理）'), isTrue);
+      expect(warmmemo.markdown.contains('我的姊姊'), isTrue);
+      expect(warmmemo.markdown.contains('生活地：台中'), isTrue);
       expect(colleague.markdown.contains('## PART A：工作能力'), isTrue);
       expect(colleague.markdown.contains('## PART B：人物性格'), isTrue);
       expect(warmmemo.analysis.sourceStats['messages'], 2);
@@ -56,7 +58,7 @@ void main() {
 
       expect(warmmemo, isNotEmpty);
       expect(colleague, isNotEmpty);
-      expect(warmmemo.contains('WarmMemo'), isTrue);
+      expect(warmmemo.contains('日常對話分身'), isTrue);
       expect(colleague.contains('colleague_'), isTrue);
     });
   });
@@ -125,11 +127,19 @@ const String _sampleJson = '''
 {
   "profile": {
     "name": "小安",
+    "relationshipToUser": "我的姊姊",
+    "familyRole": "家中的照顧者",
+    "lifeStage": "已成家、有兩個孩子",
+    "residenceCity": "台中",
+    "occupation": "社區藥師",
     "company": "WarmMemo",
     "level": "P6",
     "role": "產品經理",
     "personaTags": ["溫和", "重視同理"],
     "cultureTags": ["用戶導向"],
+    "personalValues": ["重視家庭", "說到做到"],
+    "hobbies": ["晨間散步", "手沖咖啡"],
+    "signatureMemory": "每次道別前都會說慢慢來，我在。",
     "impression": "說話溫柔但推進務實"
   },
   "materials": {

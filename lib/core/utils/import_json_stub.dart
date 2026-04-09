@@ -1,3 +1,3 @@
 Future<String?> pickJsonTextFile() async {
-  return null;
+  throw UnsupportedError('json-import-not-supported');
 }

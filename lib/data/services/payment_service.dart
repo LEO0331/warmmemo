@@ -5,11 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../firebase/auth_service.dart';
 
-enum PaymentProvider {
-  stripe,
-  ecpay,
-  linepay,
-}
+enum PaymentProvider { stripe, ecpay, linepay }
 
 class PaymentResult {
   const PaymentResult({
@@ -28,33 +24,61 @@ class PaymentService {
     http.Client? client,
     AuthService? authService,
     Future<String?> Function()? idTokenProvider,
-  })  : _client = client ?? http.Client(),
-        _authService = authService,
-        _idTokenProvider = idTokenProvider;
+    bool? useHostedPaymentLinks,
+    String? paymentLink120000,
+    String? paymentLink150000,
+    String? paymentLink220000,
+  }) : _client = client ?? http.Client(),
+       _authService = authService,
+       _idTokenProvider = idTokenProvider,
+       _useHostedPaymentLinks =
+           useHostedPaymentLinks ?? _defaultUseHostedPaymentLinks,
+       _paymentLink120000 = paymentLink120000 ?? _defaultPaymentLink120000,
+       _paymentLink150000 = paymentLink150000 ?? _defaultPaymentLink150000,
+       _paymentLink220000 = paymentLink220000 ?? _defaultPaymentLink220000;
 
   static final PaymentService instance = PaymentService();
 
   final http.Client _client;
   final AuthService? _authService;
   final Future<String?> Function()? _idTokenProvider;
+  final bool _useHostedPaymentLinks;
+  final String _paymentLink120000;
+  final String _paymentLink150000;
+  final String _paymentLink220000;
 
   static const _defaultBackend =
       'https://asia-east1-warmmemo-1a485.cloudfunctions.net';
-  static const _backendHost =
-      String.fromEnvironment('WARMEMO_PAYMENT_BACKEND_URL', defaultValue: _defaultBackend);
-  static const _functionName =
-      String.fromEnvironment('WARMEMO_PAYMENT_FUNCTION', defaultValue: 'createInvoice');
-  static const _linePayFunctionName =
-      String.fromEnvironment('WARMEMO_LINEPAY_FUNCTION', defaultValue: 'linePayRequest');
-  static const _useHostedPaymentLinksRaw =
-      String.fromEnvironment('WARMEMO_USE_HOSTED_PAYMENT_LINKS', defaultValue: 'false');
-  static final _useHostedPaymentLinks = _useHostedPaymentLinksRaw.toLowerCase() == 'true';
-  static const _paymentLink120000 =
-      String.fromEnvironment('STRIPE_PAYMENT_LINK_120000', defaultValue: '');
-  static const _paymentLink150000 =
-      String.fromEnvironment('STRIPE_PAYMENT_LINK_150000', defaultValue: '');
-  static const _paymentLink220000 =
-      String.fromEnvironment('STRIPE_PAYMENT_LINK_220000', defaultValue: '');
+  static const _backendHost = String.fromEnvironment(
+    'WARMEMO_PAYMENT_BACKEND_URL',
+    defaultValue: _defaultBackend,
+  );
+  static const _functionName = String.fromEnvironment(
+    'WARMEMO_PAYMENT_FUNCTION',
+    defaultValue: 'createInvoice',
+  );
+  static const _linePayFunctionName = String.fromEnvironment(
+    'WARMEMO_LINEPAY_FUNCTION',
+    defaultValue: 'linePayRequest',
+  );
+  static const _defaultUseHostedPaymentLinksRaw = String.fromEnvironment(
+    'WARMEMO_USE_HOSTED_PAYMENT_LINKS',
+    defaultValue: 'false',
+  );
+  static final _defaultUseHostedPaymentLinks =
+      _defaultUseHostedPaymentLinksRaw.toLowerCase() == 'true';
+  static const _defaultPaymentLink120000 = String.fromEnvironment(
+    'STRIPE_PAYMENT_LINK_120000',
+    defaultValue: '',
+  );
+  static const _defaultPaymentLink150000 = String.fromEnvironment(
+    'STRIPE_PAYMENT_LINK_150000',
+    defaultValue: '',
+  );
+  static const _defaultPaymentLink220000 = String.fromEnvironment(
+    'STRIPE_PAYMENT_LINK_220000',
+    defaultValue: '',
+  );
 
   bool get useHostedPaymentLinks => _useHostedPaymentLinks;
 
@@ -76,7 +100,8 @@ class PaymentService {
         throw StateError('尚未設定此方案的 Stripe Payment Link。');
       }
       final hosted = Uri.tryParse(url);
-      if (hosted == null || !(hosted.isScheme('https') || hosted.isScheme('http'))) {
+      if (hosted == null ||
+          !(hosted.isScheme('https') || hosted.isScheme('http'))) {
         throw StateError('Payment Link 格式錯誤，請確認以 https:// 開頭。');
       }
       return PaymentResult(
@@ -86,8 +111,9 @@ class PaymentService {
       );
     }
 
-    final idToken = await (_idTokenProvider?.call() ??
-        (_authService ?? AuthService.instance).currentUser?.getIdToken());
+    final idToken =
+        await (_idTokenProvider?.call() ??
+            (_authService ?? AuthService.instance).currentUser?.getIdToken());
     if (idToken == null) {
       throw StateError('使用者尚未驗證，無法建立付款資訊。');
     }
@@ -134,7 +160,8 @@ class PaymentService {
       throw StateError('後端未回傳完整付款資訊。');
     }
     final parsed = Uri.tryParse(checkoutUrl);
-    if (parsed == null || !(parsed.isScheme('https') || parsed.isScheme('http'))) {
+    if (parsed == null ||
+        !(parsed.isScheme('https') || parsed.isScheme('http'))) {
       throw StateError('後端回傳的 checkoutUrl 無效：$checkoutUrl');
     }
 
@@ -156,8 +183,9 @@ class PaymentService {
     required String description,
     String currency = 'TWD',
   }) async {
-    final idToken = await (_idTokenProvider?.call() ??
-        (_authService ?? AuthService.instance).currentUser?.getIdToken());
+    final idToken =
+        await (_idTokenProvider?.call() ??
+            (_authService ?? AuthService.instance).currentUser?.getIdToken());
     if (idToken == null) {
       throw StateError('使用者尚未驗證，無法建立付款資訊。');
     }
@@ -182,7 +210,9 @@ class PaymentService {
           .timeout(const Duration(seconds: 20));
     } catch (e) {
       final msg = e.toString();
-      if (msg.contains('XMLHttpRequest') || msg.contains('xhr') || msg.contains('CORS')) {
+      if (msg.contains('XMLHttpRequest') ||
+          msg.contains('xhr') ||
+          msg.contains('CORS')) {
         throw StateError(
           '無法連線到付款後端：XMLHttpRequest error（常見原因：CORS 未允許 Authorization、或 HTTPS 網站呼叫 HTTP 後端/mixed content、或前端仍指向 localhost）。請檢查 `WARMEMO_PAYMENT_BACKEND_URL` 是否為公開 HTTPS 網域，且後端允許跨網域請求。',
         );
@@ -210,7 +240,8 @@ class PaymentService {
       throw StateError('後端未回傳完整 LINE Pay 付款資訊。');
     }
     final parsed = Uri.tryParse(checkoutUrl);
-    if (parsed == null || !(parsed.isScheme('https') || parsed.isScheme('http'))) {
+    if (parsed == null ||
+        !(parsed.isScheme('https') || parsed.isScheme('http'))) {
       throw StateError('後端回傳的 checkoutUrl 無效：$checkoutUrl');
     }
     return PaymentResult(

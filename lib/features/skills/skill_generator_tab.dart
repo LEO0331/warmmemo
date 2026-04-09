@@ -135,6 +135,11 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                         '必要欄位：profile + materials（messages/documents/emails 任一有資料）。',
                         style: theme.textTheme.bodySmall,
                       ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        '建議補充：relationshipToUser、familyRole、lifeStage、residenceCity、occupation、personalValues、hobbies、signatureMemory。',
+                        style: theme.textTheme.bodySmall,
+                      ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _jsonController,
@@ -449,6 +454,11 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
       setState(() => _error = e.message);
       _showFeedback(e.message, FeedbackTone.error);
       _debugLog('import.format', e);
+    } on UnsupportedError {
+      if (!mounted) return;
+      const message = '此平台目前不支援匯入檔案，請直接貼上 JSON 內容。';
+      setState(() => _error = message);
+      _showFeedback(message, FeedbackTone.info);
     } catch (e) {
       if (!mounted) return;
       final message = _safeErrorMessage('unknown');
@@ -644,6 +654,11 @@ class _SavedSkillCard extends StatelessWidget {
 const Map<String, Object?> _sampleInputMap = <String, Object?>{
   'profile': <String, Object?>{
     'name': '小安',
+    'relationshipToUser': '我的姊姊',
+    'familyRole': '家中的照顧者',
+    'lifeStage': '已成家、有兩個孩子',
+    'residenceCity': '台中',
+    'occupation': '社區藥師',
     'company': 'WarmMemo',
     'level': 'P6',
     'role': '產品經理',
@@ -651,6 +666,9 @@ const Map<String, Object?> _sampleInputMap = <String, Object?>{
     'mbti': 'INFJ',
     'personaTags': <String>['溫和', '結構化溝通', '重視同理'],
     'cultureTags': <String>['用戶導向', '務實'],
+    'personalValues': <String>['重視家庭', '說到做到', '尊重每個人的節奏'],
+    'hobbies': <String>['晨間散步', '手沖咖啡', '週末做菜'],
+    'signatureMemory': '每次道別前都會說「慢慢來，我在」。',
     'impression': '談話很溫柔但推進事情很穩定',
   },
   'materials': <String, Object?>{
