@@ -161,6 +161,30 @@ service cloud.firestore {
         allow update, delete: if isAdmin();
       }
 
+      match /cyberSkills/{skillId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if (isOwner(userId) || isAdmin())
+          && request.resource.data.keys().hasOnly([
+            'templateType',
+            'profileName',
+            'profileIdentity',
+            'analysisSummary',
+            'markdown',
+            'version',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.templateType in ['warmmemoDaily', 'colleagueWork']
+          && request.resource.data.profileName is string
+          && request.resource.data.profileIdentity is string
+          && request.resource.data.analysisSummary is map
+          && request.resource.data.markdown is string
+          && request.resource.data.version is string
+          && request.resource.data.createdAt is string
+          && request.resource.data.updatedAt is string;
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
       match /topupRequests/{requestId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId)

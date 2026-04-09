@@ -121,8 +121,11 @@ class _AuthGateState extends State<AuthGate> {
   int _resolveInitialTabIndex() {
     if (!kIsWeb) return 0;
     final fragment = Uri.base.fragment.toLowerCase();
-    if (fragment.contains('packages')) {
+    if (fragment.contains('skills')) {
       return 1;
+    }
+    if (fragment.contains('packages')) {
+      return 2;
     }
     return 0;
   }
