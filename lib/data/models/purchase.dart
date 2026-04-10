@@ -228,6 +228,8 @@ List<DeliveryMilestone> defaultDeliveryMilestones() {
 }
 
 class Purchase {
+  static const int currentSchemaVersion = 2;
+
   Purchase({
     required this.planName,
     required this.priceLabel,
@@ -256,6 +258,7 @@ class Purchase {
     this.vendorAssignment,
     this.materialSelection,
     this.deliverySchedule = const [],
+    this.schemaVersion = currentSchemaVersion,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final String? id;
@@ -288,6 +291,7 @@ class Purchase {
   final VendorAssignment? vendorAssignment;
   final MaterialSelection? materialSelection;
   final List<DeliveryMilestone> deliverySchedule;
+  final int schemaVersion;
 
   Purchase copyWith({
     String? id,
@@ -314,6 +318,7 @@ class Purchase {
     VendorAssignment? vendorAssignment,
     MaterialSelection? materialSelection,
     List<DeliveryMilestone>? deliverySchedule,
+    int? schemaVersion,
   }) {
     return Purchase(
       userId: userId ?? this.userId,
@@ -343,10 +348,20 @@ class Purchase {
       vendorAssignment: vendorAssignment ?? this.vendorAssignment,
       materialSelection: materialSelection ?? this.materialSelection,
       deliverySchedule: deliverySchedule ?? this.deliverySchedule,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
     );
   }
 
+  bool get needsSchemaMigration =>
+      schemaVersion < currentSchemaVersion || priceAmount < 0;
+
+  Purchase normalizedForStorage() {
+    final safeAmount = priceAmount < 0 ? 0 : priceAmount;
+    return copyWith(priceAmount: safeAmount, schemaVersion: currentSchemaVersion);
+  }
+
   Map<String, Object?> toMap() => {
+    'schemaVersion': schemaVersion,
     'planName': planName,
     'priceLabel': priceLabel,
     'priceAmount': priceAmount,
@@ -387,8 +402,11 @@ class Purchase {
     id: id,
     userId: userId ?? map['userId'] as String?,
     docPath: docPath,
+    schemaVersion: _parseSchemaVersion(map['schemaVersion']),
     planName: map['planName'] as String? ?? '',
-    priceLabel: map['priceLabel'] as String? ?? '',
+    priceLabel:
+        map['priceLabel'] as String? ??
+        _priceLabelFromAmount((map['priceAmount'] as num?)?.toInt()),
     priceAmount:
         (map['priceAmount'] as num?)?.toInt() ??
         _parsePriceAmount(map['priceLabel'] as String?),
@@ -436,6 +454,23 @@ class Purchase {
         )
         .toList(),
   );
+
+  static int _parseSchemaVersion(Object? value) {
+    final parsed = (value as num?)?.toInt() ?? 1;
+    if (parsed <= 0) return 1;
+    return parsed;
+  }
+
+  static String _priceLabelFromAmount(int? amount) {
+    if (amount == null || amount <= 0) return '';
+    final raw = amount.toString();
+    final chunks = <String>[];
+    for (var i = raw.length; i > 0; i -= 3) {
+      final start = (i - 3).clamp(0, i).toInt();
+      chunks.add(raw.substring(start, i));
+    }
+    return 'NT\$ ${chunks.reversed.join(',')}';
+  }
 
   static int _parsePriceAmount(String? label) {
     if (label == null) return 0;

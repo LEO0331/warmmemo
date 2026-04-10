@@ -337,13 +337,13 @@ void main() {
             planName: 'X',
             priceLabel: 'NT\$ 120,000',
             priceAmount: 120000,
-            status: 'complete',
+            status: 'received',
             createdAt: DateTime(2026, 1, 1),
           ),
         );
 
         final doc = await ref.get();
-        expect(doc.data()?['status'], 'complete');
+        expect(doc.data()?['status'], 'received');
       },
     );
 

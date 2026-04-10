@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../core/utils/app_error_info.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/models/purchase.dart';
 import '../../data/services/payment_service.dart';
@@ -30,6 +31,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String? _lastCheckoutUrl;
   String? _lastPaymentProvider;
   String? _lastErrorCode;
+  String? _lastRequestId;
   String? _lastErrorDetail;
   String? _expectedPaymentLinkKey;
   Purchase? _createdOrder;
@@ -120,6 +122,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _lastCheckoutUrl = payment.checkoutUrl;
         _lastPaymentProvider = payment.provider.name;
         _lastErrorCode = null;
+        _lastRequestId = null;
+        _lastErrorDetail = null;
       });
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       AppFeedback.show(
@@ -129,14 +133,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      final errorCode = _extractErrorCode(error.toString());
+      final info = appErrorInfo(
+        error,
+        fallback: '發生未知錯誤，請稍後再試。',
+      );
       setState(() {
-        _lastErrorCode = errorCode;
-        _lastErrorDetail = error.toString();
+        _lastErrorCode = info.code;
+        _lastRequestId = info.requestId;
+        _lastErrorDetail = info.rawDebug;
       });
+      logDebugError('checkout.submit.stripe', error);
       AppFeedback.show(
         context,
-        message: '提交失敗（$errorCode）',
+        message: '${info.message}（${info.code}）',
         tone: FeedbackTone.error,
         actionLabel: '重試',
         onAction: _submitOrder,
@@ -232,6 +241,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _lastCheckoutUrl = payment.checkoutUrl;
         _lastPaymentProvider = payment.provider.name;
         _lastErrorCode = null;
+        _lastRequestId = null;
+        _lastErrorDetail = null;
       });
       AppFeedback.show(
         context,
@@ -240,14 +251,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      final errorCode = _extractErrorCode(error.toString());
+      final info = appErrorInfo(
+        error,
+        fallback: '發生未知錯誤，請稍後再試。',
+      );
       setState(() {
-        _lastErrorCode = errorCode;
-        _lastErrorDetail = error.toString();
+        _lastErrorCode = info.code;
+        _lastRequestId = info.requestId;
+        _lastErrorDetail = info.rawDebug;
       });
+      logDebugError('checkout.submit.linepay', error);
       AppFeedback.show(
         context,
-        message: '提交失敗（$errorCode）',
+        message: '${info.message}（${info.code}）',
         tone: FeedbackTone.error,
         actionLabel: '重試',
         onAction: _submitOrderWithLinePay,
@@ -264,19 +280,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       throw StateError('無法解析方案金額：$value');
     }
     return parsed;
-  }
-
-  String _extractErrorCode(String text) {
-    if (text.contains('payment-link-missing:')) {
-      final key = text.split('payment-link-missing:').last;
-      return 'payment-link-missing ($key)';
-    }
-    if (text.contains('payment-link-missing')) return 'payment-link-missing';
-    if (text.contains('payment-link-invalid')) return 'payment-link-invalid';
-    final match = RegExp(r'\[([^\]]+)\]').firstMatch(text);
-    if (match == null) return 'unknown';
-    final raw = match.group(1) ?? 'unknown';
-    return raw.contains('/') ? raw.split('/').last : raw;
   }
 
   Future<bool> _openCheckoutUri(Uri uri, {bool preferSameTabOnWeb = true}) {
@@ -405,6 +408,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (_expectedPaymentLinkKey != null)
                         SelectableText(
                           '預期讀取 key：$_expectedPaymentLinkKey',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      if (_lastRequestId != null)
+                        SelectableText(
+                          'Request ID：$_lastRequestId',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.error,
                           ),

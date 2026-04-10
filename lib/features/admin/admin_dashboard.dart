@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/data/debouncer.dart';
+import '../../core/utils/app_error_info.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
@@ -36,6 +37,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _planFilter;
   String? _paymentQuickFilter;
   String? _verifierQuickFilter;
+  String? _slaQuickFilter;
   String _keyword = '';
   DateTime? _fromDate;
   DateTime? _toDate;
@@ -211,7 +213,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       AppFeedback.showWithMessenger(
                         messenger,
                         colorScheme: colorScheme,
-                        message: '診斷失敗：$error',
+                        message:
+                            '診斷失敗：${appErrorInfo(error, fallback: '讀取失敗').code}\n'
+                            'Query: collectionGroup(orders).orderBy(documentId).limit(1)\n'
+                            'Expected rule: /{path=**}/orders/{orderId}',
                         tone: FeedbackTone.error,
                       );
                     }
@@ -244,6 +249,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               const SizedBox(height: 12),
             ],
             Text('檢視用戶提交的方案訂單，並可針對單筆填寫禮儀公司資訊後完成案件。'),
+            const SizedBox(height: 16),
+            _buildWorkflowLegend(),
             const SizedBox(height: 16),
             _buildMetricsPanel(),
             const SizedBox(height: 16),
@@ -417,6 +424,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('SLA 全部'),
+                selected: _slaQuickFilter == null,
+                onSelected: (_) => setState(() => _slaQuickFilter = null),
+              ),
+              ChoiceChip(
+                label: const Text('付款逾時 >24h'),
+                selected: _slaQuickFilter == 'payment_overdue',
+                onSelected: (_) =>
+                    setState(() => _slaQuickFilter = 'payment_overdue'),
+              ),
+              ChoiceChip(
+                label: const Text('處理逾時 >72h'),
+                selected: _slaQuickFilter == 'case_overdue',
+                onSelected: (_) =>
+                    setState(() => _slaQuickFilter = 'case_overdue'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           SelectableText(
             '統計：已付款 ${overview.paidCount} 筆 / 共 ${overview.totalCount} 筆',
           ),
@@ -467,6 +498,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         SelectableText('狀態：${o.status}'),
                         SelectableText('付款：${o.paymentStatus ?? '-'}'),
                         SelectableText('金額：${o.priceLabel}'),
+                        SelectableText('SLA：${_slaSummary(o)}'),
+                        SelectableText('時間線：${_timelineSummary(o)}'),
                         SelectableText('成交階段：${_conversionStep(o)}'),
                         SelectableText('交付里程碑：${_latestMilestoneSummary(o)}'),
                         SelectableText(
@@ -555,6 +588,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 SelectableText('狀態：${o.status}'),
                 SelectableText('付款：${o.paymentStatus ?? '-'}'),
                 SelectableText('用戶：${o.userId ?? '-'}'),
+                SelectableText('SLA：${_slaSummary(o)}'),
+                SelectableText('時間線：${_timelineSummary(o)}'),
                 SelectableText('成交階段：${_conversionStep(o)}'),
                 SelectableText('交付里程碑：${_latestMilestoneSummary(o)}'),
                 SelectableText('最近核對：${_latestVerificationSummary(o)}'),
@@ -669,6 +704,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final pOk = _planFilter == null || o.planName == _planFilter;
       final payOk =
           _paymentQuickFilter == null || o.paymentStatus == _paymentQuickFilter;
+      final slaOk =
+          _slaQuickFilter == null ||
+          (_slaQuickFilter == 'payment_overdue' && _isPaymentOverdue(o)) ||
+          (_slaQuickFilter == 'case_overdue' && _isCaseOverdue(o));
       final verifier = _latestVerifier(o);
       final vOk =
           _verifierQuickFilter == null || verifier == _verifierQuickFilter;
@@ -689,7 +728,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           !o.createdAt.isAfter(
             DateTime(_toDate!.year, _toDate!.month, _toDate!.day, 23, 59, 59),
           );
-      return sOk && pOk && payOk && vOk && kOk && fromOk && toOk;
+      return sOk && pOk && payOk && slaOk && vOk && kOk && fromOk && toOk;
     }).toList();
   }
 
@@ -795,6 +834,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildMetricsPanel() {
     final metrics = _getMetricsSnapshot();
+    final paymentOverdue = _allOrders.where(_isPaymentOverdue).length;
+    final caseOverdue = _allOrders.where(_isCaseOverdue).length;
 
     return SectionCard(
       title: '營運指標',
@@ -808,6 +849,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _metricChip('處理中', '${metrics.received}'),
           _metricChip('已完成', '${metrics.complete}'),
           _metricChip('已付款', '${metrics.paid}'),
+          _metricChip('付款逾時 (>24h)', '$paymentOverdue'),
+          _metricChip('處理逾時 (>72h)', '$caseOverdue'),
           _metricChip('付款率', '${metrics.paidRate}%'),
           _metricChip('平均結案時間', '${metrics.avgHours.toStringAsFixed(1)}h'),
           _metricChip(
@@ -825,6 +868,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _metricChip(
             '交付完成率',
             '${metrics.deliveryRate}% (${metrics.delivered}/${metrics.assigned})',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkflowLegend() {
+    final caseGraph = OrderWorkflow.caseTransitionGraph;
+    final paymentGraph = OrderWorkflow.paymentTransitionGraph;
+
+    String formatTransition(MapEntry<String, Set<String>> entry) {
+      final to = entry.value.toList()..sort();
+      return '${entry.key} -> ${to.join(' / ')}';
+    }
+
+    return SectionCard(
+      title: '流程規則（狀態機）',
+      icon: Icons.rule_folder_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '案件狀態允許流轉',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          ...caseGraph.entries.map(
+            (entry) => SelectableText('• ${formatTransition(entry)}'),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '付款狀態允許流轉',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          ...paymentGraph.entries.map(
+            (entry) => SelectableText('• ${formatTransition(entry)}'),
+          ),
+          const SizedBox(height: 10),
+          const SelectableText(
+            '完成條件：status=complete 前，需 paymentStatus=paid 且「已交付」里程碑為 done。',
           ),
         ],
       ),
@@ -1184,6 +1272,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return '${pending.label}（pending$overdueTag）';
   }
 
+  bool _isPaymentOverdue(Purchase order) {
+    final status = order.paymentStatus ?? 'checkout_created';
+    if (status != 'checkout_created' && status != 'awaiting_checkout') {
+      return false;
+    }
+    return DateTime.now().difference(order.createdAt) > const Duration(hours: 24);
+  }
+
+  bool _isCaseOverdue(Purchase order) {
+    if (order.status != 'received') return false;
+    final baseline = order.verifiedAt ?? order.createdAt;
+    return DateTime.now().difference(baseline) > const Duration(hours: 72);
+  }
+
+  String _slaSummary(Purchase order) {
+    if (_isPaymentOverdue(order)) return '付款逾時';
+    if (_isCaseOverdue(order)) return '處理逾時';
+    return '正常';
+  }
+
+  String _timelineSummary(Purchase order) {
+    final created = order.createdAt.toLocal().toString().split('.').first;
+    final paid = order.paidAt?.toLocal().toString().split('.').first ?? '-';
+    final verified = order.verifiedAt?.toLocal().toString().split('.').first ?? '-';
+    return '建立 $created → 付款 $paid → 核對 $verified';
+  }
+
   bool _isMilestoneOverdue(DeliveryMilestone milestone) {
     if (milestone.status == 'done') return false;
     final target = milestone.targetDate;
@@ -1286,7 +1401,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   List<Purchase> _getFilteredOrders() {
     final key =
-        '$_ordersVersion|$_statusFilter|$_planFilter|$_paymentQuickFilter|$_verifierQuickFilter|$_keyword|${_dateKey(_fromDate)}|${_dateKey(_toDate)}';
+        '$_ordersVersion|$_statusFilter|$_planFilter|$_paymentQuickFilter|$_slaQuickFilter|$_verifierQuickFilter|$_keyword|${_dateKey(_fromDate)}|${_dateKey(_toDate)}';
     if (_filterMemoKey == key) {
       return _filterMemoResult;
     }
@@ -1550,20 +1665,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _captureError(Object error) {
-    final text = error.toString();
-    final code = _extractErrorCode(text);
+    final info = appErrorInfo(error, fallback: '發生未知錯誤');
     setState(() {
-      _lastErrorCode = code;
-      _lastErrorDetail = text;
+      _lastErrorCode = info.code;
+      _lastErrorDetail = info.rawDebug ?? info.message;
     });
-  }
-
-  String _extractErrorCode(String text) {
-    final match = RegExp(r'\[([^\]]+)\]').firstMatch(text);
-    if (match == null) return 'unknown';
-    final raw = match.group(1) ?? 'unknown';
-    if (raw.contains('/')) return raw.split('/').last;
-    return raw;
+    logDebugError('admin.dashboard', error);
   }
 
   String _humanReadableError(String? code) {

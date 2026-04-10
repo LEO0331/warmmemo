@@ -108,6 +108,20 @@ void main() {
       });
 
       expect(rebuilt.priceAmount, 220000);
+      expect(rebuilt.schemaVersion, 1);
+    });
+
+    test('normalizedForStorage upgrades schema version and clamps amount', () {
+      final order = Purchase(
+        planName: '方案A',
+        priceLabel: 'NT\$ 1',
+        priceAmount: -1,
+        status: 'pending',
+        schemaVersion: 1,
+      );
+      final normalized = order.normalizedForStorage();
+      expect(normalized.schemaVersion, Purchase.currentSchemaVersion);
+      expect(normalized.priceAmount, 0);
     });
 
     test('copyWith updates selected fields only', () {

@@ -49,6 +49,49 @@ class OrderWorkflow {
   }) {
     return _paymentTransitions[from]?.contains(to) ?? false;
   }
+
+  static Map<String, Set<String>> get caseTransitionGraph => {
+    for (final entry in _caseTransitions.entries)
+      entry.key: Set<String>.from(entry.value),
+  };
+
+  static Map<String, Set<String>> get paymentTransitionGraph => {
+    for (final entry in _paymentTransitions.entries)
+      entry.key: Set<String>.from(entry.value),
+  };
+
+  static bool canMarkComplete(Purchase order) {
+    final paid = order.paymentStatus == 'paid';
+    final deliveredDone = order.deliverySchedule.any(
+      (item) => item.code == 'delivered' && item.status == 'done',
+    );
+    return paid && deliveredDone;
+  }
+
+  static void assertTransitionAllowed({
+    required Purchase previous,
+    required Purchase next,
+  }) {
+    final fromCase = previous.status;
+    final toCase = next.status;
+    if (!canChangeCaseStatus(from: fromCase, to: toCase)) {
+      throw StateError('workflow-invalid-transition:status:$fromCase->$toCase');
+    }
+
+    final fromPayment = previous.paymentStatus ?? 'checkout_created';
+    final toPayment = next.paymentStatus ?? 'checkout_created';
+    if (!canChangePaymentStatus(from: fromPayment, to: toPayment)) {
+      throw StateError(
+        'workflow-invalid-transition:payment:$fromPayment->$toPayment',
+      );
+    }
+
+    if (toCase == 'complete' && !canMarkComplete(next)) {
+      throw StateError(
+        'workflow-invalid-transition:complete_requires_paid_and_delivered',
+      );
+    }
+  }
 }
 
 class BatchUpdateSkip {
@@ -94,11 +137,17 @@ class PurchaseService {
     required String uid,
     required Purchase purchase,
   }) async {
+    final normalized = purchase
+        .copyWith(
+          userId: uid,
+          schemaVersion: Purchase.currentSchemaVersion,
+        )
+        .normalizedForStorage();
     final doc = await _users
         .doc(uid)
         .collection('orders')
-        .add(purchase.copyWith(userId: uid).toMap());
-    return purchase.copyWith(id: doc.id, userId: uid, docPath: doc.path);
+        .add(normalized.toMap());
+    return normalized.copyWith(id: doc.id, userId: uid, docPath: doc.path);
   }
 
   Stream<List<Purchase>> userOrders(String uid) {
@@ -129,7 +178,7 @@ class PurchaseService {
       query = query.limit(limit);
     }
     final snapshot = await query.get();
-    return snapshot.docs
+    final items = snapshot.docs
         .map(
           (doc) => Purchase.fromMap(
             doc.data(),
@@ -138,6 +187,11 @@ class PurchaseService {
           ),
         )
         .toList();
+    await _backfillSchemaIfNeeded(
+      snapshot.docs.map((doc) => doc.reference).toList(),
+      items,
+    );
+    return items;
   }
 
   Stream<List<Purchase>> adminOrders() {
@@ -179,10 +233,32 @@ class PurchaseService {
           ),
         )
         .toList();
+    await _backfillSchemaIfNeeded(
+      snapshot.docs.map((doc) => doc.reference).toList(),
+      items,
+    );
     final nextCursor = snapshot.docs.isNotEmpty
         ? snapshot.docs.last.reference.path
         : null;
     return (items: items, cursor: nextCursor);
+  }
+
+  Future<void> _backfillSchemaIfNeeded(
+    List<DocumentReference<Map<String, dynamic>>> refs,
+    List<Purchase> items,
+  ) async {
+    if (refs.isEmpty || items.isEmpty) return;
+    final batch = _firestore.batch();
+    var writes = 0;
+    final count = refs.length < items.length ? refs.length : items.length;
+    for (var i = 0; i < count; i++) {
+      final order = items[i];
+      if (!order.needsSchemaMigration) continue;
+      batch.set(refs[i], order.normalizedForStorage().toMap(), SetOptions(merge: true));
+      writes += 1;
+    }
+    if (writes == 0) return;
+    await batch.commit();
   }
 
   Future<void> updateOrder({
@@ -191,21 +267,37 @@ class PurchaseService {
     String? mutationId,
   }) async {
     if (purchase.id == null) return;
-    final payload = purchase.toMap();
+    final targetRef =
+        (purchase.docPath != null && purchase.docPath!.isNotEmpty)
+        ? _firestore.doc(purchase.docPath!)
+        : _users.doc(uid).collection('orders').doc(purchase.id);
+
+    final previousSnapshot = await targetRef.get();
+    if (previousSnapshot.exists) {
+      final previousData = previousSnapshot.data();
+      if (previousData != null) {
+        final previous = Purchase.fromMap(
+          previousData,
+          id: purchase.id,
+          userId: uid,
+          docPath: targetRef.path,
+        );
+        OrderWorkflow.assertTransitionAllowed(
+          previous: previous,
+          next: purchase,
+        );
+      }
+    }
+
+    final normalized = purchase
+        .copyWith(schemaVersion: Purchase.currentSchemaVersion)
+        .normalizedForStorage();
+    final payload = normalized.toMap();
     if (mutationId != null && mutationId.isNotEmpty) {
       payload['clientMutationId'] = mutationId;
       payload['clientUpdatedAt'] = DateTime.now().toIso8601String();
     }
-    final docPath = purchase.docPath;
-    if (docPath != null && docPath.isNotEmpty) {
-      await _firestore.doc(docPath).set(payload, SetOptions(merge: true));
-      return;
-    }
-    await _users
-        .doc(uid)
-        .collection('orders')
-        .doc(purchase.id)
-        .set(payload, SetOptions(merge: true));
+    await targetRef.set(payload, SetOptions(merge: true));
   }
 
   Future<BatchUpdateReport> adminBatchUpdate({
@@ -285,6 +377,17 @@ class PurchaseService {
             planName: order.planName,
             userId: uid,
             reason: '沒有可更新的欄位',
+          ),
+        );
+        continue;
+      }
+      if (next.status == 'complete' && !OrderWorkflow.canMarkComplete(next)) {
+        skipped.add(
+          BatchUpdateSkip(
+            orderId: order.id ?? '-',
+            planName: order.planName,
+            userId: uid,
+            reason: 'complete 需要 payment=paid 且已交付里程碑為 done',
           ),
         );
         continue;

@@ -79,6 +79,35 @@ service cloud.firestore {
         );
     }
 
+    function orderSchemaValid() {
+      return request.resource.data.priceAmount is int
+        && request.resource.data.priceAmount >= 0
+        && request.resource.data.schemaVersion is int
+        && request.resource.data.schemaVersion >= 1;
+    }
+
+    function caseTransitionValid() {
+      let fromStatus = resource.data.status == null ? 'pending' : resource.data.status;
+      let toStatus = request.resource.data.status;
+      return toStatus == fromStatus
+        || (fromStatus == 'pending' && toStatus == 'received')
+        || (fromStatus == 'received' && toStatus == 'complete');
+    }
+
+    function paymentTransitionValid() {
+      let fromPayment = resource.data.paymentStatus == null ? 'checkout_created' : resource.data.paymentStatus;
+      let toPayment = request.resource.data.paymentStatus;
+      return toPayment == fromPayment
+        || (fromPayment == 'awaiting_checkout' && toPayment in ['checkout_created', 'cancelled', 'expired'])
+        || (fromPayment == 'checkout_created' && toPayment in ['paid', 'failed', 'cancelled', 'expired'])
+        || (fromPayment in ['failed', 'cancelled', 'expired'] && toPayment == 'checkout_created');
+    }
+
+    function completeRequiresPaid() {
+      return request.resource.data.status != 'complete'
+        || request.resource.data.paymentStatus == 'paid';
+    }
+
     function ownerUserSafeUpdate(userId) {
       return isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
@@ -202,12 +231,17 @@ service cloud.firestore {
         allow create: if isOwner(userId)
           && request.resource.data.userId == userId
           && request.resource.data.status == 'pending'
-          && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired'];
+          && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired']
+          && orderSchemaValid();
         allow update: if (isOwner(userId)
             && ownerOrderUpdatableKeysOnly()
             && ownerOrderPaymentStatusAllowed()
             && ownerOrderProposalShapeValid())
-          || isAdmin();
+          || (isAdmin()
+            && orderSchemaValid()
+            && caseTransitionValid()
+            && paymentTransitionValid()
+            && completeRequiresPaid());
         allow delete: if isAdmin();
       }
 
@@ -256,7 +290,8 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.userId
         && request.resource.data.status == 'pending'
-        && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired'];
+        && request.resource.data.paymentStatus in ['awaiting_checkout', 'checkout_created', 'failed', 'cancelled', 'expired']
+        && orderSchemaValid();
       allow update: if (isSignedIn()
           && request.auth.uid == resource.data.userId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -269,7 +304,11 @@ service cloud.firestore {
           ])
           && !(request.resource.data.paymentStatus in ['paid'])
           && ownerOrderProposalShapeValid())
-        || isAdmin();
+        || (isAdmin()
+          && orderSchemaValid()
+          && caseTransitionValid()
+          && paymentTransitionValid()
+          && completeRequiresPaid());
       allow delete: if isAdmin();
     }
 

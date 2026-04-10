@@ -59,6 +59,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       });
       return;
     }
+    if (_editing.status == 'complete' && _editing.paymentStatus != 'paid') {
+      setState(() {
+        _workflowHint = '案件要標記 complete 前，請先確認付款狀態為 paid。';
+      });
+      return;
+    }
     final actor =
         AuthService.instance.currentUser?.email ??
         AuthService.instance.currentUser?.uid ??
@@ -267,6 +273,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         .map(
                           (status) => DropdownMenuItem(
                             value: status,
+                            enabled: OrderWorkflow.canChangeCaseStatus(
+                              from: _original.status,
+                              to: status,
+                            ),
                             child: Text(status),
                           ),
                         )
@@ -286,6 +296,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         .map(
                           (status) => DropdownMenuItem(
                             value: status,
+                            enabled: OrderWorkflow.canChangePaymentStatus(
+                              from: _original.paymentStatus ?? 'checkout_created',
+                              to: status,
+                            ),
                             child: Text(status),
                           ),
                         )
