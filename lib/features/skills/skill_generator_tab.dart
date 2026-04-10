@@ -174,12 +174,12 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                           OutlinedButton.icon(
                             onPressed: _applySampleJson,
                             icon: const Icon(Icons.notes_outlined),
-                            label: const Text('套用範例 JSON'),
+                            label: const Text('套用範例'),
                           ),
                           OutlinedButton.icon(
                             onPressed: _importJsonFile,
                             icon: const Icon(Icons.upload_file_outlined),
-                            label: const Text('匯入 JSON 檔'),
+                            label: const Text('匯入'),
                           ),
                         ],
                       ),
@@ -220,7 +220,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                                 OutlinedButton.icon(
                                   onPressed: _downloadMarkdown,
                                   icon: const Icon(Icons.download_outlined),
-                                  label: const Text('下載 .md'),
+                                  label: const Text('下載'),
                                 ),
                                 OutlinedButton.icon(
                                   onPressed: uid == null || _isSaving
@@ -257,7 +257,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                   child: uid == null
                       ? const EmptyStateCard(
                           title: '尚未登入',
-                          description: '登入後可保存與管理你的 Skill 版本。',
+                          description: '登入後可保存與管理 Skill 版本。',
                           icon: Icons.lock_outline,
                         )
                       : Column(
@@ -309,7 +309,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
           );
         }
         if (snapshot.hasError) {
-          return SelectableText('讀取 Skill 失敗：${snapshot.error}');
+          return SelectableText('讀取失敗：${snapshot.error}');
         }
         final all = snapshot.data ?? const <SavedCyberSkill>[];
         final filtered = _historyFilter == null
@@ -422,7 +422,11 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
   void _applySampleJson() {
     _jsonController.text = const JsonEncoder.withIndent(
       '  ',
-    ).convert(_sampleInputMap);
+    ).convert(
+      _templateType == TemplateType.colleagueWork
+          ? _sampleInputMapColleague
+          : _sampleInputMapWarmmemo,
+    );
     setState(() {
       _error = null;
       _parsedInput = null;
@@ -651,7 +655,7 @@ class _SavedSkillCard extends StatelessWidget {
   }
 }
 
-const Map<String, Object?> _sampleInputMap = <String, Object?>{
+const Map<String, Object?> _sampleInputMapWarmmemo = <String, Object?>{
   'profile': <String, Object?>{
     'name': '小安',
     'relationshipToUser': '我的姊姊',
@@ -697,6 +701,57 @@ const Map<String, Object?> _sampleInputMap = <String, Object?>{
         'subject': '交付節點確認',
         'body': '請先確認風險與回滾方案，確認後再安排對外通知。',
         'date': '2026-04-02',
+      },
+    ],
+  },
+};
+
+const Map<String, Object?> _sampleInputMapColleague = <String, Object?>{
+  'profile': <String, Object?>{
+    'name': 'Ethan',
+    'relationshipToUser': '我的同事',
+    'familyRole': '家中長子',
+    'lifeStage': '職涯中期，正在帶團隊',
+    'residenceCity': '台北',
+    'occupation': '產品總監',
+    'company': 'WarmMemo',
+    'level': 'Director',
+    'role': '跨部門產品負責人',
+    'gender': '男',
+    'mbti': 'ENTJ',
+    'personaTags': <String>['重視效率', '先結論後細節', '主動扛責任'],
+    'cultureTags': <String>['結果導向', '透明溝通'],
+    'personalValues': <String>['對事不對人', '守住承諾', '持續優化流程'],
+    'hobbies': <String>['晨跑', '閱讀商業書', '桌球'],
+    'signatureMemory': '會在會議最後說「先做最小可行版本，今天就動起來」。',
+    'impression': '節奏快、決策清楚，重視追蹤與交付品質',
+  },
+  'materials': <String, Object?>{
+    'messages': <Map<String, Object?>>[
+      <String, Object?>{
+        'sender': 'Ethan',
+        'content': '先收斂問題範圍，今天先解最影響轉換率的那一段流程。',
+        'timestamp': '2026-04-08T09:00:00Z',
+      },
+      <String, Object?>{
+        'sender': 'Ethan',
+        'content': '如果方案 A 風險太高，請同時準備 B 案與回滾條件。',
+        'timestamp': '2026-04-08T10:10:00Z',
+      },
+    ],
+    'documents': <Map<String, Object?>>[
+      <String, Object?>{
+        'title': '產品決策紀錄',
+        'content': '決策原則：先保住核心體驗，再優化次要功能；每週固定檢視 KPI。',
+        'source': 'doc://decision-log',
+      },
+    ],
+    'emails': <Map<String, Object?>>[
+      <String, Object?>{
+        'from': 'ethan@warmmemo.io',
+        'subject': 'Q2 執行節點',
+        'body': '每兩週同步風險清單，重大變更需附預期影響與驗證方式。',
+        'date': '2026-04-09',
       },
     ],
   },

@@ -10,8 +10,8 @@ enum TemplateType {
   };
 
   String get displayLabel => switch (this) {
-    TemplateType.warmmemoDaily => '日常模式 WarmMemo',
-    TemplateType.colleagueWork => '工作模式 Colleague',
+    TemplateType.warmmemoDaily => '日常模式',
+    TemplateType.colleagueWork => '工作模式',
   };
 
   static TemplateType fromWire(String? value) {

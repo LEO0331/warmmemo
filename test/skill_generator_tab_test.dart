@@ -77,7 +77,7 @@ void main() {
     expect(generator.parseCount, 1);
     expect(find.textContaining('template:warmmemoDaily'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, '工作模式 Colleague').first);
+    await tester.tap(find.widgetWithText(ChoiceChip, '工作模式').first);
     await pumpUi(tester);
     expect(generator.parseCount, 1);
     expect(find.textContaining('template:colleagueWork'), findsOneWidget);
@@ -91,12 +91,35 @@ void main() {
 
     await pumpSkillTab(tester, generator: generator, storage: storage);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '套用範例 JSON'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '套用範例'));
     await tester.pump();
 
     final textField = tester.widget<TextField>(find.byType(TextField).first);
     expect(textField.controller!.text.contains('"profile"'), isTrue);
     expect(textField.controller!.text.contains('"materials"'), isTrue);
+  });
+
+  testWidgets('apply sample follows template mode for colleague profile', (
+    tester,
+  ) async {
+    final generator = _FakeGenerator();
+    final storage = _FakeStorage();
+
+    await pumpSkillTab(tester, generator: generator, storage: storage);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, '工作模式').first);
+    await pumpUi(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '套用範例'));
+    await pumpUi(tester);
+
+    final textField = tester.widget<TextField>(find.byType(TextField).first);
+    expect(textField.controller!.text.contains('"name": "Ethan"'), isTrue);
+    expect(textField.controller!.text.contains('"role": "跨部門產品負責人"'), isTrue);
+
+    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+    await pumpUi(tester);
+    expect(find.textContaining('template:colleagueWork'), findsOneWidget);
   });
 
   testWidgets('import json file validates and fills text area', (tester) async {
@@ -112,7 +135,7 @@ void main() {
       feedbackLog: feedback,
     );
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '匯入 JSON 檔'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '匯入'));
     await pumpUi(tester);
 
     final textField = tester.widget<TextField>(find.byType(TextField).first);
@@ -135,7 +158,7 @@ void main() {
       feedbackLog: feedback,
     );
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '匯入 JSON 檔'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '匯入'));
     await pumpUi(tester);
 
     expect(find.textContaining('profile.name 是必填欄位'), findsWidgets);
@@ -211,7 +234,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '一鍵複製'));
     await pumpUi(tester);
-    await tester.tap(find.widgetWithText(OutlinedButton, '下載 .md'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '下載'));
     await pumpUi(tester);
 
     expect(copied.single.contains('template:warmmemoDaily'), isTrue);
@@ -275,10 +298,10 @@ void main() {
     );
     await pumpUi(tester);
 
-    expect(find.textContaining('日常模式 WarmMemo'), findsWidgets);
-    expect(find.textContaining('工作模式 Colleague'), findsWidgets);
+    expect(find.textContaining('日常模式'), findsWidgets);
+    expect(find.textContaining('工作模式'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, '工作模式 Colleague').last);
+    await tester.tap(find.widgetWithText(ChoiceChip, '工作模式').last);
     await pumpUi(tester);
     expect(find.textContaining('template:colleagueWork'), findsNothing);
 

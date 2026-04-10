@@ -39,15 +39,6 @@ class _ExperienceItem {
   int satisfaction;
   _ExperienceCategory category;
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'title': titleController.text,
-      'completed': completed,
-      'satisfaction': satisfaction,
-      'category': category.name,
-    };
-  }
-
   static _ExperienceItem fromJson(Map<String, dynamic> json) {
     final rawScore = json['satisfaction'];
     final score = rawScore is num
@@ -82,15 +73,6 @@ class _PlanItem {
   final TextEditingController amountController;
   _AmountKind kind;
   _AnnualPhase phase;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'name': nameController.text,
-      'amount': amountController.text,
-      'kind': kind.name,
-      'phase': phase.name,
-    };
-  }
 
   static _PlanItem fromJson(Map<String, dynamic> json) {
     final rawAmount = json['amount'];
@@ -1195,6 +1177,35 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '如何使用這張表',
+                  icon: Icons.menu_book_outlined,
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(
+                        '1. 先填「倒數參數」與「目標參數」：確認目前年齡、預估壽命、退休年份與你的目標結餘。',
+                      ),
+                      SizedBox(height: 6),
+                      SelectableText(
+                        '2. 完成「健康自評」與「記憶體驗」：用分數和體驗清單檢視你想過的人生比例，不只看金錢。',
+                      ),
+                      SizedBox(height: 6),
+                      SelectableText(
+                        '3. 在「左側支出 / 右側資產」逐項填入：可用快速加入，再微調成你的實際情況。',
+                      ),
+                      SizedBox(height: 6),
+                      SelectableText(
+                        '4. 觀察「三軸比較」與「Die with Zero 準備度」：看差距在哪裡，優先調整差距最大的項目。',
+                      ),
+                      SizedBox(height: 6),
+                      SelectableText(
+                        '5. 建議每季回來更新一次，讓計畫跟著健康、收入與家庭狀況一起迭代。',
+                      ),
+                    ],
                   ),
                 ),
               ],

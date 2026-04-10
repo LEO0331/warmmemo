@@ -1,11 +1,11 @@
 # WarmMemo
 
-[![version](https://img.shields.io/badge/version-0.2.0--rc-blue)](pubspec.yaml)
+[![version](https://img.shields.io/badge/version-0.1.0%2B1-blue)](pubspec.yaml)
 [![deploy](https://github.com/leo0331/warmmemo/actions/workflows/deploy.yml/badge.svg)](https://github.com/leo0331/warmmemo/actions/workflows/deploy.yml)
 ![platform](https://img.shields.io/badge/platform-Flutter%20Web-42A5F5)
 ![analyze](https://img.shields.io/badge/flutter%20analyze-passing-success)
-![tests](https://img.shields.io/badge/tests-78%20passed-success)
-![coverage](https://img.shields.io/badge/coverage-94.5%25-green)
+![tests](https://img.shields.io/badge/tests-160%20passed-success)
+![coverage](https://img.shields.io/badge/coverage-95.44%25-green)
 ![skill-generator](https://img.shields.io/badge/Skill%20Generator-WarmMemo%20%2B%20Colleague-ffb86b)
 ![json-import](https://img.shields.io/badge/JSON%20Import-Validated-4caf50)
 ![copy-friendly](https://img.shields.io/badge/UI-Selectable%20Text-8bc34a)
@@ -18,9 +18,9 @@ Target: `v0.2.0` (release candidate)
 
 - App version (current): `0.1.0+1` (update to `0.2.0+0` when cutting release)
 - `flutter analyze`: pass
-- `flutter test`: pass (`78` tests)
+- `flutter test`: pass (`160` tests)
 - `flutter test --coverage`: pass
-- Latest line coverage: `81.22% (1527/1880)` from `coverage/lcov.info` (updated: 2026-04-05)
+- Latest line coverage: `95.44% (2929/3069)` from `coverage/lcov.info` (updated: 2026-04-10)
 
 ## What’s New In 0.2
 

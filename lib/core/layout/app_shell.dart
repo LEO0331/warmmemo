@@ -37,7 +37,7 @@ class _AppShellState extends State<AppShell>
     with SingleTickerProviderStateMixin {
   final List<_NavItem> _baseDestinations = const [
     _NavItem('流程總覽', Icons.map_outlined, OverviewTab()),
-    _NavItem('數位分身 Skill', Icons.psychology_alt_outlined, SkillGeneratorTab()),
+    _NavItem('數位分身', Icons.psychology_alt_outlined, SkillGeneratorTab()),
     _NavItem('人生倒數', Icons.hourglass_bottom_outlined, FinalCountdownTab()),
     _NavItem('固定方案', Icons.handshake_outlined, PackagesTab()),
     _NavItem('簡易紀念頁', Icons.person_outline, MemorialPageTab()),

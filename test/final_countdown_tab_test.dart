@@ -33,7 +33,9 @@ void main() {
     expect(find.text('三軸現況 vs 目標'), findsOneWidget);
     expect(find.text('記憶體驗進度'), findsOneWidget);
     expect(find.text('零結餘結果'), findsOneWidget);
-    expect(find.textContaining('Die with Zero 準備度'), findsOneWidget);
+    expect(find.text('如何使用這張表'), findsOneWidget);
+    expect(find.textContaining('1. 先填「倒數參數」與「目標參數」'), findsOneWidget);
+    expect(find.textContaining('Die with Zero 準備度'), findsWidgets);
     expect(find.text('新增支出項目'), findsOneWidget);
     expect(find.text('新增資產項目'), findsOneWidget);
     expect(find.text('新增體驗項目'), findsOneWidget);
