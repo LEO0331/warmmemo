@@ -9,31 +9,42 @@ class AuthService {
   AuthService({
     FirebaseAuth? auth,
     Future<void> Function(User user)? ensureUserProfile,
+    bool Function()? isWeb,
+    String? persistenceMode,
+    Future<void> Function(Persistence persistence)? setPersistence,
   })  : _auth = auth ?? FirebaseAuth.instance,
-        _ensureUserProfile = ensureUserProfile ?? UserRoleService.instance.ensureUserProfile;
+        _ensureUserProfile =
+            ensureUserProfile ?? UserRoleService.instance.ensureUserProfile,
+        _isWeb = isWeb ?? (() => kIsWeb),
+        _persistenceMode = persistenceMode,
+        _setPersistence = setPersistence;
 
   static final AuthService instance = AuthService();
 
   final FirebaseAuth _auth;
   final Future<void> Function(User user) _ensureUserProfile;
+  final bool Function() _isWeb;
+  final String? _persistenceMode;
+  final Future<void> Function(Persistence persistence)? _setPersistence;
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   User? get currentUser => _auth.currentUser;
 
   Future<void> configurePersistence() async {
-    if (!kIsWeb) return;
+    if (!_isWeb()) return;
     // Default to SESSION so shared/public devices won't keep previous user signed in
     // after the browser tab/window is closed.
     // Override with: --dart-define=WARMEMO_AUTH_PERSISTENCE=LOCAL
-    const mode = String.fromEnvironment(
+    const configured = String.fromEnvironment(
       'WARMEMO_AUTH_PERSISTENCE',
       defaultValue: 'SESSION',
     );
+    final mode = _persistenceMode ?? configured;
     final normalized = mode.trim().toUpperCase();
     final persistence =
         normalized == 'SESSION' ? Persistence.SESSION : Persistence.LOCAL;
-    await _auth.setPersistence(persistence);
+    await (_setPersistence?.call(persistence) ?? _auth.setPersistence(persistence));
   }
 
   bool isEmailPasswordUser(User user) {

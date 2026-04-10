@@ -1,5 +1,6 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' show Persistence;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -442,6 +443,31 @@ void main() {
       expect(limited.first.planName, 'newer');
     });
 
+    test('PurchaseService backfills legacy schema values', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+      final ref = db
+          .collection('users')
+          .doc('u-legacy')
+          .collection('orders')
+          .doc('legacy-1');
+      await ref.set({
+        'planName': 'Legacy',
+        'priceLabel': 'NT\$ 120,000',
+        'priceAmount': -5,
+        'status': 'pending',
+        'paymentStatus': 'checkout_created',
+        'schemaVersion': 1,
+        'createdAt': DateTime(2026, 1, 1).toIso8601String(),
+      });
+
+      final orders = await purchaseService.fetchUserOrders('u-legacy');
+      expect(orders.length, 1);
+      final after = await ref.get();
+      expect(after.data()?['schemaVersion'], Purchase.currentSchemaVersion);
+      expect(after.data()?['priceAmount'], 0);
+    });
+
     test('PurchaseService updateOrder returns early when id is null', () async {
       final db = FakeFirebaseFirestore();
       final purchaseService = PurchaseService(firestore: db);
@@ -578,6 +604,55 @@ void main() {
       },
     );
 
+    test('PurchaseService batch update skips when no fields changed', () async {
+      final db = FakeFirebaseFirestore();
+      final purchaseService = PurchaseService(firestore: db);
+      final order = await purchaseService.createOrder(
+        uid: 'u-nochange',
+        purchase: Purchase(
+          planName: 'NoChange',
+          priceLabel: 'NT\$ 120,000',
+          priceAmount: 120000,
+          status: 'pending',
+          paymentStatus: 'checkout_created',
+        ),
+      );
+      final report = await purchaseService.adminBatchUpdate(
+        purchases: [order],
+        caseStatus: 'pending',
+        paymentStatus: 'checkout_created',
+      );
+      expect(report.updatedCount, 0);
+      expect(report.skippedCount, 1);
+      expect(report.skipped.first.reason, contains('沒有可更新的欄位'));
+    });
+
+    test(
+      'PurchaseService batch update blocks complete without paid+delivered',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+        final order = await purchaseService.createOrder(
+          uid: 'u-complete-guard',
+          purchase: Purchase(
+            planName: 'Guarded',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'received',
+            paymentStatus: 'checkout_created',
+          ),
+        );
+
+        final report = await purchaseService.adminBatchUpdate(
+          purchases: [order],
+          caseStatus: 'complete',
+        );
+        expect(report.updatedCount, 0);
+        expect(report.skippedCount, 1);
+        expect(report.skipped.first.reason, contains('complete 需要'));
+      },
+    );
+
     test('OrderWorkflow transitions enforce allowed states', () {
       expect(
         OrderWorkflow.canChangeCaseStatus(from: 'pending', to: 'received'),
@@ -600,6 +675,94 @@ void main() {
           to: 'checkout_created',
         ),
         isFalse,
+      );
+      expect(OrderWorkflow.caseTransitionGraph['pending'], contains('received'));
+      expect(
+        OrderWorkflow.paymentTransitionGraph['checkout_created'],
+        contains('paid'),
+      );
+      expect(
+        OrderWorkflow.canMarkComplete(
+          Purchase(
+            planName: 'X',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'received',
+            paymentStatus: 'paid',
+            deliverySchedule: [
+              DeliveryMilestone(
+                code: 'delivered',
+                label: '已交付',
+                status: 'done',
+              ),
+            ],
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        () => OrderWorkflow.assertTransitionAllowed(
+          previous: Purchase(
+            planName: 'A',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'pending',
+            paymentStatus: 'checkout_created',
+          ),
+          next: Purchase(
+            planName: 'A',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'complete',
+            paymentStatus: 'checkout_created',
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        () => OrderWorkflow.assertTransitionAllowed(
+          previous: Purchase(
+            planName: 'A',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'received',
+            paymentStatus: 'checkout_created',
+          ),
+          next: Purchase(
+            planName: 'A',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'received',
+            paymentStatus: 'awaiting_checkout',
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        () => OrderWorkflow.assertTransitionAllowed(
+          previous: Purchase(
+            planName: 'A',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'received',
+            paymentStatus: 'paid',
+          ),
+          next: Purchase(
+            planName: 'A',
+            priceLabel: 'NT\$ 1',
+            priceAmount: 1,
+            status: 'complete',
+            paymentStatus: 'paid',
+            deliverySchedule: [
+              DeliveryMilestone(
+                code: 'delivered',
+                label: '已交付',
+                status: 'pending',
+              ),
+            ],
+          ),
+        ),
+        throwsA(isA<StateError>()),
       );
     });
 
@@ -953,6 +1116,29 @@ void main() {
       final service = AuthService(auth: auth, ensureUserProfile: (_) async {});
       final user = await service.authStateChanges.firstWhere((u) => u != null);
       expect(user?.uid, 'u-stream');
+    });
+
+    test('AuthService configurePersistence supports session and local', () async {
+      final auth = MockFirebaseAuth();
+      final calls = <Persistence>[];
+      final sessionService = AuthService(
+        auth: auth,
+        ensureUserProfile: (_) async {},
+        isWeb: () => true,
+        persistenceMode: 'SESSION',
+        setPersistence: (p) async => calls.add(p),
+      );
+      await sessionService.configurePersistence();
+
+      final localService = AuthService(
+        auth: auth,
+        ensureUserProfile: (_) async {},
+        isWeb: () => true,
+        persistenceMode: 'LOCAL',
+        setPersistence: (p) async => calls.add(p),
+      );
+      await localService.configurePersistence();
+      expect(calls, [Persistence.SESSION, Persistence.LOCAL]);
     });
 
     test('TokenWalletService consumes token and writes token log', () async {
