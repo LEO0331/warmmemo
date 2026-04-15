@@ -241,6 +241,7 @@ class LandingPage extends StatelessWidget {
                 ),
               ),
               TextButton(
+                key: const Key('OpenAuthButton'),
                 onPressed: () => _openAuth(context),
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
                 child: const Text('登入 / 註冊'),

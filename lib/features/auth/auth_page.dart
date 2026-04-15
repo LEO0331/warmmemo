@@ -159,6 +159,9 @@ class _AuthPageState extends State<AuthPage> {
     required FocusNode emailFocus,
     required FocusNode passwordFocus,
     required String title,
+    required String emailFieldKey,
+    required String passwordFieldKey,
+    required String submitButtonKey,
     required VoidCallback onSubmit,
   }) {
     return Padding(
@@ -170,6 +173,7 @@ class _AuthPageState extends State<AuthPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
+              key: Key(emailFieldKey),
               controller: emailController,
               focusNode: emailFocus,
               decoration: const InputDecoration(labelText: 'Email'),
@@ -180,6 +184,7 @@ class _AuthPageState extends State<AuthPage> {
             ),
             const SizedBox(height: 12),
             TextFormField(
+              key: Key(passwordFieldKey),
               controller: passwordController,
               focusNode: passwordFocus,
               decoration: const InputDecoration(labelText: 'Password'),
@@ -192,6 +197,7 @@ class _AuthPageState extends State<AuthPage> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
+                key: Key(submitButtonKey),
                 onPressed: _isProcessing ? null : onSubmit,
                 child: Text(title),
               ),
@@ -225,8 +231,8 @@ class _AuthPageState extends State<AuthPage> {
                 const SizedBox(height: 8),
                 TabBar(
                   tabs: const [
-                    Tab(text: '登入'),
-                    Tab(text: '註冊'),
+                    Tab(key: Key('auth_login_tab'), text: '登入'),
+                    Tab(key: Key('auth_register_tab'), text: '註冊'),
                   ],
                 ),
                 Expanded(
@@ -239,6 +245,9 @@ class _AuthPageState extends State<AuthPage> {
                         emailFocus: _loginEmailFocus,
                         passwordFocus: _loginPasswordFocus,
                         title: '登入',
+                        emailFieldKey: 'auth_login_email_field',
+                        passwordFieldKey: 'auth_login_password_field',
+                        submitButtonKey: 'auth_login_submit_button',
                         onSubmit: () => _submit(isLogin: true),
                       ),
                       _buildForm(
@@ -248,6 +257,9 @@ class _AuthPageState extends State<AuthPage> {
                         emailFocus: _registerEmailFocus,
                         passwordFocus: _registerPasswordFocus,
                         title: '註冊',
+                        emailFieldKey: 'auth_register_email_field',
+                        passwordFieldKey: 'auth_register_password_field',
+                        submitButtonKey: 'auth_register_submit_button',
                         onSubmit: () => _submit(isLogin: false),
                       ),
                     ],
