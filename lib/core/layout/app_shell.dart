@@ -8,13 +8,17 @@ import '../../data/firebase/auth_service.dart';
 import '../../data/services/token_wallet_service.dart';
 import '../../data/services/user_profile_service.dart';
 import '../../data/services/user_role_service.dart';
-import '../../features/admin/admin_dashboard.dart';
-import '../../features/final_countdown/final_countdown_tab.dart';
-import '../../features/memorial/memorial_page_tab.dart';
-import '../../features/obituary/digital_obituary_tab.dart';
-import '../../features/overview/overview_tab.dart';
-import '../../features/packages/packages_tab.dart';
-import '../../features/skills/skill_generator_tab.dart';
+import '../../features/admin/admin_dashboard.dart' deferred as admin_dashboard;
+import '../../features/final_countdown/final_countdown_tab.dart'
+    deferred as final_countdown_tab;
+import '../../features/memorial/memorial_page_tab.dart'
+    deferred as memorial_page_tab;
+import '../../features/obituary/digital_obituary_tab.dart'
+    deferred as digital_obituary_tab;
+import '../../features/overview/overview_tab.dart' deferred as overview_tab;
+import '../../features/packages/packages_tab.dart' deferred as packages_tab;
+import '../../features/skills/skill_generator_tab.dart'
+    deferred as skill_generator_tab;
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.initialIndex = 0});
@@ -26,32 +30,72 @@ class AppShell extends StatefulWidget {
 }
 
 class _NavItem {
-  const _NavItem(this.label, this.icon, this.widget);
+  const _NavItem({
+    required this.label,
+    required this.icon,
+    required this.loadLibrary,
+    required this.builder,
+  });
 
   final String label;
   final IconData icon;
-  final Widget widget;
+  final Future<void> Function() loadLibrary;
+  final Widget Function() builder;
 }
 
 class _AppShellState extends State<AppShell>
     with SingleTickerProviderStateMixin {
-  final List<_NavItem> _baseDestinations = const [
-    _NavItem('流程總覽', Icons.map_outlined, OverviewTab()),
-    _NavItem('數位分身', Icons.psychology_alt_outlined, SkillGeneratorTab()),
-    _NavItem('人生倒數', Icons.hourglass_bottom_outlined, FinalCountdownTab()),
-    _NavItem('固定方案', Icons.handshake_outlined, PackagesTab()),
-    _NavItem('簡易紀念頁', Icons.person_outline, MemorialPageTab()),
-    _NavItem('數位訃聞', Icons.campaign_outlined, DigitalObituaryTab()),
+  final List<_NavItem> _baseDestinations = [
+    _NavItem(
+      label: '流程總覽',
+      icon: Icons.map_outlined,
+      loadLibrary: overview_tab.loadLibrary,
+      builder: () => overview_tab.OverviewTab(),
+    ),
+    _NavItem(
+      label: '數位分身',
+      icon: Icons.psychology_alt_outlined,
+      loadLibrary: skill_generator_tab.loadLibrary,
+      builder: () => skill_generator_tab.SkillGeneratorTab(),
+    ),
+    _NavItem(
+      label: '人生倒數',
+      icon: Icons.hourglass_bottom_outlined,
+      loadLibrary: final_countdown_tab.loadLibrary,
+      builder: () => final_countdown_tab.FinalCountdownTab(),
+    ),
+    _NavItem(
+      label: '固定方案',
+      icon: Icons.handshake_outlined,
+      loadLibrary: packages_tab.loadLibrary,
+      builder: () => packages_tab.PackagesTab(),
+    ),
+    _NavItem(
+      label: '簡易紀念頁',
+      icon: Icons.person_outline,
+      loadLibrary: memorial_page_tab.loadLibrary,
+      builder: () => memorial_page_tab.MemorialPageTab(),
+    ),
+    _NavItem(
+      label: '數位訃聞',
+      icon: Icons.campaign_outlined,
+      loadLibrary: digital_obituary_tab.loadLibrary,
+      builder: () => digital_obituary_tab.DigitalObituaryTab(),
+    ),
   ];
-  static const _adminDestination = _NavItem(
-    'Admin',
-    Icons.admin_panel_settings,
-    AdminDashboard(),
+  static final _adminDestination = _NavItem(
+    label: 'Admin',
+    icon: Icons.admin_panel_settings,
+    loadLibrary: admin_dashboard.loadLibrary,
+    builder: () => admin_dashboard.AdminDashboard(),
   );
 
   bool _isAdmin = false;
   bool _loadingRole = true;
   int _selectedIndex = 0;
+  final Set<int> _loadedTabIndexes = <int>{};
+  final Set<int> _loadingTabIndexes = <int>{};
+  final Map<int, Widget> _tabWidgetCache = <int, Widget>{};
   StreamSubscription<String>? _roleSub;
   int? _queuedTabIndex;
   bool _isSwitchingTab = false;
@@ -60,7 +104,7 @@ class _AppShellState extends State<AppShell>
   List<_NavItem> get _destinations {
     if (_isAdmin) {
       // 管理者僅需查看後台
-      return const [_adminDestination];
+      return [_adminDestination];
     }
     return List<_NavItem>.from(_baseDestinations);
   }
@@ -75,6 +119,7 @@ class _AppShellState extends State<AppShell>
       value: 1,
     );
     _listenForRole();
+    unawaited(_ensureTabLoaded(_selectedIndex));
   }
 
   Future<void> _listenForRole() async {
@@ -86,13 +131,19 @@ class _AppShellState extends State<AppShell>
         .listen(
           (role) {
             if (!mounted) return;
+            final nextIsAdmin = role == 'admin';
             setState(() {
-              _isAdmin = role == 'admin';
+              final roleChanged = _isAdmin != nextIsAdmin;
+              _isAdmin = nextIsAdmin;
               _loadingRole = false;
+              if (roleChanged) {
+                _resetDeferredTabs();
+              }
               if (_selectedIndex >= _destinations.length) {
                 _selectedIndex = _destinations.length - 1;
               }
             });
+            unawaited(_ensureTabLoaded(_selectedIndex));
           },
           onError: (_) {
             if (!mounted) return;
@@ -100,6 +151,7 @@ class _AppShellState extends State<AppShell>
               _loadingRole = false;
               _isAdmin = false;
             });
+            unawaited(_ensureTabLoaded(_selectedIndex));
           },
         );
     try {
@@ -111,6 +163,7 @@ class _AppShellState extends State<AppShell>
         _loadingRole = false;
       });
     }
+    unawaited(_ensureTabLoaded(_selectedIndex));
   }
 
   @override
@@ -162,7 +215,10 @@ class _AppShellState extends State<AppShell>
                   animation: _tabFadeController,
                   child: IndexedStack(
                     index: _selectedIndex,
-                    children: destinations.map((dest) => dest.widget).toList(),
+                    children: List<Widget>.generate(
+                      destinations.length,
+                      (index) => _buildTabChild(index, destinations[index]),
+                    ),
                   ),
                   builder: (context, child) {
                     final curved = CurvedAnimation(
@@ -530,6 +586,7 @@ class _AppShellState extends State<AppShell>
       await _tabFadeController.reverse();
       if (!mounted) return;
       setState(() => _selectedIndex = index);
+      unawaited(_ensureTabLoaded(index));
       await _tabFadeController.forward();
     } finally {
       _isSwitchingTab = false;
@@ -539,5 +596,40 @@ class _AppShellState extends State<AppShell>
         await _switchTab(queued);
       }
     }
+  }
+
+  void _resetDeferredTabs() {
+    _loadedTabIndexes.clear();
+    _loadingTabIndexes.clear();
+    _tabWidgetCache.clear();
+  }
+
+  Future<void> _ensureTabLoaded(int index) async {
+    final destinations = _destinations;
+    if (index < 0 || index >= destinations.length) return;
+    if (_loadedTabIndexes.contains(index) ||
+        _loadingTabIndexes.contains(index)) {
+      return;
+    }
+
+    _loadingTabIndexes.add(index);
+    try {
+      await destinations[index].loadLibrary();
+      if (!mounted) return;
+      setState(() {
+        _loadedTabIndexes.add(index);
+        _tabWidgetCache.putIfAbsent(index, destinations[index].builder);
+      });
+    } finally {
+      _loadingTabIndexes.remove(index);
+    }
+  }
+
+  Widget _buildTabChild(int index, _NavItem item) {
+    if (_loadedTabIndexes.contains(index)) {
+      return _tabWidgetCache.putIfAbsent(index, item.builder);
+    }
+    unawaited(_ensureTabLoaded(index));
+    return const Center(child: CircularProgressIndicator());
   }
 }

@@ -4,8 +4,26 @@ import 'package:url_launcher/url_launcher.dart';
 import '../auth/auth_page.dart';
 import '../../core/widgets/common_widgets.dart';
 
-class LandingPage extends StatelessWidget {
+class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
+
+  @override
+  State<LandingPage> createState() => _LandingPageState();
+}
+
+class _LandingPageState extends State<LandingPage> {
+  bool _showDeferredContent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        setState(() => _showDeferredContent = true);
+      });
+    });
+  }
 
   void _openAuth(BuildContext context) {
     Navigator.of(
@@ -85,21 +103,27 @@ class LandingPage extends StatelessWidget {
                   _buildHero(context, isWide),
                   const SizedBox(height: 24),
                   _buildFeatureRow(theme, isWide),
-                  const SizedBox(height: 24),
-                  _buildPhotoStrip(isWide),
-                  const SizedBox(height: 24),
-                  _buildPackageRow(theme, isWide),
-                  const SizedBox(height: 24),
-                  _buildProofRow(theme),
-                  const SizedBox(height: 24),
-                  _buildUseCasesSection(theme, isWide),
-                  const SizedBox(height: 24),
-                  _buildTrustSection(theme),
-                  const SizedBox(height: 24),
-                  _buildSearchResourceSection(theme),
-                  const SizedBox(height: 24),
-                  _buildFaqSection(),
-                  const SizedBox(height: 24),
+                  if (_showDeferredContent) ...[
+                    const SizedBox(height: 24),
+                    _buildPhotoStrip(isWide),
+                    const SizedBox(height: 24),
+                    _buildPackageRow(theme, isWide),
+                    const SizedBox(height: 24),
+                    _buildProofRow(theme),
+                    const SizedBox(height: 24),
+                    _buildUseCasesSection(theme, isWide),
+                    const SizedBox(height: 24),
+                    _buildTrustSection(theme),
+                    const SizedBox(height: 24),
+                    _buildSearchResourceSection(theme),
+                    const SizedBox(height: 24),
+                    _buildFaqSection(),
+                    const SizedBox(height: 24),
+                  ] else ...[
+                    const SizedBox(height: 24),
+                    _buildDeferredSkeleton(theme),
+                    const SizedBox(height: 24),
+                  ],
                   _buildFooter(theme, isWide),
                   const SizedBox(height: 32),
                 ],
@@ -107,6 +131,35 @@ class LandingPage extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDeferredSkeleton(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          SkeletonBox(height: 180, width: double.infinity, radius: 18),
+          const SizedBox(height: 12),
+          Row(
+            children: const [
+              Expanded(child: SkeletonBox(height: 120)),
+              SizedBox(width: 10),
+              Expanded(child: SkeletonBox(height: 120)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '正在載入更多內容...',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF7F6152),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -910,5 +963,4 @@ class LandingPage extends StatelessWidget {
       ),
     );
   }
-
 }
