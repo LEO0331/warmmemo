@@ -53,6 +53,89 @@
 
   <title>WarmMemo 暖備 | 線上追思與通知管理</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preload" href="main.dart.js" as="script">
+  <style>
+    :root {
+      --wm-bg: #fffaf6;
+      --wm-text: #5b3d30;
+      --wm-primary: #c8744f;
+      --wm-muted: #caa693;
+    }
+
+    #wm-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 15% 10%, #ffe6d5 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, #ffeede 0%, transparent 40%),
+        var(--wm-bg);
+      transition: opacity 240ms ease;
+    }
+
+    #wm-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .wm-loader-card {
+      width: min(90vw, 420px);
+      border-radius: 20px;
+      padding: 24px;
+      border: 1px solid #efd9cb;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 12px 34px rgba(170, 104, 70, 0.14);
+      text-align: center;
+      color: var(--wm-text);
+      font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif;
+    }
+
+    .wm-loader-title {
+      margin: 0 0 8px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .wm-loader-subtitle {
+      margin: 0 0 16px;
+      color: #7f6152;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .wm-loader-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #f6e7de;
+    }
+
+    .wm-loader-progress {
+      width: 45%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--wm-primary), #e09b73);
+      animation: wmSlide 1400ms ease-in-out infinite;
+      transform-origin: left center;
+    }
+
+    .wm-loader-note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--wm-muted);
+    }
+
+    @keyframes wmSlide {
+      0% { transform: translateX(-110%); }
+      60% { transform: translateX(120%); }
+      100% { transform: translateX(120%); }
+    }
+  </style>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -114,6 +197,14 @@
   </script>
 </head>
 <body>
+  <div id="wm-loader" aria-live="polite" aria-label="WarmMemo loading">
+    <div class="wm-loader-card">
+      <h2 class="wm-loader-title">WarmMemo 載入中</h2>
+      <p class="wm-loader-subtitle">正在準備首頁與服務內容，首次開啟約需數秒。</p>
+      <div class="wm-loader-bar"><div class="wm-loader-progress"></div></div>
+      <p class="wm-loader-note" id="wm-loader-note">若網路較慢，請稍候片刻。</p>
+    </div>
+  </div>
   <noscript>
     <main>
       <h1>WarmMemo 暖備：數位訃聞、紀念頁與方案管理</h1>
