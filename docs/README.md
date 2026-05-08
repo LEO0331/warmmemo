@@ -5,6 +5,8 @@
 - [功能流程說明（FLOW）](./flow.md)
 - [AI 參考文件（INFO）](./info.md)
 - [專案進度紀錄（PROGRESS）](./progress.md)
+- [系統設計與架構權衡（DEEP DIVE）](./system_design_architecture_tradeoffs.md)
+- [系統設計深度討論（利害關係人版，zh-TW）](./system-design-deep-dive.zh-TW.md)
 
 SOP 文件：
 
