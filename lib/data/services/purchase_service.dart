@@ -138,10 +138,7 @@ class PurchaseService {
     required Purchase purchase,
   }) async {
     final normalized = purchase
-        .copyWith(
-          userId: uid,
-          schemaVersion: Purchase.currentSchemaVersion,
-        )
+        .copyWith(userId: uid, schemaVersion: Purchase.currentSchemaVersion)
         .normalizedForStorage();
     final doc = await _users
         .doc(uid)
@@ -215,14 +212,7 @@ class PurchaseService {
     int limit = 5,
     String? startAfterDocPath,
   }) async {
-    Query<Map<String, dynamic>> query = _firestore
-        .collectionGroup('orders')
-        .orderBy(FieldPath.documentId)
-        .limit(limit);
-    if (startAfterDocPath != null) {
-      query = query.startAfter([startAfterDocPath]);
-    }
-    final snapshot = await query.get();
+    final snapshot = await _firestore.collectionGroup('orders').get();
     final items = snapshot.docs
         .map(
           (doc) => Purchase.fromMap(
@@ -233,14 +223,66 @@ class PurchaseService {
           ),
         )
         .toList();
+    items.sort((a, b) {
+      final byCreatedAt = b.createdAt.compareTo(a.createdAt);
+      if (byCreatedAt != 0) {
+        return byCreatedAt;
+      }
+      return (b.docPath ?? '').compareTo(a.docPath ?? '');
+    });
+    final startIndex = startAfterDocPath == null
+        ? 0
+        : _findAdminOrdersStartIndex(
+            items,
+            cursor: _decodeAdminOrdersCursor(startAfterDocPath),
+          );
+    final pageItems = items.skip(startIndex).take(limit).toList();
     await _backfillSchemaIfNeeded(
       snapshot.docs.map((doc) => doc.reference).toList(),
       items,
     );
-    final nextCursor = snapshot.docs.isNotEmpty
-        ? snapshot.docs.last.reference.path
+    final nextCursor = pageItems.isNotEmpty
+        ? _encodeAdminOrdersCursor(
+            createdAtIso: pageItems.last.createdAt.toIso8601String(),
+            docPath: pageItems.last.docPath ?? '',
+          )
         : null;
-    return (items: items, cursor: nextCursor);
+    return (items: pageItems, cursor: nextCursor);
+  }
+
+  String _encodeAdminOrdersCursor({
+    required String createdAtIso,
+    required String docPath,
+  }) {
+    return '$createdAtIso|$docPath';
+  }
+
+  ({String createdAtIso, String docPath}) _decodeAdminOrdersCursor(String raw) {
+    final pivot = raw.indexOf('|');
+    if (pivot <= 0 || pivot >= raw.length - 1) {
+      throw ArgumentError(
+        'Invalid admin orders cursor. Expected "<createdAt>|<docPath>".',
+      );
+    }
+    return (
+      createdAtIso: raw.substring(0, pivot),
+      docPath: raw.substring(pivot + 1),
+    );
+  }
+
+  int _findAdminOrdersStartIndex(
+    List<Purchase> items, {
+    required ({String createdAtIso, String docPath}) cursor,
+  }) {
+    final cursorIndex = items.indexWhere(
+      (item) =>
+          item.createdAt.toIso8601String() == cursor.createdAtIso &&
+          (item.docPath ?? '') == cursor.docPath,
+    );
+    if (cursorIndex == -1) {
+      throw ArgumentError('Admin orders cursor did not match any record.');
+    }
+    return cursorIndex + 1;
   }
 
   Future<void> _backfillSchemaIfNeeded(
@@ -254,7 +296,11 @@ class PurchaseService {
     for (var i = 0; i < count; i++) {
       final order = items[i];
       if (!order.needsSchemaMigration) continue;
-      batch.set(refs[i], order.normalizedForStorage().toMap(), SetOptions(merge: true));
+      batch.set(
+        refs[i],
+        order.normalizedForStorage().toMap(),
+        SetOptions(merge: true),
+      );
       writes += 1;
     }
     if (writes == 0) return;
@@ -267,8 +313,7 @@ class PurchaseService {
     String? mutationId,
   }) async {
     if (purchase.id == null) return;
-    final targetRef =
-        (purchase.docPath != null && purchase.docPath!.isNotEmpty)
+    final targetRef = (purchase.docPath != null && purchase.docPath!.isNotEmpty)
         ? _firestore.doc(purchase.docPath!)
         : _users.doc(uid).collection('orders').doc(purchase.id);
 

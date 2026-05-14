@@ -183,6 +183,34 @@ void main() {
       );
     });
 
+    test(
+      'createInvoice maps xhr transport issues to friendly message',
+      () async {
+        final service = PaymentService(
+          idTokenProvider: () async => 'token',
+          client: MockClient((request) async {
+            throw Exception('XMLHttpRequest error');
+          }),
+        );
+        expect(
+          () => service.createInvoice(
+            email: 'a@test.com',
+            name: 'A',
+            amountCents: 120000,
+            description: 'desc',
+            provider: PaymentProvider.stripe,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('XMLHttpRequest error'),
+            ),
+          ),
+        );
+      },
+    );
+
     test('createLinePayCheckout throws when id token is missing', () async {
       final service = PaymentService(idTokenProvider: () async => null);
       expect(
@@ -348,37 +376,44 @@ void main() {
       },
     );
 
-    test('PurchaseService adminOrdersPage returns items and cursor', () async {
-      final db = FakeFirebaseFirestore();
-      final purchaseService = PurchaseService(firestore: db);
+    test(
+      'PurchaseService adminOrdersPage returns newest items and cursor',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
 
-      await purchaseService.createOrder(
-        uid: 'u-page',
-        purchase: Purchase(
-          planName: 'PageA',
-          priceLabel: 'NT\$ 120,000',
-          priceAmount: 120000,
-          status: 'pending',
-        ),
-      );
-      await purchaseService.createOrder(
-        uid: 'u-page',
-        purchase: Purchase(
-          planName: 'PageB',
-          priceLabel: 'NT\$ 150,000',
-          priceAmount: 150000,
-          status: 'pending',
-        ),
-      );
+        await purchaseService.createOrder(
+          uid: 'u-page',
+          purchase: Purchase(
+            planName: 'PageA',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'pending',
+            createdAt: DateTime(2026, 3, 1),
+          ),
+        );
+        await purchaseService.createOrder(
+          uid: 'u-page',
+          purchase: Purchase(
+            planName: 'PageB',
+            priceLabel: 'NT\$ 150,000',
+            priceAmount: 150000,
+            status: 'pending',
+            createdAt: DateTime(2026, 3, 2),
+          ),
+        );
 
-      final page = await purchaseService.adminOrdersPage(limit: 1);
-      expect(page.items, isNotEmpty);
-      expect(page.cursor, isNotNull);
-      expect(page.items.first.userId, 'u-page');
-    });
+        final page = await purchaseService.adminOrdersPage(limit: 1);
+        expect(page.items, isNotEmpty);
+        expect(page.cursor, isNotNull);
+        expect(page.items.first.userId, 'u-page');
+        expect(page.items.first.planName, 'PageB');
+        expect(page.cursor, contains('|'));
+      },
+    );
 
     test(
-      'PurchaseService adminOrdersPage startAfter throws in fake firestore',
+      'PurchaseService adminOrdersPage startAfter returns next page',
       () async {
         final db = FakeFirebaseFirestore();
         final purchaseService = PurchaseService(firestore: db);
@@ -389,6 +424,7 @@ void main() {
             priceLabel: 'NT\$ 120,000',
             priceAmount: 120000,
             status: 'pending',
+            createdAt: DateTime(2026, 3, 1),
           ),
         );
         await purchaseService.createOrder(
@@ -398,17 +434,16 @@ void main() {
             priceLabel: 'NT\$ 120,000',
             priceAmount: 120000,
             status: 'pending',
+            createdAt: DateTime(2026, 3, 2),
           ),
         );
         final first = await purchaseService.adminOrdersPage(limit: 1);
-        expect(first.items.length, 1);
-        expect(
-          () => purchaseService.adminOrdersPage(
-            limit: 1,
-            startAfterDocPath: first.cursor,
-          ),
-          throwsA(isA<ArgumentError>()),
+        expect(first.items.single.planName, 'C2');
+        final second = await purchaseService.adminOrdersPage(
+          limit: 1,
+          startAfterDocPath: first.cursor,
         );
+        expect(second.items.single.planName, 'C1');
       },
     );
 
@@ -676,7 +711,10 @@ void main() {
         ),
         isFalse,
       );
-      expect(OrderWorkflow.caseTransitionGraph['pending'], contains('received'));
+      expect(
+        OrderWorkflow.caseTransitionGraph['pending'],
+        contains('received'),
+      );
       expect(
         OrderWorkflow.paymentTransitionGraph['checkout_created'],
         contains('paid'),
@@ -875,6 +913,54 @@ void main() {
       expect(streamForUser.first.userId, 'u2');
       expect(streamForUser.first.id, isNotNull);
     });
+
+    test(
+      'NotificationService applies ordering before limit for pending and user queries',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final service = NotificationService(firestore: db);
+
+        await service.logEvent(
+          NotificationEvent(
+            userId: 'u1',
+            channel: 'email',
+            status: 'pending',
+            occurredAt: DateTime(2026, 3, 1, 8, 0),
+          ),
+        );
+        await service.logEvent(
+          NotificationEvent(
+            userId: 'u1',
+            channel: 'line',
+            status: 'pending',
+            occurredAt: DateTime(2026, 3, 1, 10, 0),
+          ),
+        );
+        await service.logEvent(
+          NotificationEvent(
+            userId: 'u1',
+            channel: 'sms',
+            status: 'pending',
+            occurredAt: DateTime(2026, 3, 1, 9, 0),
+          ),
+        );
+
+        final pending = await service.fetchPending(limit: 2);
+        expect(pending.length, 2);
+        expect(pending.first.occurredAt, DateTime(2026, 3, 1, 10, 0));
+        expect(pending.last.occurredAt, DateTime(2026, 3, 1, 9, 0));
+
+        final forUser = await service.fetchForUser('u1', limit: 2);
+        expect(forUser.length, 2);
+        expect(forUser.first.occurredAt, DateTime(2026, 3, 1, 10, 0));
+        expect(forUser.last.occurredAt, DateTime(2026, 3, 1, 9, 0));
+
+        final streamForUser = await service.streamForUser('u1', limit: 2).first;
+        expect(streamForUser.length, 2);
+        expect(streamForUser.first.occurredAt, DateTime(2026, 3, 1, 10, 0));
+        expect(streamForUser.last.occurredAt, DateTime(2026, 3, 1, 9, 0));
+      },
+    );
 
     test('NotificationService markRead updates status', () async {
       final db = FakeFirebaseFirestore();
@@ -1118,28 +1204,31 @@ void main() {
       expect(user?.uid, 'u-stream');
     });
 
-    test('AuthService configurePersistence supports session and local', () async {
-      final auth = MockFirebaseAuth();
-      final calls = <Persistence>[];
-      final sessionService = AuthService(
-        auth: auth,
-        ensureUserProfile: (_) async {},
-        isWeb: () => true,
-        persistenceMode: 'SESSION',
-        setPersistence: (p) async => calls.add(p),
-      );
-      await sessionService.configurePersistence();
+    test(
+      'AuthService configurePersistence supports session and local',
+      () async {
+        final auth = MockFirebaseAuth();
+        final calls = <Persistence>[];
+        final sessionService = AuthService(
+          auth: auth,
+          ensureUserProfile: (_) async {},
+          isWeb: () => true,
+          persistenceMode: 'SESSION',
+          setPersistence: (p) async => calls.add(p),
+        );
+        await sessionService.configurePersistence();
 
-      final localService = AuthService(
-        auth: auth,
-        ensureUserProfile: (_) async {},
-        isWeb: () => true,
-        persistenceMode: 'LOCAL',
-        setPersistence: (p) async => calls.add(p),
-      );
-      await localService.configurePersistence();
-      expect(calls, [Persistence.SESSION, Persistence.LOCAL]);
-    });
+        final localService = AuthService(
+          auth: auth,
+          ensureUserProfile: (_) async {},
+          isWeb: () => true,
+          persistenceMode: 'LOCAL',
+          setPersistence: (p) async => calls.add(p),
+        );
+        await localService.configurePersistence();
+        expect(calls, [Persistence.SESSION, Persistence.LOCAL]);
+      },
+    );
 
     test('TokenWalletService consumes token and writes token log', () async {
       final db = FakeFirebaseFirestore();
