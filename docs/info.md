@@ -2,7 +2,8 @@
 
 This file is intended for AI assistants resuming work on this project.
 Read this alongside `docs/progress.md` before starting any task.
-For workflow rules and coding conventions, see `claude.md` at the project root.
+For project-local agent routing, see `AGENTS.md` at the project root.
+For tool-specific fallback guidance, see `claude.md`.
 For a human-readable button-by-button flow diagram, see `docs/flow.md`.
 
 ---
@@ -117,9 +118,10 @@ PDF 匯出字型策略（on-demand）：
 ## Assistant Workflow
 
 Before changing code:
-1. Read `claude.md`
+1. Read `AGENTS.md`
 2. Read `docs/progress.md`
 3. If user asks about behavior flow, align with `docs/flow.md`
+4. If the task is cross-cutting, read `docs/harness/task-routing.md`
 
 After changing code:
 1. Run `flutter analyze`

@@ -5,6 +5,7 @@
 - [功能流程說明（FLOW）](./flow.md)
 - [AI 參考文件（INFO）](./info.md)
 - [專案進度紀錄（PROGRESS）](./progress.md)
+- [Harness Layer 索引](./harness/README.md)
 - [系統設計與架構權衡（DEEP DIVE）](./system_design_architecture_tradeoffs.md)
 - [系統設計深度討論（利害關係人版，zh-TW）](./system-design-deep-dive.zh-TW.md)
 
@@ -23,8 +24,10 @@ Prompt 模式選擇：
 1. `flow.md`：先理解按鈕到程式執行流程
 2. `progress.md`：確認目前進度與已知風險
 3. `info.md`：再看完整技術架構與契約細節
+4. `harness/README.md`：需要 agent 任務路由或驗證準則時再讀
 
-近期重點（2026-04-09）：
+近期重點（2026-05-26）：
 
 - 人生倒數頁新增健康自評、三軸比較、記憶體驗與類別分佈統計
 - 共用工具 stub（下載/JSON 匯入）補強並新增測試覆蓋
+- 新增 repo-local harness layer：`AGENTS.md` + `docs/harness/*`

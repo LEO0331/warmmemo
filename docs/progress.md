@@ -1,6 +1,6 @@
 # WarmMemo — 專案進度紀錄
 
-> 最後更新：2026-04-09
+> 最後更新：2026-05-26
 
 ---
 
@@ -42,25 +42,30 @@ WarmMemo 是 Flutter Web + Firebase 應用，目標是把「紀念內容準備 +
 
 ## 近期變更摘要
 
-1. **GitHub Pages 部署強化**
+1. **Harness engineering layer**
+- 新增 repo-local `AGENTS.md`，作為短版任務路由入口。
+- 新增 `docs/harness/`，把 task routing / verification / harness review 與產品文件分離。
+- `claude.md` 改為 pointer file，避免形成第二份逐漸膨脹的主指令檔。
+
+2. **GitHub Pages 部署強化**
 - 改為 GitHub 官方 Pages actions。
 - 加入 SPA fallback (`404.html`) 與 `.nojekyll`。
 - Deploy 由 CI success 觸發。
 
-2. **字型載入策略優化**
+3. **字型載入策略優化**
 - Web UI 不再啟動時綁大型中文字型。
 - 匯出改為 on-demand 字型解析（Google fonts -> subset -> full -> fallback）。
 
-3. **Landing 內容優化**
+4. **Landing 內容優化**
 - 搜尋友善區塊改為圖文卡片。
 - 指定文案對應圖片已替換。
 
-4. **人生倒數頁升級（Die with Zero）**
+5. **人生倒數頁升級（Die with Zero）**
 - 新增健康自評表（五面向，現況/目標）。
 - 新增三軸比較（健康/財務/壽命）與綜合「Die with Zero 準備度」。
 - 新增記憶體驗清單（完成度/滿意度）與類別分佈（家庭/旅行/學習/貢獻）。
 
-5. **跨平台 stub 與測試覆蓋提升**
+6. **跨平台 stub 與測試覆蓋提升**
 - `download_text_stub.dart` 增加可測試注入點與 fallback 路徑。
 - `import_json_stub.dart` 明確非 web 平台錯誤語意。
 - 新增 `test/core_utils_stub_test.dart`，覆蓋 stub 主要分支。
