@@ -1,0 +1,37 @@
+[
+  {
+    "id": "PAY-STRIPE-01",
+    "behavior": "A fresh browser session can register a user and reach the authenticated app shell.",
+    "verification": "Run tools/e2e/stripe_payment_sandbox_check.mjs against the public app and confirm the script reaches the package checkout page in a clean browser context.",
+    "state": "passing",
+    "evidence": "2026-05-26: Playwright browser run registered a fresh sandbox user and reached the authenticated AppShell. Evidence screenshots: /private/tmp/warmmemo-after-register-submit.png, /private/tmp/warmmemo-packages-route.png."
+  },
+  {
+    "id": "PAY-STRIPE-02",
+    "behavior": "Choosing a package creates an order with checkout_created payment status and opens a Stripe hosted test payment link.",
+    "verification": "Run tools/e2e/stripe_payment_sandbox_check.mjs and confirm the browser lands on buy.stripe.com/test_* after clicking Stripe payment.",
+    "state": "passing",
+    "evidence": "2026-05-26: The flow opened checkout for 城市極簡告別 and then redirected to https://buy.stripe.com/test_8x25kCcdV8gI3Lkccs3VC02. Evidence screenshot: /private/tmp/warmmemo-checkout-page.png."
+  },
+  {
+    "id": "PAY-STRIPE-03",
+    "behavior": "The Stripe hosted test checkout accepts a sandbox test card and completes payment without using a live account.",
+    "verification": "Run tools/e2e/stripe_payment_sandbox_check.mjs with Stripe test card 4242 4242 4242 4242 and confirm Stripe success completion.",
+    "state": "passing",
+    "evidence": "2026-05-26: Stripe hosted page accepted sandbox checkout details and returned the browser to WarmMemo after submit. Evidence screenshots: /private/tmp/warmmemo-stripe-hosted-link.png, /private/tmp/warmmemo-after-stripe-payment.png."
+  },
+  {
+    "id": "PAY-STRIPE-04",
+    "behavior": "After Stripe completion, the user can return to the app and still see the created order in 我的方案與狀態.",
+    "verification": "Run tools/e2e/stripe_payment_sandbox_check.mjs and confirm the order card remains visible after returning from Stripe.",
+    "state": "inconclusive",
+    "evidence": "2026-05-26: The browser returned to the authenticated app after Stripe payment, but the automation harness could not conclusively surface the lower order list panel on the Flutter-rendered packages screen. Evidence screenshots: /private/tmp/warmmemo-after-stripe-payment.png, /private/tmp/warmmemo-packages-after-return.png."
+  },
+  {
+    "id": "PAY-STRIPE-05",
+    "behavior": "Payment completion is reflected in app-visible state without manual admin intervention.",
+    "verification": "Run tools/e2e/stripe_payment_sandbox_check.mjs and confirm paymentStatus transitions from checkout_created to paid automatically.",
+    "state": "blocked",
+    "evidence": "2026-05-26: Current Spark/Payment Link flow has no authoritative webhook-based reconciliation in this test path, so automatic paid-status confirmation could not be verified and is likely not implemented end to end."
+  }
+]

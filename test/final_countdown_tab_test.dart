@@ -6,8 +6,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:warmmemo/features/final_countdown/final_countdown_tab.dart';
 
 void main() {
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
   Widget app() {
     return const MaterialApp(home: Scaffold(body: FinalCountdownTab()));
+  }
+
+  Future<void> pumpCountdownTab(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
   }
 
   String metricText(WidgetTester tester, Key key) {
@@ -23,8 +41,7 @@ void main() {
   });
 
   testWidgets('renders sections and controls', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     expect(find.text('人生倒數與零結餘規劃'), findsOneWidget);
     expect(find.text('倒數參數'), findsOneWidget);
@@ -44,8 +61,7 @@ void main() {
   });
 
   testWidgets('health score update changes health comparison', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     expect(find.textContaining('健康：60 / 80'), findsOneWidget);
 
@@ -65,8 +81,7 @@ void main() {
   testWidgets('memory progress reacts to completion and satisfaction', (
     tester,
   ) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     expect(find.byKey(const Key('memory_progress')), findsOneWidget);
     expect(find.textContaining('記憶進度：56%'), findsOneWidget);
@@ -92,8 +107,7 @@ void main() {
   });
 
   testWidgets('experience item supports category selection', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     expect(
       metricText(tester, const Key('category_distribution_family')),
@@ -128,8 +142,7 @@ void main() {
   testWidgets('target fields update wealth and lifetime comparison', (
     tester,
   ) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     await tester.enterText(
       find.byKey(const Key('target_life_expectancy_field')),
@@ -148,8 +161,7 @@ void main() {
   });
 
   testWidgets('phase split changes net amount', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     final nowYear = DateTime.now().year;
     await tester.enterText(
@@ -170,8 +182,7 @@ void main() {
   });
 
   testWidgets('amount formatter and validation', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     final amountField = find.widgetWithText(TextFormField, '金額（NT\$）').first;
     await tester.enterText(amountField, '1234567');
@@ -210,8 +221,7 @@ void main() {
       }),
     });
 
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     final currentAge = tester.widget<TextFormField>(
       find.byKey(const Key('current_age_field')),
@@ -248,8 +258,7 @@ void main() {
         }),
       });
 
-      await tester.pumpWidget(app());
-      await tester.pumpAndSettle();
+      await pumpCountdownTab(tester);
 
       await tester.scrollUntilVisible(
         find.text('尚未新增體驗項目'),
@@ -261,8 +270,7 @@ void main() {
   );
 
   testWidgets('quick add and delete item updates list', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     final beforeDeleteButtons = find.byTooltip('刪除');
     final beforeCount = tester
@@ -298,8 +306,7 @@ void main() {
   testWidgets(
     'supports quick add chips and manual add buttons for both panels',
     (tester) async {
-      await tester.pumpWidget(app());
-      await tester.pumpAndSettle();
+      await pumpCountdownTab(tester);
 
       await tester.scrollUntilVisible(
         find.text('加入健康'),
@@ -345,8 +352,7 @@ void main() {
   );
 
   testWidgets('can toggle amount kind and phase chips', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     await tester.scrollUntilVisible(
       find.text('每年金額').first,
@@ -368,8 +374,7 @@ void main() {
   });
 
   testWidgets('shows empty states after deleting all items', (tester) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     while (find.byTooltip('刪除').evaluate().isNotEmpty) {
       await tester.scrollUntilVisible(
@@ -388,11 +393,7 @@ void main() {
   testWidgets('renders wide layout and supports decimal amount input', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(1300, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+    await pumpCountdownTab(tester);
 
     final amountField = find.widgetWithText(TextFormField, '金額（NT\$）').first;
     await tester.enterText(amountField, '12.3');

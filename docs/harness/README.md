@@ -12,6 +12,7 @@ Read order:
 1. [Task Routing](./task-routing.md)
 2. [Verification Matrix](./verification-matrix.md)
 3. [Project Review (2026-05-26)](./review-2026-05-26.md)
+4. `features/*.json` feature-list artifacts for behavior-level verification
 
 Principles:
 
