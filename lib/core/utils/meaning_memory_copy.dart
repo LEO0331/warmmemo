@@ -80,12 +80,17 @@ class MeaningMemoryCopy {
     required String matteredTo,
     required String memories,
   }) {
-    return [
-      if (lifeStory.trim().isNotEmpty) '$storyPrompt\n${lifeStory.trim()}',
-      if (purpose.trim().isNotEmpty) '$purposePrompt\n${purpose.trim()}',
-      if (matteredTo.trim().isNotEmpty)
-        '$matteredToPrompt\n${matteredTo.trim()}',
-      if (memories.trim().isNotEmpty) '$memoriesPrompt\n${memories.trim()}',
-    ];
+    final sections = <String>[];
+    _addSection(sections, storyPrompt, lifeStory);
+    _addSection(sections, purposePrompt, purpose);
+    _addSection(sections, matteredToPrompt, matteredTo);
+    _addSection(sections, memoriesPrompt, memories);
+    return sections;
+  }
+
+  static void _addSection(List<String> sections, String prompt, String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    sections.add('$prompt\n$trimmed');
   }
 }
