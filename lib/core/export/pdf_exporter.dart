@@ -4,6 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../data/models/draft_models.dart';
+import '../utils/meaning_memory_copy.dart';
 
 class PdfExporter {
   PdfExporter._();
@@ -11,9 +12,14 @@ class PdfExporter {
   static Future<void> exportMemorial(
     MemorialDraft draft, {
     String? publicUrl,
+    String languageCode = 'zh',
   }) async {
     final bytes = await _pdfBytes(
-      await _buildMemorialPage(draft, publicUrl: publicUrl),
+      await _buildMemorialPage(
+        draft,
+        publicUrl: publicUrl,
+        languageCode: languageCode,
+      ),
     );
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_memorial.pdf');
   }
@@ -26,8 +32,10 @@ class PdfExporter {
   static Future<pw.Page> _buildMemorialPage(
     MemorialDraft draft, {
     String? publicUrl,
+    required String languageCode,
   }) async {
     final (myFont, fontBold) = await _resolvePdfFonts();
+    final meaningCopy = MeaningMemoryCopy.forLanguageCode(languageCode);
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -48,13 +56,10 @@ class PdfExporter {
             _section('生平摘要', draft.bio),
             _section('人生亮點', draft.highlights),
             _section('給後人的話', draft.willNote),
-            _section('What story did their life tell?', draft.meaningLifeStory),
-            _section('What gave them purpose?', draft.meaningPurpose),
-            _section('Who did their life matter to?', draft.meaningMatteredTo),
-            _section(
-              'What memories should not be forgotten?',
-              draft.meaningMemoriesToKeep,
-            ),
+            _section(meaningCopy.storyPrompt, draft.meaningLifeStory),
+            _section(meaningCopy.purposePrompt, draft.meaningPurpose),
+            _section(meaningCopy.matteredToPrompt, draft.meaningMatteredTo),
+            _section(meaningCopy.memoriesPrompt, draft.meaningMemoriesToKeep),
             if (publicUrl != null && publicUrl.trim().isNotEmpty) ...[
               pw.SizedBox(height: 16),
               pw.Text(

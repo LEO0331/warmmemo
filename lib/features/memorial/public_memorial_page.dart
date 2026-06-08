@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/meaning_memory_copy.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
@@ -60,6 +61,9 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                     : (profile.name?.trim().isNotEmpty ?? false)
                     ? profile.name!.trim()
                     : 'WarmMemo 紀念頁';
+                final meaningCopy = MeaningMemoryCopy.forLocale(
+                  Localizations.localeOf(context),
+                );
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -102,7 +106,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                         const SizedBox(height: 16),
                       if (_hasMeaningMemory(profile))
                         SectionCard(
-                          title: 'Meaning & Memory',
+                          title: meaningCopy.title,
                           icon: Icons.favorite_border_outlined,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,13 +114,13 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                               if (profile.meaningLifeStory?.trim().isNotEmpty ??
                                   false)
                                 _ReflectionRow(
-                                  label: 'Life story',
+                                  label: meaningCopy.lifeStoryLabel,
                                   value: profile.meaningLifeStory!.trim(),
                                 ),
                               if (profile.meaningPurpose?.trim().isNotEmpty ??
                                   false)
                                 _ReflectionRow(
-                                  label: 'Purpose',
+                                  label: meaningCopy.purposeLabel,
                                   value: profile.meaningPurpose!.trim(),
                                 ),
                               if (profile.meaningMatteredTo
@@ -124,7 +128,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                                       .isNotEmpty ??
                                   false)
                                 _ReflectionRow(
-                                  label: 'Mattered to',
+                                  label: meaningCopy.matteredToLabel,
                                   value: profile.meaningMatteredTo!.trim(),
                                 ),
                               if (profile.meaningMemoriesToKeep
@@ -132,7 +136,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                                       .isNotEmpty ??
                                   false)
                                 _ReflectionRow(
-                                  label: 'Memories',
+                                  label: meaningCopy.memoriesLabel,
                                   value: profile.meaningMemoriesToKeep!.trim(),
                                 ),
                             ],

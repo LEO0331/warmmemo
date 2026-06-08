@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/theme/motion_tokens.dart';
 import 'data/firebase/auth_service.dart';
@@ -73,6 +74,8 @@ class WarmMemoApp extends StatelessWidget {
     return MaterialApp(
       title: '暖備 WarmMemo',
       debugShowCheckedModeBanner: false,
+      supportedLocales: const [Locale('zh', 'TW'), Locale('en', 'US')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: base.copyWith(
         textTheme: textTheme,
         scaffoldBackgroundColor: warmSurface,

@@ -12,6 +12,7 @@ import '../../core/utils/download_bytes_stub.dart'
     if (dart.library.html) '../../core/utils/download_bytes_web.dart';
 import '../../core/utils/app_error_message.dart';
 import '../../core/utils/input_guard.dart';
+import '../../core/utils/meaning_memory_copy.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/firebase/draft_service.dart';
@@ -228,64 +229,68 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
 
   Widget _buildMeaningMemorySection() {
     final theme = Theme.of(context);
+    final copy = MeaningMemoryCopy.forLocale(Localizations.localeOf(context));
     return SectionCard(
-      title: 'Meaning & Memory',
+      title: copy.title,
       icon: Icons.favorite_border_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SelectableText(
-            'A meaningful life is more than a list of events. It is a story of relationships, values, choices, love, work, beauty, and even suffering.',
-            style: theme.textTheme.bodyMedium,
-          ),
+          SelectableText(copy.introPrimary, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 6),
-          const SelectableText(
-            'Use this space to record what made this person\'s life meaningful.',
-          ),
+          SelectableText(copy.introSecondary),
           const SizedBox(height: 10),
           Text(
-            'There is no need to write perfectly. A few honest memories are enough.',
+            copy.helper,
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF7A5C4E),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            '公開紀念頁發布後，這些內容會一併顯示；若只想自己留存，可以先不發布。',
+            copy.publicDisclosure,
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF7A5C4E),
             ),
           ),
           const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.copy_all_outlined),
+              label: Text(copy.copyButton),
+              onPressed: _copyMeaningMemoryText,
+            ),
+          ),
+          const SizedBox(height: 12),
           LabeledTextField(
-            label: 'What story did their life tell?',
+            label: copy.storyPrompt,
             controller: _meaningLifeStoryController,
-            helperText:
-                'Write a memory, value, or moment that feels important.',
+            helperText: copy.storyHelper,
             maxLines: 5,
             onEditingComplete: _normalizeMemorialInputs,
           ),
           const SizedBox(height: 8),
           LabeledTextField(
-            label: 'What gave them purpose?',
+            label: copy.purposePrompt,
             controller: _meaningPurposeController,
-            helperText: 'You can return to this later.',
+            helperText: copy.purposeHelper,
             maxLines: 5,
             onEditingComplete: _normalizeMemorialInputs,
           ),
           const SizedBox(height: 8),
           LabeledTextField(
-            label: 'Who did their life matter to?',
+            label: copy.matteredToPrompt,
             controller: _meaningMatteredToController,
-            helperText: 'Write freely. Short notes are enough.',
+            helperText: copy.matteredToHelper,
             maxLines: 5,
             onEditingComplete: _normalizeMemorialInputs,
           ),
           const SizedBox(height: 8),
           LabeledTextField(
-            label: 'What memories should not be forgotten?',
+            label: copy.memoriesPrompt,
             controller: _meaningMemoriesToKeepController,
-            helperText: 'Small details often carry the most warmth.',
+            helperText: copy.memoriesHelper,
             maxLines: 5,
             onEditingComplete: _normalizeMemorialInputs,
           ),
@@ -853,6 +858,9 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Widget _buildPreviewCard(ThemeData theme) {
+    final meaningCopy = MeaningMemoryCopy.forLocale(
+      Localizations.localeOf(context),
+    );
     return Card(
       elevation: 0,
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
@@ -897,25 +905,25 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             if (_meaningLifeStoryValue.isNotEmpty)
               _previewSection(
                 theme,
-                'What story did their life tell?',
+                meaningCopy.storyPrompt,
                 _meaningLifeStoryValue,
               ),
             if (_meaningPurposeValue.isNotEmpty)
               _previewSection(
                 theme,
-                'What gave them purpose?',
+                meaningCopy.purposePrompt,
                 _meaningPurposeValue,
               ),
             if (_meaningMatteredToValue.isNotEmpty)
               _previewSection(
                 theme,
-                'Who did their life matter to?',
+                meaningCopy.matteredToPrompt,
                 _meaningMatteredToValue,
               ),
             if (_meaningMemoriesToKeepValue.isNotEmpty)
               _previewSection(
                 theme,
-                'What memories should not be forgotten?',
+                meaningCopy.memoriesPrompt,
                 _meaningMemoriesToKeepValue,
               ),
             const Divider(),
@@ -1300,26 +1308,45 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   }
 
   Future<void> _copyPreviewText() async {
+    final meaningCopy = MeaningMemoryCopy.forLocale(
+      Localizations.localeOf(context),
+    );
     final lines = <String>[
       _displayName,
       if (_mottoValue.isNotEmpty) _mottoValue,
       if (_bioValue.isNotEmpty) _bioValue,
       if (_highlightsValue.isNotEmpty) _highlightsValue,
       if (_willNoteValue.isNotEmpty) _willNoteValue,
-      if (_meaningLifeStoryValue.isNotEmpty)
-        'What story did their life tell?\n$_meaningLifeStoryValue',
-      if (_meaningPurposeValue.isNotEmpty)
-        'What gave them purpose?\n$_meaningPurposeValue',
-      if (_meaningMatteredToValue.isNotEmpty)
-        'Who did their life matter to?\n$_meaningMatteredToValue',
-      if (_meaningMemoriesToKeepValue.isNotEmpty)
-        'What memories should not be forgotten?\n$_meaningMemoriesToKeepValue',
+      ...meaningCopy.labeledSections(
+        lifeStory: _meaningLifeStoryValue,
+        purpose: _meaningPurposeValue,
+        matteredTo: _meaningMatteredToValue,
+        memories: _meaningMemoriesToKeepValue,
+      ),
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n\n')));
     _showMessage('已複製預覽文字。');
   }
 
+  Future<void> _copyMeaningMemoryText() async {
+    _normalizeMemorialInputs();
+    final copy = MeaningMemoryCopy.forLocale(Localizations.localeOf(context));
+    final sections = copy.labeledSections(
+      lifeStory: _meaningLifeStoryValue,
+      purpose: _meaningPurposeValue,
+      matteredTo: _meaningMatteredToValue,
+      memories: _meaningMemoriesToKeepValue,
+    );
+    if (sections.isEmpty) {
+      _showMessage(copy.noContentMessage);
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: sections.join('\n\n')));
+    _showMessage(copy.copiedMessage);
+  }
+
   Future<void> _exportMemorialPdf() async {
+    final languageCode = Localizations.localeOf(context).languageCode;
     final ok = await _consumeTokenOrShowTopUp(
       AdvancedServiceType.memorialExportPdf,
     );
@@ -1328,6 +1355,7 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       await PdfExporter.exportMemorial(
         _currentMemorialDraft,
         publicUrl: _isPublished ? _currentPublicUrl : null,
+        languageCode: languageCode,
       );
       _showMessage('PDF 匯出完成。');
     } catch (error) {
