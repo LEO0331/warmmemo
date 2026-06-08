@@ -86,6 +86,15 @@ class OverviewTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     _BookLinkTile(
+                      title:
+                          'The Meaning of Your Life（在空虛時代尋找人生目的）',
+                      subtitle: 'Arthur C. Brooks｜重新整理意義、關係與使命感。',
+                      onTap: () => _openExternal(
+                        'https://books.google.com/books/about/The_Meaning_of_Your_Life.html?id=rCFxEQAAQBAJ',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _BookLinkTile(
                       title: 'The Five Invitations（面對無常的五個邀請）',
                       subtitle: 'Frank Ostaseski｜練習面對失落與告別。',
                       onTap: () =>

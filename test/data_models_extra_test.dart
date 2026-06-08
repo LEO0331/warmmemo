@@ -11,6 +11,10 @@ void main() {
       final draft = MemorialDraft(
         name: '王小明',
         bio: '測試',
+        meaningLifeStory: '他的一生像一段溫柔的長路。',
+        meaningPurpose: '照顧家人與完成手上的工作。',
+        meaningMatteredTo: '家人、朋友與一起工作的人。',
+        meaningMemoriesToKeep: '每天早上的咖啡與問候。',
         slug: 'abc',
         isPublished: true,
         qrEnabled: true,
@@ -27,6 +31,10 @@ void main() {
       expect(rebuilt.name, '王小明');
       expect(rebuilt.slug, 'abc');
       expect(rebuilt.isPublished, isTrue);
+      expect(rebuilt.meaningLifeStory, '他的一生像一段溫柔的長路。');
+      expect(rebuilt.meaningPurpose, '照顧家人與完成手上的工作。');
+      expect(rebuilt.meaningMatteredTo, '家人、朋友與一起工作的人。');
+      expect(rebuilt.meaningMemoriesToKeep, '每天早上的咖啡與問候。');
     });
 
     test(
@@ -36,6 +44,10 @@ void main() {
           slug: 'm1',
           ownerUid: 'u1',
           name: 'name',
+          meaningLifeStory: 'Life story',
+          meaningPurpose: 'Purpose',
+          meaningMatteredTo: 'Family',
+          meaningMemoriesToKeep: 'Dinner table stories',
           obituaryServiceDate: '2026-04-01',
         );
         final profileMap = profile.toMap();
@@ -44,6 +56,10 @@ void main() {
           'updatedAt': Timestamp.fromDate(DateTime(2026, 4, 1)),
         });
         expect(rebuiltProfile.slug, 'm1');
+        expect(rebuiltProfile.meaningLifeStory, 'Life story');
+        expect(rebuiltProfile.meaningPurpose, 'Purpose');
+        expect(rebuiltProfile.meaningMatteredTo, 'Family');
+        expect(rebuiltProfile.meaningMemoriesToKeep, 'Dinner table stories');
 
         final obituary = ObituaryDraft(
           deceasedName: '張大明',
@@ -86,15 +102,26 @@ void main() {
         'status': 'sent',
         'occurredAt': '2026-04-03T10:00:00.000',
       });
-      expect(fromStringDate.occurredAt, DateTime.parse('2026-04-03T10:00:00.000'));
+      expect(
+        fromStringDate.occurredAt,
+        DateTime.parse('2026-04-03T10:00:00.000'),
+      );
 
       final before = DateTime.now();
-      final fromInvalidDate = NotificationEvent.fromMap({
-        'occurredAt': 12345,
-      });
+      final fromInvalidDate = NotificationEvent.fromMap({'occurredAt': 12345});
       final after = DateTime.now();
-      expect(fromInvalidDate.occurredAt.isAfter(before.subtract(const Duration(seconds: 1))), isTrue);
-      expect(fromInvalidDate.occurredAt.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+      expect(
+        fromInvalidDate.occurredAt.isAfter(
+          before.subtract(const Duration(seconds: 1)),
+        ),
+        isTrue,
+      );
+      expect(
+        fromInvalidDate.occurredAt.isBefore(
+          after.add(const Duration(seconds: 1)),
+        ),
+        isTrue,
+      );
       expect(fromInvalidDate.userId, 'unknown');
       expect(fromInvalidDate.channel, 'email');
       expect(fromInvalidDate.status, 'pending');

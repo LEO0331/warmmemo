@@ -5,7 +5,7 @@ import '../models/draft_models.dart';
 
 class FirebaseDraftService {
   FirebaseDraftService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static final FirebaseDraftService instance = FirebaseDraftService();
 
@@ -81,6 +81,10 @@ class FirebaseDraftService {
       bio: draft.bio,
       highlights: draft.highlights,
       willNote: draft.willNote,
+      meaningLifeStory: draft.meaningLifeStory,
+      meaningPurpose: draft.meaningPurpose,
+      meaningMatteredTo: draft.meaningMatteredTo,
+      meaningMemoriesToKeep: draft.meaningMemoriesToKeep,
       obituaryRelationship: obituary?.relationship,
       obituaryLocation: obituary?.location,
       obituaryServiceDate: obituary?.serviceDate,
@@ -88,7 +92,9 @@ class FirebaseDraftService {
       updatedAt: draft.publicUpdatedAt ?? DateTime.now(),
     );
 
-    await _publicMemorialDoc(slug).set(profile.toMap(), SetOptions(merge: true));
+    await _publicMemorialDoc(
+      slug,
+    ).set(profile.toMap(), SetOptions(merge: true));
     return profile;
   }
 
@@ -120,8 +126,11 @@ class FirebaseDraftService {
     return DraftStats.fromMap(snapshot.data()!);
   }
 
-  Future<void> incrementStats(String uid,
-      {int readDelta = 0, int clickDelta = 0}) {
+  Future<void> incrementStats(
+    String uid, {
+    int readDelta = 0,
+    int clickDelta = 0,
+  }) {
     final data = <String, Object>{};
     if (readDelta != 0) data['readCount'] = FieldValue.increment(readDelta);
     if (clickDelta != 0) data['clickCount'] = FieldValue.increment(clickDelta);
@@ -130,16 +139,22 @@ class FirebaseDraftService {
   }
 
   Stream<List<Map<String, dynamic>>> adminOverview() {
-    return _users.snapshots().map((snapshot) => snapshot.docs
-        .map((doc) => {
+    return _users.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map(
+            (doc) => {
               'uid': doc.id,
               'updatedAt': doc.data()['updatedAt'] as Timestamp?,
               'drafts': doc.data()['drafts'],
-            })
-        .toList());
+            },
+          )
+          .toList(),
+    );
   }
 
-  Future<List<NotificationEvent>> fetchNotificationHistory({int limit = 500}) async {
+  Future<List<NotificationEvent>> fetchNotificationHistory({
+    int limit = 500,
+  }) async {
     final snapshot = await _notifications
         .orderBy('occurredAt', descending: true)
         .limit(limit)
@@ -176,9 +191,11 @@ class FirebaseDraftService {
         .orderBy('occurredAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => NotificationEvent.fromMap(doc.data(), id: doc.id))
+              .toList(),
+        );
   }
 
   Future<void> logNotificationEvent(NotificationEvent event) {
@@ -186,34 +203,46 @@ class FirebaseDraftService {
   }
 
   Future<void> _touchUserDoc(String uid) {
-    return _users.doc(uid).set(
-          {'updatedAt': FieldValue.serverTimestamp()},
-          SetOptions(merge: true),
-        );
+    return _users.doc(uid).set({
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
-  Future<List<UserComplianceSnapshot>> fetchUserSummaries({int limit = 120}) async {
+  Future<List<UserComplianceSnapshot>> fetchUserSummaries({
+    int limit = 120,
+  }) async {
     final snapshot = await _users.limit(limit).get();
-    final summaries = await Future.wait(snapshot.docs.map((doc) async {
-      final drafts = doc.reference.collection('drafts');
-      final memorialSnapshot = await drafts.doc('memorial').get();
-      final obituarySnapshot = await drafts.doc('obituary').get();
-      final statsSnapshot = await doc.reference.collection('meta').doc('stats').get();
+    final summaries = await Future.wait(
+      snapshot.docs.map((doc) async {
+        final drafts = doc.reference.collection('drafts');
+        final memorialSnapshot = await drafts.doc('memorial').get();
+        final obituarySnapshot = await drafts.doc('obituary').get();
+        final statsSnapshot = await doc.reference
+            .collection('meta')
+            .doc('stats')
+            .get();
 
-      final memorial = memorialSnapshot.exists ? MemorialDraft.fromMap(memorialSnapshot.data()!) : null;
-      final obituary = obituarySnapshot.exists ? ObituaryDraft.fromMap(obituarySnapshot.data()!) : null;
-      final stats = statsSnapshot.exists
-          ? DraftStats.fromMap(statsSnapshot.data()!)
-          : DraftStats(readCount: 0, clickCount: 0);
+        final memorial = memorialSnapshot.exists
+            ? MemorialDraft.fromMap(memorialSnapshot.data()!)
+            : null;
+        final obituary = obituarySnapshot.exists
+            ? ObituaryDraft.fromMap(obituarySnapshot.data()!)
+            : null;
+        final stats = statsSnapshot.exists
+            ? DraftStats.fromMap(statsSnapshot.data()!)
+            : DraftStats(readCount: 0, clickCount: 0);
 
-      return UserComplianceSnapshot(
-        userId: doc.id,
-        memorialDraft: memorial,
-        obituaryDraft: obituary,
-        stats: stats,
-        lastReminderAt: _parseTimestamp(statsSnapshot.data()?['lastReminderAt']),
-      );
-    }));
+        return UserComplianceSnapshot(
+          userId: doc.id,
+          memorialDraft: memorial,
+          obituaryDraft: obituary,
+          stats: stats,
+          lastReminderAt: _parseTimestamp(
+            statsSnapshot.data()?['lastReminderAt'],
+          ),
+        );
+      }),
+    );
     return summaries;
   }
 

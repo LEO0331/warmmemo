@@ -1,19 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MemorialDraft {
-  MemorialDraft(
-      {this.name,
-      this.nickname,
-      this.motto,
-      this.bio,
-      this.highlights,
-      this.willNote,
-      this.slug,
-      this.isPublished,
-      this.qrEnabled,
-      this.publicUpdatedAt,
-      DateTime? updatedAt})
-      : updatedAt = updatedAt ?? DateTime.now();
+  MemorialDraft({
+    this.name,
+    this.nickname,
+    this.motto,
+    this.bio,
+    this.highlights,
+    this.willNote,
+    this.meaningLifeStory,
+    this.meaningPurpose,
+    this.meaningMatteredTo,
+    this.meaningMemoriesToKeep,
+    this.slug,
+    this.isPublished,
+    this.qrEnabled,
+    this.publicUpdatedAt,
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now();
 
   final String? name;
   final String? nickname;
@@ -21,6 +25,10 @@ class MemorialDraft {
   final String? bio;
   final String? highlights;
   final String? willNote;
+  final String? meaningLifeStory;
+  final String? meaningPurpose;
+  final String? meaningMatteredTo;
+  final String? meaningMemoriesToKeep;
   final String? slug;
   final bool? isPublished;
   final bool? qrEnabled;
@@ -28,33 +36,42 @@ class MemorialDraft {
   final DateTime updatedAt;
 
   Map<String, Object?> toMap() => {
-        'name': name,
-        'nickname': nickname,
-        'motto': motto,
-        'bio': bio,
-        'highlights': highlights,
-        'willNote': willNote,
-        'slug': slug,
-        'isPublished': isPublished,
-        'qrEnabled': qrEnabled,
-        'publicUpdatedAt':
-            publicUpdatedAt == null ? null : Timestamp.fromDate(publicUpdatedAt!),
-        'updatedAt': Timestamp.fromDate(updatedAt),
-      };
+    'name': name,
+    'nickname': nickname,
+    'motto': motto,
+    'bio': bio,
+    'highlights': highlights,
+    'willNote': willNote,
+    'meaningLifeStory': meaningLifeStory,
+    'meaningPurpose': meaningPurpose,
+    'meaningMatteredTo': meaningMatteredTo,
+    'meaningMemoriesToKeep': meaningMemoriesToKeep,
+    'slug': slug,
+    'isPublished': isPublished,
+    'qrEnabled': qrEnabled,
+    'publicUpdatedAt': publicUpdatedAt == null
+        ? null
+        : Timestamp.fromDate(publicUpdatedAt!),
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
 
   factory MemorialDraft.fromMap(Map<String, dynamic> map) => MemorialDraft(
-        name: map['name'] as String?,
-        nickname: map['nickname'] as String?,
-        motto: map['motto'] as String?,
-        bio: map['bio'] as String?,
-        highlights: map['highlights'] as String?,
-        willNote: map['willNote'] as String?,
-        slug: map['slug'] as String?,
-        isPublished: map['isPublished'] as bool?,
-        qrEnabled: map['qrEnabled'] as bool?,
-        publicUpdatedAt: _parseNullableDate(map['publicUpdatedAt']),
-        updatedAt: _parseDate(map['updatedAt']),
-      );
+    name: map['name'] as String?,
+    nickname: map['nickname'] as String?,
+    motto: map['motto'] as String?,
+    bio: map['bio'] as String?,
+    highlights: map['highlights'] as String?,
+    willNote: map['willNote'] as String?,
+    meaningLifeStory: map['meaningLifeStory'] as String?,
+    meaningPurpose: map['meaningPurpose'] as String?,
+    meaningMatteredTo: map['meaningMatteredTo'] as String?,
+    meaningMemoriesToKeep: map['meaningMemoriesToKeep'] as String?,
+    slug: map['slug'] as String?,
+    isPublished: map['isPublished'] as bool?,
+    qrEnabled: map['qrEnabled'] as bool?,
+    publicUpdatedAt: _parseNullableDate(map['publicUpdatedAt']),
+    updatedAt: _parseDate(map['updatedAt']),
+  );
 }
 
 class PublicMemorialProfile {
@@ -67,6 +84,10 @@ class PublicMemorialProfile {
     this.bio,
     this.highlights,
     this.willNote,
+    this.meaningLifeStory,
+    this.meaningPurpose,
+    this.meaningMatteredTo,
+    this.meaningMemoriesToKeep,
     this.obituaryRelationship,
     this.obituaryLocation,
     this.obituaryServiceDate,
@@ -82,6 +103,10 @@ class PublicMemorialProfile {
   final String? bio;
   final String? highlights;
   final String? willNote;
+  final String? meaningLifeStory;
+  final String? meaningPurpose;
+  final String? meaningMatteredTo;
+  final String? meaningMemoriesToKeep;
   final String? obituaryRelationship;
   final String? obituaryLocation;
   final String? obituaryServiceDate;
@@ -89,20 +114,24 @@ class PublicMemorialProfile {
   final DateTime updatedAt;
 
   Map<String, Object?> toMap() => {
-        'slug': slug,
-        'ownerUid': ownerUid,
-        'name': name,
-        'nickname': nickname,
-        'motto': motto,
-        'bio': bio,
-        'highlights': highlights,
-        'willNote': willNote,
-        'obituaryRelationship': obituaryRelationship,
-        'obituaryLocation': obituaryLocation,
-        'obituaryServiceDate': obituaryServiceDate,
-        'obituaryCustomNote': obituaryCustomNote,
-        'updatedAt': Timestamp.fromDate(updatedAt),
-      };
+    'slug': slug,
+    'ownerUid': ownerUid,
+    'name': name,
+    'nickname': nickname,
+    'motto': motto,
+    'bio': bio,
+    'highlights': highlights,
+    'willNote': willNote,
+    'meaningLifeStory': meaningLifeStory,
+    'meaningPurpose': meaningPurpose,
+    'meaningMatteredTo': meaningMatteredTo,
+    'meaningMemoriesToKeep': meaningMemoriesToKeep,
+    'obituaryRelationship': obituaryRelationship,
+    'obituaryLocation': obituaryLocation,
+    'obituaryServiceDate': obituaryServiceDate,
+    'obituaryCustomNote': obituaryCustomNote,
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
 
   factory PublicMemorialProfile.fromMap(Map<String, dynamic> map) =>
       PublicMemorialProfile(
@@ -114,6 +143,10 @@ class PublicMemorialProfile {
         bio: map['bio'] as String?,
         highlights: map['highlights'] as String?,
         willNote: map['willNote'] as String?,
+        meaningLifeStory: map['meaningLifeStory'] as String?,
+        meaningPurpose: map['meaningPurpose'] as String?,
+        meaningMatteredTo: map['meaningMatteredTo'] as String?,
+        meaningMemoriesToKeep: map['meaningMemoriesToKeep'] as String?,
         obituaryRelationship: map['obituaryRelationship'] as String?,
         obituaryLocation: map['obituaryLocation'] as String?,
         obituaryServiceDate: map['obituaryServiceDate'] as String?,
@@ -123,15 +156,15 @@ class PublicMemorialProfile {
 }
 
 class ObituaryDraft {
-  ObituaryDraft(
-      {this.deceasedName,
-      this.relationship,
-      this.location,
-      this.serviceDate,
-      this.tone,
-      this.customNote,
-      DateTime? updatedAt})
-      : updatedAt = updatedAt ?? DateTime.now();
+  ObituaryDraft({
+    this.deceasedName,
+    this.relationship,
+    this.location,
+    this.serviceDate,
+    this.tone,
+    this.customNote,
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now();
 
   final String? deceasedName;
   final String? relationship;
@@ -142,24 +175,24 @@ class ObituaryDraft {
   final DateTime updatedAt;
 
   Map<String, Object?> toMap() => {
-        'deceasedName': deceasedName,
-        'relationship': relationship,
-        'location': location,
-        'serviceDate': serviceDate,
-        'tone': tone,
-        'customNote': customNote,
-        'updatedAt': Timestamp.fromDate(updatedAt),
-      };
+    'deceasedName': deceasedName,
+    'relationship': relationship,
+    'location': location,
+    'serviceDate': serviceDate,
+    'tone': tone,
+    'customNote': customNote,
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
 
   factory ObituaryDraft.fromMap(Map<String, dynamic> map) => ObituaryDraft(
-        deceasedName: map['deceasedName'] as String?,
-        relationship: map['relationship'] as String?,
-        location: map['location'] as String?,
-        serviceDate: map['serviceDate'] as String?,
-        tone: map['tone'] as String?,
-        customNote: map['customNote'] as String?,
-        updatedAt: _parseDate(map['updatedAt']),
-      );
+    deceasedName: map['deceasedName'] as String?,
+    relationship: map['relationship'] as String?,
+    location: map['location'] as String?,
+    serviceDate: map['serviceDate'] as String?,
+    tone: map['tone'] as String?,
+    customNote: map['customNote'] as String?,
+    updatedAt: _parseDate(map['updatedAt']),
+  );
 }
 
 class DraftStats {
@@ -169,18 +202,22 @@ class DraftStats {
   final int clickCount;
 
   Map<String, Object?> toMap() => {
-        'readCount': readCount,
-        'clickCount': clickCount,
-      };
+    'readCount': readCount,
+    'clickCount': clickCount,
+  };
 
   factory DraftStats.fromMap(Map<String, dynamic> map) => DraftStats(
-        readCount: map['readCount'] as int? ?? 0,
-        clickCount: map['clickCount'] as int? ?? 0,
-      );
+    readCount: map['readCount'] as int? ?? 0,
+    clickCount: map['clickCount'] as int? ?? 0,
+  );
 }
 
 class DraftMetrics {
-  DraftMetrics({required this.totalUsers, required this.totalReads, required this.totalClicks});
+  DraftMetrics({
+    required this.totalUsers,
+    required this.totalReads,
+    required this.totalClicks,
+  });
 
   final int totalUsers;
   final int totalReads;
@@ -207,18 +244,15 @@ class NotificationEvent {
   final String? draftType;
 
   Map<String, Object?> toMap() => {
-        'userId': userId,
-        'channel': channel,
-        'status': status,
-        'occurredAt': Timestamp.fromDate(occurredAt),
-        'tone': tone,
-        'draftType': draftType,
-      };
+    'userId': userId,
+    'channel': channel,
+    'status': status,
+    'occurredAt': Timestamp.fromDate(occurredAt),
+    'tone': tone,
+    'draftType': draftType,
+  };
 
-  factory NotificationEvent.fromMap(
-    Map<String, dynamic> map, {
-    String? id,
-  }) =>
+  factory NotificationEvent.fromMap(Map<String, dynamic> map, {String? id}) =>
       NotificationEvent(
         id: id,
         userId: map['userId'] as String? ?? 'unknown',

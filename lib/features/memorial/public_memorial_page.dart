@@ -100,6 +100,46 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                         ),
                       if (profile.willNote?.trim().isNotEmpty ?? false)
                         const SizedBox(height: 16),
+                      if (_hasMeaningMemory(profile))
+                        SectionCard(
+                          title: 'Meaning & Memory',
+                          icon: Icons.favorite_border_outlined,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (profile.meaningLifeStory?.trim().isNotEmpty ??
+                                  false)
+                                _ReflectionRow(
+                                  label: 'Life story',
+                                  value: profile.meaningLifeStory!.trim(),
+                                ),
+                              if (profile.meaningPurpose?.trim().isNotEmpty ??
+                                  false)
+                                _ReflectionRow(
+                                  label: 'Purpose',
+                                  value: profile.meaningPurpose!.trim(),
+                                ),
+                              if (profile.meaningMatteredTo
+                                      ?.trim()
+                                      .isNotEmpty ??
+                                  false)
+                                _ReflectionRow(
+                                  label: 'Mattered to',
+                                  value: profile.meaningMatteredTo!.trim(),
+                                ),
+                              if (profile.meaningMemoriesToKeep
+                                      ?.trim()
+                                      .isNotEmpty ??
+                                  false)
+                                _ReflectionRow(
+                                  label: 'Memories',
+                                  value: profile.meaningMemoriesToKeep!.trim(),
+                                ),
+                            ],
+                          ),
+                        ),
+                      if (_hasMeaningMemory(profile))
+                        const SizedBox(height: 16),
                       if (_hasObituarySummary(profile))
                         SectionCard(
                           title: '追思資訊',
@@ -156,6 +196,13 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
         (profile.obituaryServiceDate?.trim().isNotEmpty ?? false) ||
         (profile.obituaryCustomNote?.trim().isNotEmpty ?? false);
   }
+
+  bool _hasMeaningMemory(PublicMemorialProfile profile) {
+    return (profile.meaningLifeStory?.trim().isNotEmpty ?? false) ||
+        (profile.meaningPurpose?.trim().isNotEmpty ?? false) ||
+        (profile.meaningMatteredTo?.trim().isNotEmpty ?? false) ||
+        (profile.meaningMemoriesToKeep?.trim().isNotEmpty ?? false);
+  }
 }
 
 class _PublicMemorialUnavailable extends StatelessWidget {
@@ -202,6 +249,34 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
           Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReflectionRow extends StatelessWidget {
+  const _ReflectionRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(value),
         ],
       ),
     );

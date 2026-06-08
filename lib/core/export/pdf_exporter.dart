@@ -39,10 +39,7 @@ class PdfExporter {
           children: [
             pw.Text(
               'WarmMemo 紀念頁',
-              style: pw.TextStyle(
-                fontSize: 24,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 12),
             _labelValue('姓名', draft.name ?? ''),
@@ -51,6 +48,13 @@ class PdfExporter {
             _section('生平摘要', draft.bio),
             _section('人生亮點', draft.highlights),
             _section('給後人的話', draft.willNote),
+            _section('What story did their life tell?', draft.meaningLifeStory),
+            _section('What gave them purpose?', draft.meaningPurpose),
+            _section('Who did their life matter to?', draft.meaningMatteredTo),
+            _section(
+              'What memories should not be forgotten?',
+              draft.meaningMemoriesToKeep,
+            ),
             if (publicUrl != null && publicUrl.trim().isNotEmpty) ...[
               pw.SizedBox(height: 16),
               pw.Text(
@@ -91,10 +95,7 @@ class PdfExporter {
           children: [
             pw.Text(
               'WarmMemo 訃聞',
-              style: pw.TextStyle(
-                fontSize: 24,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 12),
             _labelValue('逝者姓名', draft.deceasedName ?? ''),

@@ -12,16 +12,25 @@ void main() {
 
       final draft = MemorialDraft(
         name: '王小明',
+        meaningLifeStory: 'Life story',
+        meaningPurpose: 'Purpose',
+        meaningMatteredTo: 'Family',
+        meaningMemoriesToKeep: 'Sunday breakfast',
         slug: 'My-Slug',
         isPublished: true,
         qrEnabled: true,
       );
       final profile = await service.publishMemorial('u1', draft);
       expect(profile.slug, 'my-slug');
+      expect(profile.meaningLifeStory, 'Life story');
+      expect(profile.meaningPurpose, 'Purpose');
+      expect(profile.meaningMatteredTo, 'Family');
+      expect(profile.meaningMemoriesToKeep, 'Sunday breakfast');
 
       final loaded = await service.loadPublicMemorialBySlug('my-slug');
       expect(loaded, isNotNull);
       expect(loaded!.ownerUid, 'u1');
+      expect(loaded.meaningPurpose, 'Purpose');
 
       expect(await service.isMemorialSlugAvailable('my-slug'), isFalse);
       expect(

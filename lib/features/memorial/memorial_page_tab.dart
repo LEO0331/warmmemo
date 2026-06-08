@@ -43,6 +43,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
   final _bioController = TextEditingController();
   final _highlightsController = TextEditingController();
   final _willNoteController = TextEditingController();
+  final _meaningLifeStoryController = TextEditingController();
+  final _meaningPurposeController = TextEditingController();
+  final _meaningMatteredToController = TextEditingController();
+  final _meaningMemoriesToKeepController = TextEditingController();
   final _slugController = TextEditingController();
   final _proposalVendorController = TextEditingController();
   final _proposalScheduleController = TextEditingController();
@@ -78,6 +82,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     _bioController.dispose();
     _highlightsController.dispose();
     _willNoteController.dispose();
+    _meaningLifeStoryController.dispose();
+    _meaningPurposeController.dispose();
+    _meaningMatteredToController.dispose();
+    _meaningMemoriesToKeepController.dispose();
     _slugController.dispose();
     _proposalVendorController.dispose();
     _proposalScheduleController.dispose();
@@ -165,6 +173,8 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
                         onEditingComplete: _normalizeMemorialInputs,
                       ),
                       const SizedBox(height: 16),
+                      _buildMeaningMemorySection(),
+                      const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
@@ -212,6 +222,74 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMeaningMemorySection() {
+    final theme = Theme.of(context);
+    return SectionCard(
+      title: 'Meaning & Memory',
+      icon: Icons.favorite_border_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectableText(
+            'A meaningful life is more than a list of events. It is a story of relationships, values, choices, love, work, beauty, and even suffering.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 6),
+          const SelectableText(
+            'Use this space to record what made this person\'s life meaningful.',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'There is no need to write perfectly. A few honest memories are enough.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF7A5C4E),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '公開紀念頁發布後，這些內容會一併顯示；若只想自己留存，可以先不發布。',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF7A5C4E),
+            ),
+          ),
+          const SizedBox(height: 12),
+          LabeledTextField(
+            label: 'What story did their life tell?',
+            controller: _meaningLifeStoryController,
+            helperText:
+                'Write a memory, value, or moment that feels important.',
+            maxLines: 5,
+            onEditingComplete: _normalizeMemorialInputs,
+          ),
+          const SizedBox(height: 8),
+          LabeledTextField(
+            label: 'What gave them purpose?',
+            controller: _meaningPurposeController,
+            helperText: 'You can return to this later.',
+            maxLines: 5,
+            onEditingComplete: _normalizeMemorialInputs,
+          ),
+          const SizedBox(height: 8),
+          LabeledTextField(
+            label: 'Who did their life matter to?',
+            controller: _meaningMatteredToController,
+            helperText: 'Write freely. Short notes are enough.',
+            maxLines: 5,
+            onEditingComplete: _normalizeMemorialInputs,
+          ),
+          const SizedBox(height: 8),
+          LabeledTextField(
+            label: 'What memories should not be forgotten?',
+            controller: _meaningMemoriesToKeepController,
+            helperText: 'Small details often carry the most warmth.',
+            maxLines: 5,
+            onEditingComplete: _normalizeMemorialInputs,
+          ),
+        ],
       ),
     );
   }
@@ -816,6 +894,30 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
               _previewSection(theme, '人生重點', _highlightsValue),
             if (_willNoteValue.isNotEmpty)
               _previewSection(theme, '給家人的話', _willNoteValue),
+            if (_meaningLifeStoryValue.isNotEmpty)
+              _previewSection(
+                theme,
+                'What story did their life tell?',
+                _meaningLifeStoryValue,
+              ),
+            if (_meaningPurposeValue.isNotEmpty)
+              _previewSection(
+                theme,
+                'What gave them purpose?',
+                _meaningPurposeValue,
+              ),
+            if (_meaningMatteredToValue.isNotEmpty)
+              _previewSection(
+                theme,
+                'Who did their life matter to?',
+                _meaningMatteredToValue,
+              ),
+            if (_meaningMemoriesToKeepValue.isNotEmpty)
+              _previewSection(
+                theme,
+                'What memories should not be forgotten?',
+                _meaningMemoriesToKeepValue,
+              ),
             const Divider(),
             Text(
               _currentPublicUrl ?? '尚未產生公開網址',
@@ -962,6 +1064,22 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
         draft.willNote ?? '',
         maxLength: 1200,
       );
+      _meaningLifeStoryController.text = _sanitizeMultiline(
+        draft.meaningLifeStory ?? '',
+        maxLength: 1200,
+      );
+      _meaningPurposeController.text = _sanitizeMultiline(
+        draft.meaningPurpose ?? '',
+        maxLength: 1200,
+      );
+      _meaningMatteredToController.text = _sanitizeMultiline(
+        draft.meaningMatteredTo ?? '',
+        maxLength: 1200,
+      );
+      _meaningMemoriesToKeepController.text = _sanitizeMultiline(
+        draft.meaningMemoriesToKeep ?? '',
+        maxLength: 1200,
+      );
       _slugController.text = _sanitizeSlug(draft.slug ?? '');
       _isPublished = draft.isPublished ?? false;
       _publishedSlug = draft.isPublished == true ? draft.slug : null;
@@ -1017,6 +1135,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       bio: _bioValue,
       highlights: _highlightsValue,
       willNote: _willNoteValue,
+      meaningLifeStory: _meaningLifeStoryValue,
+      meaningPurpose: _meaningPurposeValue,
+      meaningMatteredTo: _meaningMatteredToValue,
+      meaningMemoriesToKeep: _meaningMemoriesToKeepValue,
       slug: slug,
       isPublished: true,
       qrEnabled: true,
@@ -1184,6 +1306,14 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       if (_bioValue.isNotEmpty) _bioValue,
       if (_highlightsValue.isNotEmpty) _highlightsValue,
       if (_willNoteValue.isNotEmpty) _willNoteValue,
+      if (_meaningLifeStoryValue.isNotEmpty)
+        'What story did their life tell?\n$_meaningLifeStoryValue',
+      if (_meaningPurposeValue.isNotEmpty)
+        'What gave them purpose?\n$_meaningPurposeValue',
+      if (_meaningMatteredToValue.isNotEmpty)
+        'Who did their life matter to?\n$_meaningMatteredToValue',
+      if (_meaningMemoriesToKeepValue.isNotEmpty)
+        'What memories should not be forgotten?\n$_meaningMemoriesToKeepValue',
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n\n')));
     _showMessage('已複製預覽文字。');
@@ -1242,6 +1372,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     bio: _bioValue,
     highlights: _highlightsValue,
     willNote: _willNoteValue,
+    meaningLifeStory: _meaningLifeStoryValue,
+    meaningPurpose: _meaningPurposeValue,
+    meaningMatteredTo: _meaningMatteredToValue,
+    meaningMemoriesToKeep: _meaningMemoriesToKeepValue,
     slug: _sanitizeSlug(_slugController.text),
     isPublished: _isPublished,
     qrEnabled: _isPublished,
@@ -1259,6 +1393,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       bio: _bioValue,
       highlights: _highlightsValue,
       willNote: _willNoteValue,
+      meaningLifeStory: _meaningLifeStoryValue,
+      meaningPurpose: _meaningPurposeValue,
+      meaningMatteredTo: _meaningMatteredToValue,
+      meaningMemoriesToKeep: _meaningMemoriesToKeepValue,
       slug: _sanitizeSlug(_slugController.text),
       isPublished: isPublished,
       qrEnabled: isPublished,
@@ -1278,6 +1416,16 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
       _sanitizeMultiline(_highlightsController.text, maxLength: 1200);
   String get _willNoteValue =>
       _sanitizeMultiline(_willNoteController.text, maxLength: 1200);
+  String get _meaningLifeStoryValue =>
+      _sanitizeMultiline(_meaningLifeStoryController.text, maxLength: 1200);
+  String get _meaningPurposeValue =>
+      _sanitizeMultiline(_meaningPurposeController.text, maxLength: 1200);
+  String get _meaningMatteredToValue =>
+      _sanitizeMultiline(_meaningMatteredToController.text, maxLength: 1200);
+  String get _meaningMemoriesToKeepValue => _sanitizeMultiline(
+    _meaningMemoriesToKeepController.text,
+    maxLength: 1200,
+  );
   String get _proposalVendorValue =>
       _sanitizeSingleLine(_proposalVendorController.text, maxLength: 60);
   String get _proposalScheduleValue =>
@@ -1292,6 +1440,10 @@ class _MemorialPageTabState extends State<MemorialPageTab> {
     _bioController.text = _bioValue;
     _highlightsController.text = _highlightsValue;
     _willNoteController.text = _willNoteValue;
+    _meaningLifeStoryController.text = _meaningLifeStoryValue;
+    _meaningPurposeController.text = _meaningPurposeValue;
+    _meaningMatteredToController.text = _meaningMatteredToValue;
+    _meaningMemoriesToKeepController.text = _meaningMemoriesToKeepValue;
     _slugController.text = _sanitizeSlug(_slugController.text);
     _proposalVendorController.text = _proposalVendorValue;
     _proposalScheduleController.text = _proposalScheduleValue;
