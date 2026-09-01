@@ -17,6 +17,7 @@
 - Browser QA against `https://leo0331.github.io/warmmemo/` — guest landing, sign-in and registration validation, invalid credentials, malformed public links, and refresh behavior exercised. Same-tab navigation from the landing page to `#/m/qa-nonexistent-slug-20260901` reproduced an uncaught `Null check operator used on a null value` twice and returned to the landing page instead of the public-memorial unavailable state.
 - Fix verified locally: `AuthGate` now rebuilds on browser hash/history changes through conditional web route-change listeners. `flutter analyze` completed with no issues and `flutter test` passed all 159 tests using `D:\Practice\flutter`. The release compiler emitted `build/web/main.dart.js`; the browser client blocked loopback testing with `ERR_BLOCKED_BY_CLIENT`, so the final browser regression must run from a normal local browser or deployed preview.
 - Content polish pass: landing, account access, and public memorial/obituary pages now use clearer action language, less alarming sensitive-language phrasing, and actionable unavailable-link guidance. `flutter analyze` completed with no issues and `flutter test` passed all 159 tests.
+- Remaining content polish pass: packages/checkout, skills, final-countdown planning, and admin operation screens now explain status, next steps, and estimates in plain language. Updated skills widget expectations match the new action labels. `flutter analyze`, the affected skills suite, and the full 159-test suite passed.
 
 ### Files Changed in This Session
 
@@ -35,6 +36,13 @@
 - `lib/features/auth/auth_page.dart`
 - `lib/features/memorial/public_memorial_page.dart`
 - `lib/features/obituary/public_obituary_page.dart`
+- `lib/features/packages/packages_tab.dart`
+- `lib/features/packages/checkout_page.dart`
+- `lib/features/skills/skill_generator_tab.dart`
+- `lib/features/final_countdown/final_countdown_tab.dart`
+- `lib/features/admin/admin_dashboard.dart`
+- `lib/features/admin/order_detail_page.dart`
+- `test/skill_generator_tab_test.dart`
 
 ### Blockers
 

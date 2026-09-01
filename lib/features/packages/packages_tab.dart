@@ -28,9 +28,9 @@ class PackagesTab extends StatelessWidget {
                 const PageHero(
                   eyebrow: 'Packages',
                   icon: Icons.handshake_outlined,
-                  title: '固定價格方案設計',
+                  title: '清楚比較服務方案',
                   subtitle:
-                      '平台先與合作禮儀公司談好「打包價格」與「最低服務標準」，家屬只需選擇風格與預算帶，不需臨時討價還價。',
+                      '先比較服務內容、適用情境與參考費用；選定後即可建立訂單，並持續查看付款與處理進度。',
                   badges: ['透明價格', '方案比較', '線上結帳'],
                 ),
                 const SizedBox(height: 16),
@@ -233,7 +233,7 @@ class _OrdersPanelState extends State<_OrdersPanel> {
           if (orders.isEmpty) {
             return const EmptyStateCard(
               title: '尚未建立方案訂單',
-              description: '選擇方案後可建立訂單並追蹤付款狀態。',
+              description: '選擇合適方案後即可建立訂單，並在這裡追蹤付款與處理進度。',
               icon: Icons.receipt_long_outlined,
             );
           }
@@ -271,7 +271,7 @@ class _OrdersPanelState extends State<_OrdersPanel> {
               ),
               const SizedBox(height: 8),
               if (filteredOrders.isEmpty)
-                const Text('目前篩選條件下沒有訂單。')
+                const Text('目前沒有符合篩選條件的訂單；可調整篩選條件再查看。')
               else
                 ...List.generate(filteredOrders.length, (index) {
                   final order = filteredOrders[index];

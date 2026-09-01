@@ -71,7 +71,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField).first, _sampleJson);
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+      await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
 
     expect(generator.parseCount, 1);
@@ -117,7 +117,7 @@ void main() {
     expect(textField.controller!.text.contains('"name": "Ethan"'), isTrue);
     expect(textField.controller!.text.contains('"role": "跨部門產品負責人"'), isTrue);
 
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+      await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
     expect(find.textContaining('template:colleagueWork'), findsOneWidget);
   });
@@ -187,7 +187,7 @@ void main() {
       feedbackLog: feedback,
     );
     await tester.enterText(find.byType(TextField).first, _sampleJson);
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+      await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
     expect(find.textContaining('格式錯誤'), findsWidgets);
 
@@ -198,7 +198,7 @@ void main() {
       feedbackLog: feedback,
     );
     await tester.enterText(find.byType(TextField).first, _sampleJson);
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+      await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
     expect(find.textContaining('權限不足'), findsWidgets);
 
@@ -209,7 +209,7 @@ void main() {
       feedbackLog: feedback,
     );
     await tester.enterText(find.byType(TextField).first, _sampleJson);
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+      await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
     expect(find.textContaining('發生未知錯誤'), findsWidgets);
   });
@@ -229,10 +229,10 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField).first, _sampleJson);
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+    await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
 
-    await tester.tap(find.widgetWithText(FilledButton, '一鍵複製'));
+    await tester.tap(find.widgetWithText(FilledButton, '複製內容'));
     await pumpUi(tester);
     await tester.tap(find.widgetWithText(OutlinedButton, '下載'));
     await pumpUi(tester);
@@ -259,10 +259,10 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField).first, _sampleJson);
-    await tester.tap(find.widgetWithText(FilledButton, '驗證並生成'));
+    await tester.tap(find.widgetWithText(FilledButton, '檢查素材並生成'));
     await pumpUi(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '儲存到雲端'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '儲存此版本'));
     await pumpUi(tester);
     expect(storage.saveCalls, 1);
     expect(feedback.last, contains('已儲存到雲端版本列表'));
@@ -271,7 +271,7 @@ void main() {
       plugin: 'firebase_core',
       code: 'failed-precondition',
     );
-    await tester.tap(find.widgetWithText(OutlinedButton, '儲存到雲端'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '儲存此版本'));
     await pumpUi(tester);
     expect(feedback.last, contains('資料庫前置設定尚未完成'));
   });

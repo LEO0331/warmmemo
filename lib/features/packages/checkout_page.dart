@@ -298,7 +298,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('確認方案並結帳')),
+      appBar: AppBar(title: const Text('確認方案與付款方式')),
       body: WarmBackdrop(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -309,13 +309,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 eyebrow: 'Checkout',
                 icon: Icons.credit_card_outlined,
                 title: widget.planName,
-                subtitle: '價格：${widget.priceLabel}',
+                subtitle: '參考費用：${widget.priceLabel}；付款前請再次確認方案內容。',
                 badges: const ['建立訂單', '前往付款', '回來追蹤狀態'],
               ),
               const SizedBox(height: 8),
               const SizedBox(height: 16),
               SelectableText(
-                '提交後狀態為 pending，管理員確認後會更新為 received / complete，您可於方案列表查看最新狀態。',
+                '建立訂單後會先顯示為「待確認」。管理員確認付款與服務安排後，會更新處理進度；你可隨時回到「我的方案與狀態」查看。',
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
@@ -331,7 +331,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               if (_lastCheckoutUrl != null) ...[
                 SelectableText(
-                  'Checkout URL：$_lastCheckoutUrl',
+                  '付款連結：$_lastCheckoutUrl',
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 8),
@@ -349,7 +349,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         AppFeedback.showWithMessenger(
                           messenger,
                           colorScheme: colorScheme,
-                          message: 'Checkout URL 已複製',
+                          message: '付款連結已複製；可貼到瀏覽器開啟。',
                           tone: FeedbackTone.success,
                         );
                       },
@@ -387,7 +387,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         }
                       },
                       icon: const Icon(Icons.open_in_new),
-                      label: const Text('重新開啟付款'),
+                      label: const Text('再次開啟付款頁'),
                     ),
                   ],
                 ),
@@ -439,7 +439,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     child: FilledButton.icon(
                       onPressed: _submitting ? null : _submitOrder,
                       icon: const Icon(Icons.credit_card),
-                      label: Text(_submitting ? '前往中…' : 'Stripe 付款'),
+                      label: Text(_submitting ? '正在開啟付款頁…' : '前往 Stripe 付款'),
                     ),
                   ),
                   SizedBox(

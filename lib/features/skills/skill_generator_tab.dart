@@ -126,18 +126,18 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                 ),
                 const SizedBox(height: 16),
                 SectionCard(
-                  title: 'JSON 輸入（標準化原始材料型）',
+                  title: '提供整理好的素材（JSON）',
                   icon: Icons.data_object_outlined,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SelectableText(
-                        '必要欄位：profile + materials（messages/documents/emails 任一有資料）。',
+                        '請提供 profile 與 materials；materials 中至少放入 messages、documents 或 emails 的其中一種素材。',
                         style: theme.textTheme.bodySmall,
                       ),
                       const SizedBox(height: 4),
                       SelectableText(
-                        '建議補充：relationshipToUser、familyRole、lifeStage、residenceCity、occupation、personalValues、hobbies、signatureMemory。',
+                        '補充關係、角色、生活階段、價值觀、興趣與代表回憶，可讓生成內容更貼近本人。',
                         style: theme.textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
@@ -169,7 +169,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                                     ),
                                   )
                                 : const Icon(Icons.auto_fix_high_outlined),
-                            label: Text(_isGenerating ? '生成中...' : '驗證並生成'),
+                            label: Text(_isGenerating ? '正在整理內容…' : '檢查素材並生成'),
                           ),
                           OutlinedButton.icon(
                             onPressed: _applySampleJson,
@@ -202,7 +202,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                   child: _markdown.trim().isEmpty
                       ? const EmptyStateCard(
                           title: '尚未生成',
-                          description: '先貼上標準化 JSON，按「驗證並生成」。',
+                          description: '貼上素材後，按「檢查素材並生成」即可建立第一版內容。',
                           icon: Icons.edit_note_outlined,
                         )
                       : Column(
@@ -215,7 +215,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                                 FilledButton.icon(
                                   onPressed: _copyMarkdown,
                                   icon: const Icon(Icons.copy_all_outlined),
-                                  label: const Text('一鍵複製'),
+                                  label: const Text('複製內容'),
                                 ),
                                 OutlinedButton.icon(
                                   onPressed: _downloadMarkdown,
@@ -235,7 +235,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                                           ),
                                         )
                                       : const Icon(Icons.save_outlined),
-                                  label: Text(_isSaving ? '儲存中...' : '儲存到雲端'),
+                                  label: Text(_isSaving ? '正在儲存…' : '儲存此版本'),
                                 ),
                               ],
                             ),
@@ -257,7 +257,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
                   child: uid == null
                       ? const EmptyStateCard(
                           title: '尚未登入',
-                          description: '登入後可保存與管理 Skill 版本。',
+                          description: '登入後即可保存版本，之後也能回來查看、複製或管理。',
                           icon: Icons.lock_outline,
                         )
                       : Column(
@@ -318,7 +318,7 @@ class _SkillGeneratorTabState extends State<SkillGeneratorTab> {
         if (filtered.isEmpty) {
           return const EmptyStateCard(
             title: '尚無儲存版本',
-            description: '生成後按「儲存到雲端」，即可在這裡按模板查看。',
+            description: '生成內容後按「儲存此版本」，即可在這裡依模板查看與管理。',
             icon: Icons.archive_outlined,
           );
         }

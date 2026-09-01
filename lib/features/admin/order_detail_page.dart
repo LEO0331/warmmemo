@@ -49,19 +49,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
     if (!caseTransitionOk || !paymentTransitionOk) {
       setState(() {
-        _workflowHint = '狀態變更不符合流程，請依序更新（pending -> received -> complete）。';
+        _workflowHint = '這次狀態變更不符合流程；請依序更新為待確認、已接收，再到完成。';
       });
       return;
     }
     if (_editing.status == 'complete' && !_isDeliveredMilestoneDone()) {
       setState(() {
-        _workflowHint = '案件要標記 complete 前，請先將「已交付」里程碑設為 done。';
+        _workflowHint = '完成案件前，請先將「已交付」里程碑標示為完成。';
       });
       return;
     }
     if (_editing.status == 'complete' && _editing.paymentStatus != 'paid') {
       setState(() {
-        _workflowHint = '案件要標記 complete 前，請先確認付款狀態為 paid。';
+        _workflowHint = '完成案件前，請先確認付款狀態已標示為已付款。';
       });
       return;
     }

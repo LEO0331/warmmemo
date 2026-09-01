@@ -695,8 +695,8 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                 const PageHero(
                   eyebrow: 'Planning',
                   icon: Icons.hourglass_bottom_outlined,
-                  title: '人生倒數與零結餘規劃',
-                  subtitle: '設定退休年份與預估壽命，讓資產與體驗支出在生命終點前盡量接近零結餘。',
+                  title: '人生規劃與體驗預算',
+                  subtitle: '用退休、健康與生活目標估算資產和支出，幫助你在不同階段更有意識地安排想做的事。',
                   badges: ['壽命預估', '資產支出平衡', '行動建議'],
                 ),
                 const SizedBox(height: 16),
@@ -976,7 +976,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                       if (_experienceItems.isEmpty)
                         const EmptyStateCard(
                           title: '尚未新增體驗項目',
-                          description: '新增你想完成或已完成的記憶體驗。',
+                          description: '把想完成或已完成的重要體驗記下來，讓規劃不只圍繞金額。',
                           icon: Icons.auto_awesome_outlined,
                         )
                       else
@@ -1120,7 +1120,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                 ),
                 const SizedBox(height: 16),
                 SectionCard(
-                  title: '零結餘結果',
+                  title: '資產與支出預估',
                   icon: Icons.balance_outlined,
                   child: SelectionArea(
                     child: Column(
@@ -1148,7 +1148,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                             _metricChip('建議年預算', _currency(annualTarget)),
                             _metricChip('建議月預算', _currency(monthlyTarget)),
                             _metricChip(
-                              'Die with Zero 準備度',
+                              '生活目標對齊度',
                               '${(overallReadiness * 100).toStringAsFixed(0)}%',
                               key: const Key('overall_readiness'),
                             ),
@@ -1166,14 +1166,14 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                         const SizedBox(height: 8),
                         Text(
                           net.abs() < 1000
-                              ? '很接近零結餘，規劃相當平衡。'
+                              ? '資產與支出目前接近平衡；仍可依生活變化定期調整。'
                               : net > 0
-                              ? '目前有剩餘資金，可增加體驗型支出。'
-                              : '目前預估不足，建議補強資產或下修支出。',
+                              ? '目前預留資金較多；可評估增加體驗、照護或家庭支持的預算。'
+                              : '目前預估支出較高；可檢視收入、資產與支出優先順序。',
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '綜合指標 = 健康對齊 30% + 財務對齊 30% + 壽命對齊 20% + 記憶進度 20%',
+                          '此指標用健康、財務、時間與體驗進度提供參考，不代表財務或醫療建議。',
                         ),
                       ],
                     ),
