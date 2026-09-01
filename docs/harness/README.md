@@ -12,7 +12,9 @@ Read order:
 1. [Task Routing](./task-routing.md)
 2. [Verification Matrix](./verification-matrix.md)
 3. [Project Review (2026-05-26)](./review-2026-05-26.md)
-4. `features/*.json` feature-list artifacts for behavior-level verification
+4. Root [`feature_list.json`](../../feature_list.json) for active feature state and dependencies
+5. Root [`progress.md`](../../progress.md) for the latest evidence and next step
+6. Root [`session-handoff.md`](../../session-handoff.md) when resuming incomplete work
 
 Principles:
 
@@ -20,3 +22,4 @@ Principles:
 - Topic-heavy guidance lives here in smaller files.
 - Historical lessons should become tests or code invariants when possible.
 - New rules must state scope, trigger, and why they are not better enforced in code.
+- Use [`../../init.sh`](../../init.sh) as the fail-fast baseline verification entrypoint (from Git Bash or WSL).

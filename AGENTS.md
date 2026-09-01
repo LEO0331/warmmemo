@@ -11,6 +11,22 @@ Use this file as the project entry router. Do not treat it as a full encyclopedi
 - Full test suite: `flutter test`
 - E2E smoke (when UI flow changed): `patrol test -t patrol_test/app_smoke_test.dart -d chrome`
 
+## Startup Workflow
+
+1. Read `feature_list.json` and root `progress.md` to identify the active work and its latest evidence.
+2. Read the base context and only the task-specific files listed below.
+3. Confirm the task's scope, dependencies, and required verification before editing.
+4. Run `./init.sh` (Git Bash/WSL) or the equivalent Flutter commands before broad work; record any relevant result in `progress.md`.
+
+## Scope
+
+- **One feature at a time.** Complete or explicitly hand off the active feature before starting another one.
+- **Stay in scope.** Do not fold opportunistic refactors, schema migrations, dependency upgrades, or deployment changes into an unrelated task.
+
+## Definition of Done
+
+A task is done only when its requested behavior and documentation are updated, required verification has passed, and `progress.md` records the evidence or a concrete reason it could not be run.
+
 ## Hard constraints
 
 1. Do not change business workflow semantics unless explicitly requested.
@@ -69,6 +85,10 @@ Read extra docs only when relevant:
 - Service / model / repository changes: `flutter analyze` + targeted `flutter test`
 - Auth / route / payment / admin flow changes: `flutter analyze` + `flutter test`
 - Release-facing or broad changes: full `flutter test`
+
+## End of Session
+
+Before ending a work session, update root `progress.md` with the current objective, changed files, verification evidence, blockers, and recommended next step. Use `session-handoff.md` when work is incomplete or requires a decision. This keeps the next session restartable without relying on chat history.
 
 ## Docs sync rules
 

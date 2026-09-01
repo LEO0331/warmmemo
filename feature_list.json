@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "activeFeatureId": null,
+  "features": [
+    {
+      "id": "harness-foundation",
+      "name": "Project agent harness foundation",
+      "description": "Maintain restartable task state, focused scope boundaries, and a fail-fast verification entrypoint for coding-agent work.",
+      "status": "complete",
+      "dependencies": [],
+      "doneCriteria": [
+        "Root instructions route agents to state, verification, scope, and handoff artifacts.",
+        "Feature state, progress log, and handoff template are version-controlled.",
+        "The harness validator passes."
+      ]
+    },
+    {
+      "id": "business-workspace-v2",
+      "name": "Business workspace V2",
+      "description": "Manage the proposal-to-delivery workflow with suppliers, materials, schedules, and funnel reporting.",
+      "status": "complete",
+      "dependencies": [],
+      "doneCriteria": [
+        "Proposal, review, supplier assignment, material confirmation, and delivery scheduling work end to end.",
+        "Related administrator permissions are enforced."
+      ]
+    },
+    {
+      "id": "offline-chinese-pdf-font",
+      "name": "Offline Chinese PDF font support",
+      "description": "Provide a local Chinese font subset so PDF exports remain reliable when external font retrieval is unavailable.",
+      "status": "planned",
+      "dependencies": [],
+      "doneCriteria": [
+        "A licensed local subset font is included and configured as an export fallback.",
+        "A Chinese PDF export is verified with network access disabled."
+      ]
+    },
+    {
+      "id": "ci-coverage-gate",
+      "name": "CI coverage artifact and threshold",
+      "description": "Publish coverage evidence in CI and enforce an agreed coverage threshold.",
+      "status": "planned",
+      "dependencies": [],
+      "doneCriteria": [
+        "CI uploads a coverage artifact.",
+        "CI fails below the documented coverage threshold."
+      ]
+    }
+  ]
+}
