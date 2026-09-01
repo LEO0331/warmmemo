@@ -21,7 +21,7 @@ class PublicObituaryPage extends StatelessWidget {
                 padding: EdgeInsets.all(24),
                 child: EmptyStateCard(
                   title: '此訃聞頁目前無法顯示',
-                  description: '連結可能已失效，或內容格式不完整。',
+                  description: '連結可能已失效，或內容尚未準備完成。請向分享者確認最新連結。',
                   icon: Icons.link_off_outlined,
                 ),
               ),
@@ -52,7 +52,7 @@ class PublicObituaryPage extends StatelessWidget {
                     eyebrow: 'WarmMemo Obituary',
                     icon: Icons.campaign_outlined,
                     title: titleName,
-                    subtitle: '感謝親友撥冗閱讀與關心。',
+                    subtitle: '感謝您撥冗閱讀，並陪伴家屬度過這段時光。',
                     badges: const ['公開訃聞', '可轉傳', '唯讀'],
                   ),
                   const SizedBox(height: 16),

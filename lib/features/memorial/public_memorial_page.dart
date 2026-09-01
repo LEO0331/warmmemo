@@ -221,7 +221,7 @@ class _PublicMemorialUnavailable extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 520),
           child: const EmptyStateCard(
             title: '此紀念頁目前無法顯示',
-            description: '可能尚未發佈、已下架，或網址有誤。請向家屬確認最新連結。',
+            description: '這個頁面可能尚未公開、已停止公開，或連結有誤。請向分享者確認網址後再試。',
             icon: Icons.link_off_outlined,
           ),
         ),

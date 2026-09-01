@@ -16,6 +16,7 @@
 - `node C:\Users\150592\.agents\skills\harness-creator\scripts\validate-harness.mjs --target D:\Practice\warmmemo` — passed, 100/100 across instructions, state, verification, scope, and lifecycle.
 - Browser QA against `https://leo0331.github.io/warmmemo/` — guest landing, sign-in and registration validation, invalid credentials, malformed public links, and refresh behavior exercised. Same-tab navigation from the landing page to `#/m/qa-nonexistent-slug-20260901` reproduced an uncaught `Null check operator used on a null value` twice and returned to the landing page instead of the public-memorial unavailable state.
 - Fix verified locally: `AuthGate` now rebuilds on browser hash/history changes through conditional web route-change listeners. `flutter analyze` completed with no issues and `flutter test` passed all 159 tests using `D:\Practice\flutter`. The release compiler emitted `build/web/main.dart.js`; the browser client blocked loopback testing with `ERR_BLOCKED_BY_CLIENT`, so the final browser regression must run from a normal local browser or deployed preview.
+- Content polish pass: landing, account access, and public memorial/obituary pages now use clearer action language, less alarming sensitive-language phrasing, and actionable unavailable-link guidance. `flutter analyze` completed with no issues and `flutter test` passed all 159 tests.
 
 ### Files Changed in This Session
 
@@ -30,6 +31,10 @@
 - `lib/core/utils/browser_route_changes_stub.dart`
 - `lib/core/utils/browser_route_changes_web.dart`
 - `docs/flow.md`
+- `lib/features/landing/landing_page.dart`
+- `lib/features/auth/auth_page.dart`
+- `lib/features/memorial/public_memorial_page.dart`
+- `lib/features/obituary/public_obituary_page.dart`
 
 ### Blockers
 

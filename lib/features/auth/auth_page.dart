@@ -224,7 +224,7 @@ class _AuthPageState extends State<AuthPage> {
                     eyebrow: 'Account',
                     icon: Icons.lock_outline,
                     title: 'WarmMemo 登入',
-                    subtitle: '使用 Email / Password 登入，繼續你的草稿、方案與通知狀態。',
+                    subtitle: '使用 Email 與密碼登入，繼續查看草稿、方案與通知進度。',
                     badges: ['安全登入', '角色分流', '跨裝置可用'],
                   ),
                 ),

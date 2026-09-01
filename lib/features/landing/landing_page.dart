@@ -186,7 +186,7 @@ class _LandingPageState extends State<LandingPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                '提前整理重要資訊與通知草稿，讓家人在需要時能更快、更安心地完成安排。',
+                '把重要心意與安排先整理好，讓家人在需要時少一點慌張。',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF5A3D31),
                 ),
@@ -208,8 +208,8 @@ class _LandingPageState extends State<LandingPage> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Bullet('客服信箱：support@warmmemo.example'),
-                        const Bullet('服務時間：週一至週五 10:00–18:00'),
+                        const Bullet('需要協助時，請聯繫您的服務窗口或合作單位。'),
+                        const Bullet('重要決策前，建議與家人確認需求與聯絡方式。'),
                       ],
                     ),
                   ),
@@ -303,7 +303,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            '提前建立完整身後通知計劃，讓親友在需要時能快速找到你想要的方式。',
+            '先把重要心意、通知與安排整理好，讓親友在需要時知道如何依循。',
             style: theme.textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -311,8 +311,8 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            '暖備 WarmMemo 結合固定方案、數位訃聞與紀念頁創建，讓您在關鍵時刻把握清楚、懂得聲明意圖，\n'
-            '並進一步透過通知追蹤與點擊統計確認訊息是否送達。',
+            'WarmMemo 協助整理方案比較、數位訃聞與紀念頁內容；\n'
+            '也能追蹤通知進度，讓重要資訊更容易交接與確認。',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.92),
             ),
@@ -328,13 +328,13 @@ class _LandingPageState extends State<LandingPage> {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () => _openAuth(context),
-                child: const Text('開始規劃'),
+                child: const Text('開始整理'),
               ),
             ],
           ),
           const SizedBox(height: 20),
           Text(
-            '已協助 1,200+ 家族與禮儀團隊同步通知',
+            '一步一步整理重要通知與紀念內容。',
             style: theme.textTheme.bodySmall?.copyWith(color: Colors.white),
           ),
         ],
