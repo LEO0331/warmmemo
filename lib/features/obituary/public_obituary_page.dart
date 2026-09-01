@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/common_widgets.dart';
+import '../../core/utils/product_locale.dart';
 
 class PublicObituaryPage extends StatelessWidget {
   const PublicObituaryPage({super.key, required this.encodedPayload});
@@ -13,15 +14,15 @@ class PublicObituaryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = _decodePayload(encodedPayload);
     if (data == null) {
-      return const Scaffold(
+      return Scaffold(
         body: WarmBackdrop(
           child: SafeArea(
             child: Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: EmptyStateCard(
-                  title: '此訃聞頁目前無法顯示',
-                  description: '連結可能已失效，或內容尚未準備完成。請向分享者確認最新連結。',
+                  title: productCopy(context, zh: '此訃聞頁目前無法顯示', en: 'This obituary page is unavailable'),
+                  description: productCopy(context, zh: '連結可能已失效，或內容尚未準備完成。請向分享者確認最新連結。', en: 'The link may have expired or the page may not be ready yet. Please confirm the latest link with the person who shared it.'),
                   icon: Icons.link_off_outlined,
                 ),
               ),
@@ -37,7 +38,12 @@ class PublicObituaryPage extends StatelessWidget {
     final date = (data['date'] as String? ?? '').trim();
     final location = (data['location'] as String? ?? '').trim();
     final note = (data['note'] as String? ?? '').trim();
-    final titleName = name.isEmpty ? '訃聞通知' : '$name 訃聞通知';
+    final isEnglish = isEnglishProductLocale(context);
+    final titleName = name.isEmpty
+        ? productCopy(context, zh: '訃聞通知', en: 'Obituary notice')
+        : isEnglish
+        ? 'Obituary notice for $name'
+        : '$name 訃聞通知';
 
     return Scaffold(
       body: WarmBackdrop(
@@ -52,23 +58,25 @@ class PublicObituaryPage extends StatelessWidget {
                     eyebrow: 'WarmMemo Obituary',
                     icon: Icons.campaign_outlined,
                     title: titleName,
-                    subtitle: '感謝您撥冗閱讀，並陪伴家屬度過這段時光。',
-                    badges: const ['公開訃聞', '可轉傳', '唯讀'],
+                    subtitle: productCopy(context, zh: '感謝您撥冗閱讀，並陪伴家屬度過這段時光。', en: 'Thank you for taking a moment to read and for keeping the family in your thoughts.'),
+                    badges: isEnglish
+                        ? const ['Public obituary', 'Shareable', 'Read-only']
+                        : const ['公開訃聞', '可轉傳', '唯讀'],
                   ),
                   const SizedBox(height: 16),
                   if (relationship.isNotEmpty ||
                       date.isNotEmpty ||
                       location.isNotEmpty)
                     SectionCard(
-                      title: '儀式資訊',
+                      title: productCopy(context, zh: '儀式資訊', en: 'Service details'),
                       icon: Icons.event_note_outlined,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (relationship.isNotEmpty)
-                            Text('發文人：$relationship'),
-                          if (date.isNotEmpty) Text('時間：$date'),
-                          if (location.isNotEmpty) Text('地點：$location'),
+                            Text(productCopy(context, zh: '發文人：$relationship', en: 'Posted by: $relationship')),
+                          if (date.isNotEmpty) Text(productCopy(context, zh: '時間：$date', en: 'Date and time: $date')),
+                          if (location.isNotEmpty) Text(productCopy(context, zh: '地點：$location', en: 'Location: $location')),
                         ],
                       ),
                     ),
@@ -78,14 +86,14 @@ class PublicObituaryPage extends StatelessWidget {
                     const SizedBox(height: 16),
                   if (text.isNotEmpty)
                     SectionCard(
-                      title: '訃聞內容',
+                      title: productCopy(context, zh: '訃聞內容', en: 'Obituary'),
                       icon: Icons.article_outlined,
                       child: SelectableText(text),
                     ),
                   if (text.isNotEmpty) const SizedBox(height: 16),
                   if (note.isNotEmpty)
                     SectionCard(
-                      title: '補充說明',
+                      title: productCopy(context, zh: '補充說明', en: 'Additional note'),
                       icon: Icons.info_outline,
                       child: Text(note),
                     ),

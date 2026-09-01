@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/meaning_memory_copy.dart';
+import '../../core/utils/product_locale.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/draft_service.dart';
 import '../../data/models/draft_models.dart';
@@ -64,6 +65,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                 final meaningCopy = MeaningMemoryCopy.forLocale(
                   Localizations.localeOf(context),
                 );
+                final isEnglish = isEnglishProductLocale(context);
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -73,16 +75,22 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                       PageHero(
                         eyebrow: 'WarmMemo Memorial',
                         icon: Icons.favorite_border,
-                        title: displayName,
-                        subtitle: profile.motto?.trim().isNotEmpty ?? false
-                            ? profile.motto!.trim()
-                            : '願這份思念能被溫柔保存，讓回憶陪伴每一次重逢。',
-                        badges: const ['公開紀念頁', '掃描可瀏覽', '唯讀追思'],
+                    title: displayName,
+                    subtitle: profile.motto?.trim().isNotEmpty ?? false
+                        ? profile.motto!.trim()
+                        : productCopy(
+                            context,
+                            zh: '願這份思念能被溫柔保存，讓回憶陪伴每一次重逢。',
+                            en: 'May these memories be held with care and remain close through every reunion.',
+                          ),
+                    badges: isEnglish
+                        ? const ['Public memorial', 'View by QR code', 'Read-only']
+                        : const ['公開紀念頁', '掃描可瀏覽', '唯讀追思'],
                       ),
                       const SizedBox(height: 16),
                       if (profile.bio?.trim().isNotEmpty ?? false)
                         SectionCard(
-                          title: '生平摘要',
+                          title: productCopy(context, zh: '生平摘要', en: 'Life summary'),
                           icon: Icons.auto_stories_outlined,
                           child: Text(profile.bio!.trim()),
                         ),
@@ -90,7 +98,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                         const SizedBox(height: 16),
                       if (profile.highlights?.trim().isNotEmpty ?? false)
                         SectionCard(
-                          title: '人生亮點',
+                          title: productCopy(context, zh: '人生亮點', en: 'Highlights'),
                           icon: Icons.star_border_outlined,
                           child: Text(profile.highlights!.trim()),
                         ),
@@ -98,7 +106,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                         const SizedBox(height: 16),
                       if (profile.willNote?.trim().isNotEmpty ?? false)
                         SectionCard(
-                          title: '給後人的話',
+                          title: productCopy(context, zh: '給後人的話', en: 'A message for those they loved'),
                           icon: Icons.mail_outline,
                           child: Text(profile.willNote!.trim()),
                         ),
@@ -146,7 +154,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                         const SizedBox(height: 16),
                       if (_hasObituarySummary(profile))
                         SectionCard(
-                          title: '追思資訊',
+                          title: productCopy(context, zh: '追思資訊', en: 'Memorial service details'),
                           icon: Icons.event_note_outlined,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,7 +164,7 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                                       .isNotEmpty ??
                                   false)
                                 _InfoRow(
-                                  label: '關係',
+                                  label: productCopy(context, zh: '關係', en: 'Relationship'),
                                   value: profile.obituaryRelationship!.trim(),
                                 ),
                               if (profile.obituaryServiceDate
@@ -164,13 +172,13 @@ class _PublicMemorialPageState extends State<PublicMemorialPage> {
                                       .isNotEmpty ??
                                   false)
                                 _InfoRow(
-                                  label: '時間',
+                                  label: productCopy(context, zh: '時間', en: 'Date and time'),
                                   value: profile.obituaryServiceDate!.trim(),
                                 ),
                               if (profile.obituaryLocation?.trim().isNotEmpty ??
                                   false)
                                 _InfoRow(
-                                  label: '地點',
+                                  label: productCopy(context, zh: '地點', en: 'Location'),
                                   value: profile.obituaryLocation!.trim(),
                                 ),
                               if (profile.obituaryCustomNote
@@ -219,9 +227,9 @@ class _PublicMemorialUnavailable extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
-          child: const EmptyStateCard(
-            title: '此紀念頁目前無法顯示',
-            description: '這個頁面可能尚未公開、已停止公開，或連結有誤。請向分享者確認網址後再試。',
+          child: EmptyStateCard(
+            title: productCopy(context, zh: '此紀念頁目前無法顯示', en: 'This memorial page is unavailable'),
+            description: productCopy(context, zh: '這個頁面可能尚未公開、已停止公開，或連結有誤。請向分享者確認網址後再試。', en: 'It may not be public, may no longer be available, or the link may be incorrect. Please confirm the link with the person who shared it.'),
             icon: Icons.link_off_outlined,
           ),
         ),

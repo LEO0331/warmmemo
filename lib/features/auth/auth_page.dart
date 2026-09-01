@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../core/utils/product_locale.dart';
 import '../../data/firebase/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
@@ -210,6 +211,7 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isEnglish = isEnglishProductLocale(context);
     return Scaffold(
       body: WarmBackdrop(
         child: SafeArea(
@@ -218,14 +220,18 @@ class _AuthPageState extends State<AuthPage> {
             child: Column(
               children: [
                 const SizedBox(height: 16),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: PageHero(
                     eyebrow: 'Account',
                     icon: Icons.lock_outline,
-                    title: 'WarmMemo 登入',
-                    subtitle: '使用 Email 與密碼登入，繼續查看草稿、方案與通知進度。',
-                    badges: ['安全登入', '角色分流', '跨裝置可用'],
+                    title: isEnglish ? 'Welcome to WarmMemo' : 'WarmMemo 登入',
+                    subtitle: isEnglish
+                        ? 'Sign in to continue.'
+                        : '使用 Email 與密碼登入，繼續查看草稿、方案與通知進度。',
+                    badges: isEnglish
+                        ? ['Secure', 'Role-based', 'Across devices']
+                        : ['安全登入', '角色分流', '跨裝置可用'],
                   ),
                 ),
                 const SizedBox(height: 8),
