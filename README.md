@@ -3,147 +3,58 @@
 [![version](https://img.shields.io/badge/version-0.1.0%2B1-blue)](pubspec.yaml)
 [![deploy](https://github.com/leo0331/warmmemo/actions/workflows/deploy.yml/badge.svg)](https://github.com/leo0331/warmmemo/actions/workflows/deploy.yml)
 ![platform](https://img.shields.io/badge/platform-Flutter%20Web-42A5F5)
-![analyze](https://img.shields.io/badge/flutter%20analyze-passing-success)
-![tests](https://img.shields.io/badge/tests-160%20passed-success)
-![coverage](https://img.shields.io/badge/coverage-95.44%25-green)
-![skill-generator](https://img.shields.io/badge/Skill%20Generator-WarmMemo%20%2B%20Colleague-ffb86b)
-![json-import](https://img.shields.io/badge/JSON%20Import-Validated-4caf50)
-![copy-friendly](https://img.shields.io/badge/UI-Selectable%20Text-8bc34a)
 
-WarmMemo is a Flutter Web + Firebase app for memorial drafting, obituary generation, package checkout, and admin-side order operations.
+[繁體中文文件](README-zh.md)
 
-## 0.2 Release Status
+WarmMemo is a Flutter Web and Firebase application that helps families and funeral-service teams prepare memorial content and manage the journey from a proposal to delivery.
 
-Target: `v0.2.0` (release candidate)
+## Highlights
 
-- App version (current): `0.1.0+1` (update to `0.2.0+0` when cutting release)
-- `flutter analyze`: pass
-- `flutter test`: pass (`160` tests)
-- `flutter test --coverage`: pass
-- Latest line coverage: `95.44% (2929/3069)` from `coverage/lcov.info` (updated: 2026-04-10)
+- Create and share memorial pages, including public links and QR codes.
+- Draft, rewrite, export, and share digital obituaries.
+- Plan end-of-life finances and meaningful experiences with the Final Countdown planner.
+- Purchase service packages, follow order progress, and receive notifications.
+- Generate digital-persona skills from daily-life or workplace templates.
+- Give administrators a secure workspace for orders, suppliers, materials, delivery milestones, and funnel reporting.
 
-## What’s New In 0.2
+## Workflow
 
-### Business Workspace V2
+The core business workflow is:
 
-- Supplier management (admin): supplier master profile + active/inactive toggle
-- Material menu (v1 tiers): Basic / Standard / Premium with admin-side business fields
-- Delivery schedule milestones: `設計確認` / `製作中` / `已交付`
-- Conversion funnel visibility:
-  - Proposal rate
-  - Approval rate
-  - Assignment completion rate
-  - Delivery completion rate
-- Weekly funnel trend panel (last 8 weeks) in Admin dashboard
-- Final countdown planning upgraded:
-  - health self-assessment (5 dimensions, current vs target)
-  - three-axis comparison (health / wealth / lifetime)
-  - memory experience progress with category distribution
+`proposal → admin review → supplier assignment → material confirmation → delivery schedule`
 
-### Production Hardening
+## Technology
 
-- Repository + request policy + cache/in-flight de-dup baseline
-- Optimistic updates for key user/admin actions
-- Guardrails and error-state handling for key forms
-- Input normalization/sanitization for text/date/number fields
-- Field-level validation analytics (best-effort tracking)
+- Flutter Web
+- Firebase Authentication
+- Cloud Firestore
+- GitHub Actions and GitHub Pages
 
-## Product Features
+## Getting Started
 
-### User
-
-- Email/password login with role-based access (`user` / `admin`)
-- First-time onboarding (3 steps): select service, generate first draft, confirm token balance
-- Copy-friendly UI:
-  - major generated content supports text selection + copy
-  - final countdown page supports direct selection/copy
-- Memorial page:
-  - public link + QR code generation/download
-  - proposal submission for tombstone/columbarium purchase workflow
-- Digital obituary:
-  - content generation/rewrite
-  - share link + QR + export options
-- Final countdown planner:
-  - asset/cost planning with zero-balance guidance
-  - target controls (target lifetime / target end-balance)
-  - memory experience checklist with categories:
-    `家庭 / 旅行 / 學習 / 貢獻`
-  - Die with Zero readiness score (composite index)
-- Package checkout and order status tracking
-- Notification center (unread filter + mark read)
-- Digital clone skill generator:
-  - WarmMemo (daily) / Colleague (work) dual templates
-  - validated JSON input and one-click JSON file import (web)
-
-### Admin
-
-- Admin-only dashboard
-- Multi-filter order management (status/plan/payment/verifier/date/keyword)
-- Batch operations with confirmation and result report
-- Manual order processing with audit logs
-- Vendor assignment, material confirmation, delivery milestone updates
-- Funnel metrics + weekly trend visibility
-
-## Token Model
-
-- New signup users receive **5 free tokens**
-- Advanced actions consume tokens (1 token per action):
-  - memorial preview / PDF / image export
-  - obituary generation / rewrite / PDF / image export
-- Insufficient balance flow:
-  - immediate message + top-up request dialog
-
-Key references:
-
-- `lib/data/services/token_wallet_service.dart`
-- `lib/data/services/user_profile_service.dart`
-- `lib/features/memorial/memorial_page_tab.dart`
-- `lib/features/obituary/digital_obituary_tab.dart`
-
-## Security & Data Rules
-
-Firestore security is hardened for client-only operation:
-
-- Users cannot elevate roles or self-increase token balance
-- Owner-only editable keys are restricted on orders
-- Users cannot set `paymentStatus = paid`
-- Proposal shape is validated in rules
-- Vendor management and broad order operations are admin-only
-
-Rules file:
-
-- `firestore.rules`
-
-## Environment Variables
-
-### Payment/Auth
-
-- `WARMEMO_USE_HOSTED_PAYMENT_LINKS`
-- `WARMEMO_PAYMENT_BACKEND_URL`
-- `WARMEMO_PAYMENT_FUNCTION`
-- `STRIPE_PAYMENT_LINK_120000`
-- `STRIPE_PAYMENT_LINK_150000`
-- `STRIPE_PAYMENT_LINK_220000`
-- `WARMEMO_AUTH_PERSISTENCE` (`SESSION` by default)
-
-### Public URL
-
-- `PUBLIC_BASE_URL` (recommended for QR/public page consistency across envs)
-
-## Local Development
+Prerequisites: a Flutter SDK compatible with Dart `^3.11.0`, plus a Firebase project configured for the app.
 
 ```bash
 flutter pub get
 flutter run -d chrome --dart-define-from-file=env/payment.dev.json
 ```
 
-## Build Web
+## Configuration
 
-```bash
-flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env/payment.dev.json
-```
+Configure payment, authentication, and public-link behavior with Dart defines or your deployment environment.
 
-## Test & Coverage Commands
+| Variable | Purpose |
+| --- | --- |
+| `WARMEMO_USE_HOSTED_PAYMENT_LINKS` | Enable hosted payment links. |
+| `WARMEMO_PAYMENT_BACKEND_URL` | Payment backend base URL. |
+| `WARMEMO_PAYMENT_FUNCTION` | Firebase payment function name. |
+| `STRIPE_PAYMENT_LINK_120000` | Stripe link for the 120,000 tier. |
+| `STRIPE_PAYMENT_LINK_150000` | Stripe link for the 150,000 tier. |
+| `STRIPE_PAYMENT_LINK_220000` | Stripe link for the 220,000 tier. |
+| `WARMEMO_AUTH_PERSISTENCE` | Authentication persistence; defaults to `SESSION`. |
+| `PUBLIC_BASE_URL` | Recommended base URL for public pages and QR codes. |
+
+## Quality Checks
 
 ```bash
 flutter analyze
@@ -151,33 +62,26 @@ flutter test
 flutter test --coverage
 ```
 
-Coverage output:
+Coverage is written to `coverage/lcov.info`.
 
-- `coverage/lcov.info`
+## Build for GitHub Pages
 
-## Release Checklist (v0.2)
+```bash
+flutter build web --release --base-href "/warmmemo/" --dart-define-from-file=env/payment.dev.json
+```
 
-- Update `pubspec.yaml` version to `0.2.0+0`
-- Re-run:
-  - `flutter analyze`
-  - `flutter test`
-  - `flutter test --coverage`
-- Confirm Firestore rules deployed:
-  - `firestore.rules`
-- Verify key flows in smoke run:
-  - memorial public link + QR
-  - obituary generation/share path
-  - proposal -> admin assign -> material -> schedule
-  - top-up request and admin processing
-- Confirm environment variables for production (especially `PUBLIC_BASE_URL`)
+## Security
 
-## SOP Templates
+Firestore rules protect role assignment, token balances, payment status, and order ownership. Administrative operations such as supplier management, material confirmation, and delivery scheduling are restricted to administrators. Review [firestore.rules](firestore.rules) before changing data access.
 
-- Customer Support SOP: `docs/sop/phase1_customer_support_sop.md`
-- Admin Operations SOP: `docs/sop/phase1_admin_operations_sop.md`
+## Documentation
+
+- [Project status](docs/progress.md)
+- [Architecture and data contract](docs/info.md)
+- [User-flow guide](docs/flow.md)
+- [Documentation index](docs/README.md)
 
 ## Known Constraints
 
-- Coverage badge is manually synced from local run output.
-- Weekly funnel is derived from available order timestamps and verification logs (best-effort inference).
-- Validation analytics is best-effort and never blocks user flow.
+- PDF exports can fall back to a less complete Chinese font when network access is unavailable and no local subset font is included.
+- After a GitHub Pages deployment, browsers with an older cached service worker may briefly request outdated assets; use a hard refresh if needed.
