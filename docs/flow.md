@@ -137,6 +137,8 @@ PDF/圖片匯出
   └─ PdfExporter / ComplianceExporter
 ```
 
+在 Web 上，`AuthGate` 也會監聽 hash 與瀏覽器 history 變更，確保同一分頁切換至公開連結時會重新解析路由。
+
 ---
 
 ### 3-7. Admin：`供應商/材質/排程`

@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../core/widgets/app_feedback.dart';
+import '../../core/utils/browser_route_changes_stub.dart'
+    if (dart.library.html) '../../core/utils/browser_route_changes_web.dart';
 import '../../core/utils/clear_payment_query_param_stub.dart'
     if (dart.library.html) '../../core/utils/clear_payment_query_param_web.dart';
 import '../../data/firebase/auth_service.dart';
@@ -23,6 +27,23 @@ class _AuthGateState extends State<AuthGate> {
   bool _processingUnsupportedProvider = false;
   bool _handledPaymentHint = false;
   late final int _initialTabIndex = _resolveInitialTabIndex();
+  StreamSubscription<void>? _routeChangeSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _routeChangeSubscription = browserRouteChanges.listen((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _routeChangeSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
