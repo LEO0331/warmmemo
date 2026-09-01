@@ -15,7 +15,7 @@
 
 - `node C:\Users\150592\.agents\skills\harness-creator\scripts\validate-harness.mjs --target D:\Practice\warmmemo` — passed, 100/100 across instructions, state, verification, scope, and lifecycle.
 - Browser QA against `https://leo0331.github.io/warmmemo/` — guest landing, sign-in and registration validation, invalid credentials, malformed public links, and refresh behavior exercised. Same-tab navigation from the landing page to `#/m/qa-nonexistent-slug-20260901` reproduced an uncaught `Null check operator used on a null value` twice and returned to the landing page instead of the public-memorial unavailable state.
-- Fix staged locally: `AuthGate` now rebuilds on browser hash/history changes through conditional web route-change listeners. Local build and browser retest remain blocked because neither `flutter` nor `dart` is available on PATH.
+- Fix verified locally: `AuthGate` now rebuilds on browser hash/history changes through conditional web route-change listeners. `flutter analyze` completed with no issues and `flutter test` passed all 159 tests using `D:\Practice\flutter`. The release compiler emitted `build/web/main.dart.js`; the browser client blocked loopback testing with `ERR_BLOCKED_BY_CLIENT`, so the final browser regression must run from a normal local browser or deployed preview.
 
 ### Files Changed in This Session
 
@@ -38,5 +38,5 @@
 ### Recommended Next Step
 
 1. For product work, set `activeFeatureId` to one planned item and replace this entry with that feature's evidence.
-2. In an environment with Flutter installed, run `flutter analyze`, `flutter test`, and a browser check that changes from the landing page to a `#/m/<slug>` link in the same tab.
+2. Run a browser check from a normal local browser or deployed preview that changes from the landing page to a `#/m/<slug>` link in the same tab.
 3. Run `./init.sh` (or its equivalent Flutter commands on Windows) before broad implementation work.
