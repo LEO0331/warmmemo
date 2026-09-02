@@ -1,0 +1,31 @@
+# WarmMemo 暖備
+
+> WarmMemo is a Traditional Chinese web application for organizing digital obituaries, memorial pages, service packages, notifications, and order delivery workflows.
+
+Canonical site: https://leo0331.github.io/warmmemo/
+Primary language: Traditional Chinese (zh-TW)
+Source repository: https://github.com/leo0331/warmmemo
+
+## What WarmMemo does
+
+- Helps families draft and share digital obituary content.
+- Lets users prepare memorial-page drafts and intentionally publish shareable pages.
+- Provides service-package comparison and authenticated order-status tracking.
+- Gives authorized service teams an administrative workflow from proposal review through delivery scheduling.
+
+## Important boundaries
+
+- WarmMemo is a content and workflow tool, not medical, legal, religious, or emergency advice.
+- Actual service items depend on the partner and region.
+- Payment completion may require manual verification by an administrator.
+- Private drafts and orders require authentication. Individual memorial URLs are intentionally excluded from the sitemap.
+
+## Authoritative public pages
+
+- About WarmMemo: https://leo0331.github.io/warmmemo/about.html
+- Digital obituary guide: https://leo0331.github.io/warmmemo/obituary-guide.html
+- Service package comparison: https://leo0331.github.io/warmmemo/package-comparison.html
+- Frequently asked questions: https://leo0331.github.io/warmmemo/faq.html
+- Privacy and retention policy: https://leo0331.github.io/warmmemo/privacy-policy.html
+
+Last updated: 2026-09-02

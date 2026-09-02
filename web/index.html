@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant-TW">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -20,13 +20,14 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="WarmMemo 暖備：線上追思、數位訃聞、固定方案與訂單追蹤，協助家屬更安心完成通知與紀念。">
-  <meta name="keywords" content="WarmMemo, 暖備, 數位訃聞, 線上追思, 禮儀方案, 訂單追蹤">
   <meta name="author" content="WarmMemo">
   <meta name="application-name" content="WarmMemo">
   <meta name="theme-color" content="#C8744F">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   <link rel="canonical" href="https://leo0331.github.io/warmmemo/">
   <link rel="alternate" hreflang="zh-TW" href="https://leo0331.github.io/warmmemo/">
+  <link rel="alternate" hreflang="x-default" href="https://leo0331.github.io/warmmemo/">
+  <link rel="sitemap" type="application/xml" href="https://leo0331.github.io/warmmemo/sitemap.xml">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="WarmMemo">
@@ -38,7 +39,6 @@
   <meta property="og:image:alt" content="WarmMemo 暖備服務識別圖">
 
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@warmmemo">
   <meta name="twitter:title" content="WarmMemo 暖備 | 線上追思與通知管理">
   <meta name="twitter:description" content="提供固定方案、通知追蹤、數位訃聞與紀念頁，讓家屬更安心地完成重要安排。">
   <meta name="twitter:image" content="https://leo0331.github.io/warmmemo/icons/Icon-512.png">
@@ -143,9 +143,13 @@
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "WarmMemo",
+    "alternateName": "暖備",
     "url": "https://leo0331.github.io/warmmemo/",
     "logo": "https://leo0331.github.io/warmmemo/icons/Icon-512.png",
-    "description": "WarmMemo 暖備提供線上追思、數位訃聞與固定方案訂單追蹤。"
+    "description": "WarmMemo 暖備提供線上追思、數位訃聞與固定方案訂單追蹤。",
+    "sameAs": [
+      "https://github.com/leo0331/warmmemo"
+    ]
   }
   </script>
   <script type="application/ld+json">
@@ -153,6 +157,7 @@
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "WarmMemo",
+    "alternateName": "暖備",
     "url": "https://leo0331.github.io/warmmemo/",
     "inLanguage": "zh-TW"
   }
@@ -188,30 +193,6 @@
     "description": "提供固定方案比較、通知追蹤、數位訃聞與紀念頁，協助家庭完成重要通知流程。"
   }
   </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "WarmMemo 可以做什麼？",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "你可以建立數位訃聞、紀念頁草稿，選擇固定方案並追蹤付款與處理狀態。"
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "如何確認訂單處理進度？",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "登入後在我的方案與狀態可查看付款狀態、核對紀錄與通知時間線。"
-        }
-      }
-    ]
-  }
-  </script>
 </head>
 <body>
   <div id="wm-loader" aria-live="polite" aria-label="WarmMemo loading">
@@ -236,6 +217,8 @@
       <ul>
         <li><a href="obituary-guide.html">數位訃聞教學</a></li>
         <li><a href="package-comparison.html">固定方案比較</a></li>
+        <li><a href="about.html">認識 WarmMemo</a></li>
+        <li><a href="faq.html">常見問題</a></li>
         <li><a href="privacy-policy.html">資料隱私與保存政策</a></li>
       </ul>
     </main>

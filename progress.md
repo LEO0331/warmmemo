@@ -1,10 +1,43 @@
 # Session Progress Log
 
-## Current State (Last Updated: 2026-09-01)
+## Current State (Last Updated: 2026-09-02)
 
 **Current Objective:** No active feature. Select one `planned` item from `feature_list.json` before starting new product work.
 
 **Status:** Ready for a clean restart.
+
+### SEO/AEO Discoverability Completed (2026-09-02)
+
+- Added crawlable product and FAQ pages with matching Organization, WebApplication, Article, and FAQ structured data.
+- Expanded the digital-obituary and package-comparison guides with people-first explanatory content, internal navigation, canonical metadata, and social previews.
+- Added `llms.txt` and `ai.txt` summaries for answer-engine discovery while keeping private/public memorial hash routes out of the sitemap.
+- Removed placeholder public contact and social-account metadata that could weaken trust signals.
+- Added `tools/verify_seo.mjs` and a CI step that validates sitemap targets, canonical URLs, language/title/description/H1 metadata, JSON-LD syntax, robots.txt, and answer-engine files.
+
+Verification evidence:
+
+- `node tools/verify_seo.mjs` — passed for all 6 sitemap URLs.
+- `flutter analyze` — no issues.
+- `flutter test` — all 160 tests passed.
+- `flutter build web --release --base-href /warmmemo/` — passed; expected WebAssembly dry-run warnings remain from `printing`/`ffi` and `image`, while the JavaScript release build completed.
+- Built artifact comparison confirmed `about.html`, `faq.html`, `llms.txt`, `ai.txt`, `robots.txt`, `sitemap.xml`, `obituary-guide.html`, and `package-comparison.html` were copied byte-for-byte into `build/web`.
+- Live pre-change check confirmed the deployed `robots.txt`, sitemap, obituary guide, and package comparison returned HTTP 200. Search-result checks did not surface WarmMemo, so Search Console/Bing submission remains an external follow-up after deployment.
+
+Files changed:
+
+- `.github/workflows/ci.yml`
+- `feature_list.json`
+- `progress.md`
+- `tools/verify_seo.mjs`
+- `web/index.html`
+- `web/about.html`
+- `web/faq.html`
+- `web/obituary-guide.html`
+- `web/package-comparison.html`
+- `web/privacy-policy.html`
+- `web/sitemap.xml`
+- `web/llms.txt`
+- `web/ai.txt`
 
 ### What Is Complete
 

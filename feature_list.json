@@ -26,6 +26,18 @@
       ]
     },
     {
+      "id": "seo-aeo-discoverability",
+      "name": "SEO and answer-engine discoverability",
+      "description": "Provide crawlable, people-first public content and machine-readable discovery files for search and answer engines.",
+      "status": "complete",
+      "dependencies": [],
+      "doneCriteria": [
+        "Public product, FAQ, obituary-guide, package-comparison, and privacy pages are crawlable and internally linked.",
+        "The sitemap, robots.txt, structured data, llms.txt, and ai.txt identify authoritative public pages without listing personal memorial routes.",
+        "CI validates sitemap targets, canonical metadata, structured data syntax, and machine-readable discovery files."
+      ]
+    },
+    {
       "id": "offline-chinese-pdf-font",
       "name": "Offline Chinese PDF font support",
       "description": "Provide a local Chinese font subset so PDF exports remain reliable when external font retrieval is unavailable.",

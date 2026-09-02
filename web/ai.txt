@@ -1,0 +1,5 @@
+WarmMemo 暖備的機器可讀產品摘要與權威頁面清單位於：
+https://leo0331.github.io/warmmemo/llms.txt
+
+Canonical website: https://leo0331.github.io/warmmemo/
+Language: zh-TW

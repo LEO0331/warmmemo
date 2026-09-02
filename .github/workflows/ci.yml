@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Verify crawlable SEO files
+        run: node tools/verify_seo.mjs
+
       - name: Analyze
         run: flutter analyze
 
