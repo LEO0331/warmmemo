@@ -18,7 +18,7 @@
     "behavior": "The Stripe hosted test checkout accepts a sandbox test card and completes payment without using a live account.",
     "verification": "Run tools/e2e/stripe_payment_sandbox_check.mjs with Stripe test card 4242 4242 4242 4242 and confirm Stripe success completion.",
     "state": "passing",
-    "evidence": "2026-05-26: Stripe hosted page accepted sandbox checkout details and returned the browser to WarmMemo after submit. Evidence screenshots: /private/tmp/warmmemo-stripe-hosted-link.png, /private/tmp/warmmemo-after-stripe-payment.png."
+    "evidence": "2026-09-02: Stripe test-mode page for NT$120,000 accepted the public 4242 test card with fake email warmmemo-codex-sandbox-20260902@example.com and redirected to https://leo0331.github.io/warmmemo/ after submission. No browser errors were reported on return. Earlier screenshots remain at /private/tmp/warmmemo-stripe-hosted-link.png and /private/tmp/warmmemo-after-stripe-payment.png."
   },
   {
     "id": "PAY-STRIPE-04",

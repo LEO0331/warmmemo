@@ -21,6 +21,7 @@ Verification evidence:
 - Full `flutter test` — all 161 tests passed.
 - `flutter build web --release --base-href /warmmemo/` with the existing Stripe test Payment Link — passed; only the existing WebAssembly dry-run incompatibility warnings from `printing`/`ffi` and `image` were emitted.
 - `node --check functions/index.js`, `node tools/verify_seo.mjs`, and `git diff --check` — passed.
+- Live Stripe sandbox verification — the NT$120,000 test Payment Link accepted Stripe's public `4242` card with a fake test email and redirected to the deployed WarmMemo homepage without browser errors; no real charge was created.
 
 ### SEO/AEO Discoverability Completed (2026-09-02)
 
