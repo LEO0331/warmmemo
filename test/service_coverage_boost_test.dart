@@ -220,7 +220,7 @@ void main() {
           isA<StateError>().having(
             (e) => e.message,
             'message',
-            contains('格式錯誤'),
+            contains('payment-link-invalid'),
           ),
         ),
       );
@@ -241,6 +241,38 @@ void main() {
       expect(result.invoiceId, startsWith('manual_'));
       expect(ok.useHostedPaymentLinks, isTrue);
       expect(ok.hostedCheckoutUrlForAmount(22000000), isNull);
+    });
+
+    test('hosted checkout requires Stripe HTTPS and adds order reference', () {
+      final service = PaymentService(
+        paymentLink120000: 'https://buy.stripe.com/test_120000?locale=zh-TW',
+      );
+      final uri = service.hostedCheckoutUriForAmount(
+        120000,
+        clientReferenceId: 'order_ABC-123',
+      );
+      expect(uri.scheme, 'https');
+      expect(uri.host, 'buy.stripe.com');
+      expect(uri.queryParameters['locale'], 'zh-TW');
+      expect(uri.queryParameters['client_reference_id'], 'order_ABC-123');
+
+      for (final unsafe in [
+        'http://buy.stripe.com/test_120000',
+        'https://stripe.example/test_120000',
+      ]) {
+        final unsafeService = PaymentService(paymentLink120000: unsafe);
+        expect(
+          () => unsafeService.hostedCheckoutUriForAmount(120000),
+          throwsA(isA<StateError>()),
+        );
+      }
+      expect(
+        () => service.hostedCheckoutUriForAmount(
+          120000,
+          clientReferenceId: 'contains spaces',
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
 
     test('uses authService id token path for invoice and linepay', () async {

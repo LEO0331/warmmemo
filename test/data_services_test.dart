@@ -135,7 +135,7 @@ void main() {
       expect(result.provider, PaymentProvider.ecpay);
     });
 
-    test('createInvoice maps unknown provider back to stripe', () async {
+    test('createInvoice rejects an unknown backend provider', () async {
       final service = PaymentService(
         idTokenProvider: () async => 'token',
         client: MockClient((request) async {
@@ -145,14 +145,22 @@ void main() {
           );
         }),
       );
-      final result = await service.createInvoice(
-        email: 'a@test.com',
-        name: 'A',
-        amountCents: 120000,
-        description: 'desc',
-        provider: PaymentProvider.stripe,
+      expect(
+        () => service.createInvoice(
+          email: 'a@test.com',
+          name: 'A',
+          amountCents: 120000,
+          description: 'desc',
+          provider: PaymentProvider.stripe,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('未知的付款服務'),
+          ),
+        ),
       );
-      expect(result.provider, PaymentProvider.stripe);
     });
 
     test('createInvoice rejects invalid checkout url from backend', () async {

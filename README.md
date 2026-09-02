@@ -54,6 +54,12 @@ Configure payment, authentication, and public-link behavior with Dart defines or
 | `WARMEMO_AUTH_PERSISTENCE` | Authentication persistence; defaults to `SESSION`. |
 | `PUBLIC_BASE_URL` | Recommended base URL for public pages and QR codes. |
 
+### Free-tier payment mode
+
+The GitHub Pages deployment uses Stripe-hosted Payment Links and does not require Cloud Functions. Each checkout appends the Firestore order ID as Stripe's `client_reference_id`, allowing an administrator to match the Stripe Dashboard payment to the order before manually setting `paymentStatus=paid`.
+
+LINE Pay is not shown in the application because its request-and-confirm protocol requires an executable backend. Do not expose the experimental `server/` reservation endpoint as a complete payment flow without adding the confirmation call and authoritative status reconciliation.
+
 ## Quality Checks
 
 ```bash

@@ -172,6 +172,21 @@ FinalCountdownTab.build()
 - 記憶體驗：每筆可設定「類別、是否完成、滿意度」，並顯示分佈比例。
 - 綜合指標：`Die with Zero 準備度` 以多軸對齊度加權。
 
+### 3-9. 免費方案付款：Stripe Payment Link
+
+```
+CheckoutPage._submitOrder()
+  ├─ 驗證方案對應的 https://buy.stripe.com Payment Link
+  ├─ 建立 awaiting_checkout 訂單，取得 Firestore order ID
+  ├─ 將 order ID 加入 Stripe client_reference_id
+  ├─ 更新訂單為 checkout_created
+  └─ 開啟 Stripe 託管付款頁
+```
+
+- 免費方案不依賴 Cloud Functions；Stripe 金鑰不會進入 Flutter client。
+- 管理員可在 Stripe Dashboard 以 `client_reference_id` 對應 Firestore order ID，人工核對後再將付款狀態更新為 `paid`。
+- LINE Pay 需要後端完成 request/confirm 流程，目前不在使用者介面提供。
+
 ---
 
 ## 四、漏斗狀態（業務視角）

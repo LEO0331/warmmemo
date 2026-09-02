@@ -38,6 +38,18 @@
       ]
     },
     {
+      "id": "free-tier-payment-hardening",
+      "name": "Free-tier hosted payment hardening",
+      "description": "Keep Stripe checkout usable without Cloud Functions while improving order reconciliation and removing incomplete payment options.",
+      "status": "complete",
+      "dependencies": [],
+      "doneCriteria": [
+        "Hosted checkout only accepts trusted Stripe HTTPS Payment Links.",
+        "Stripe receives a stable Firestore order reference for manual reconciliation.",
+        "The incomplete LINE Pay option is not exposed to users, and dormant Cloud Function inputs are server-validated."
+      ]
+    },
+    {
       "id": "offline-chinese-pdf-font",
       "name": "Offline Chinese PDF font support",
       "description": "Provide a local Chinese font subset so PDF exports remain reliable when external font retrieval is unavailable.",

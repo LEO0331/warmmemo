@@ -6,6 +6,22 @@
 
 **Status:** Ready for a clean restart.
 
+### Free-tier Payment Hardening Completed (2026-09-02)
+
+- Stripe Payment Links now require `https://buy.stripe.com` and receive the stable Firestore order ID through `client_reference_id` for Dashboard-to-order reconciliation.
+- New orders move from `awaiting_checkout` to `checkout_created` only after the referenced Stripe URL is assembled and persisted.
+- The incomplete LINE Pay button and client checkout flow were removed from the user interface; the Firebase `linePayRequest` export was removed because it reserved payment without completing LINE Pay confirmation.
+- The dormant Stripe Cloud Function now allowlists the three supported amounts, accepts only Stripe/TWD, derives email and UID from the verified Firebase token, and uses server-owned plan descriptions.
+- Free-tier operation remains manual: an administrator verifies the Stripe test/live payment against the order reference before marking an order `paid`.
+
+Verification evidence:
+
+- `flutter analyze` — no issues.
+- Payment-targeted suite — all 74 tests passed.
+- Full `flutter test` — all 161 tests passed.
+- `flutter build web --release --base-href /warmmemo/` with the existing Stripe test Payment Link — passed; only the existing WebAssembly dry-run incompatibility warnings from `printing`/`ffi` and `image` were emitted.
+- `node --check functions/index.js`, `node tools/verify_seo.mjs`, and `git diff --check` — passed.
+
 ### SEO/AEO Discoverability Completed (2026-09-02)
 
 - Added crawlable product and FAQ pages with matching Organization, WebApplication, Article, and FAQ structured data.

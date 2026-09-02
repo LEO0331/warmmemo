@@ -55,37 +55,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     setState(() => _submitting = true);
     try {
       final amount = _parseAmount(widget.priceLabel);
-      const paymentStatus = 'checkout_created';
       _expectedPaymentLinkKey = PaymentService.instance
           .missingHostedLinkKeyForAmount(amount);
-      final hostedUrl = PaymentService.instance.hostedCheckoutUrlForAmount(
-        amount,
-      );
-      if (hostedUrl == null || hostedUrl.isEmpty) {
-        final key = PaymentService.instance.missingHostedLinkKeyForAmount(
-          amount,
-        );
-        throw StateError('payment-link-missing:$key');
-      }
-      final hostedUri = Uri.tryParse(hostedUrl);
-      if (hostedUri == null ||
-          !(hostedUri.isScheme('https') || hostedUri.isScheme('http'))) {
-        throw StateError('payment-link-invalid');
-      }
-      final payment = PaymentResult(
-        provider: PaymentProvider.stripe,
-        invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
-        checkoutUrl: hostedUrl,
-      );
+      // Validate configuration before creating an order. The stable Firestore
+      // order ID is added after creation for Stripe Dashboard reconciliation.
+      PaymentService.instance.hostedCheckoutUriForAmount(amount);
       final purchase = Purchase(
         planName: widget.planName,
         priceLabel: widget.priceLabel,
         priceAmount: amount,
         status: 'pending',
-        paymentProvider: payment.provider.name,
-        paymentStatus: paymentStatus,
-        invoiceId: payment.invoiceId,
-        checkoutUrl: payment.checkoutUrl,
+        paymentProvider: PaymentProvider.stripe.name,
+        paymentStatus: 'awaiting_checkout',
         paymentCurrency: 'twd',
       );
       Purchase created;
@@ -95,15 +76,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
           purchase: purchase,
         );
       } else {
-        created = _createdOrder!.copyWith(
-          paymentProvider: purchase.paymentProvider,
-          paymentStatus: purchase.paymentStatus,
-          invoiceId: purchase.invoiceId,
-          checkoutUrl: purchase.checkoutUrl,
-          paymentCurrency: purchase.paymentCurrency,
-        );
-        await PurchaseService.instance.updateOrder(uid: uid, purchase: created);
+        created = _createdOrder!;
       }
+      final orderReference = created.id;
+      if (orderReference == null || orderReference.isEmpty) {
+        throw StateError('payment-order-reference-missing');
+      }
+      final hostedUri = PaymentService.instance.hostedCheckoutUriForAmount(
+        amount,
+        clientReferenceId: orderReference,
+      );
+      final payment = PaymentResult(
+        provider: PaymentProvider.stripe,
+        invoiceId: 'hosted_$orderReference',
+        checkoutUrl: hostedUri.toString(),
+      );
+      final checkoutOrder = created.copyWith(
+        paymentProvider: payment.provider.name,
+        paymentStatus: 'checkout_created',
+        invoiceId: payment.invoiceId,
+        checkoutUrl: payment.checkoutUrl,
+        paymentCurrency: 'twd',
+      );
+      await PurchaseService.instance.updateOrder(
+        uid: uid,
+        purchase: checkoutOrder,
+      );
       final opened = await _openCheckoutUri(
         hostedUri,
         preferSameTabOnWeb: true,
@@ -117,7 +115,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
       if (!mounted) return;
       setState(() {
-        _createdOrder = created;
+        _createdOrder = checkoutOrder;
         _lastInvoiceId = payment.invoiceId;
         _lastCheckoutUrl = payment.checkoutUrl;
         _lastPaymentProvider = payment.provider.name;
@@ -133,10 +131,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      final info = appErrorInfo(
-        error,
-        fallback: '發生未知錯誤，請稍後再試。',
-      );
+      final info = appErrorInfo(error, fallback: '發生未知錯誤，請稍後再試。');
       setState(() {
         _lastErrorCode = info.code;
         _lastRequestId = info.requestId;
@@ -149,124 +144,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         tone: FeedbackTone.error,
         actionLabel: '重試',
         onAction: _submitOrder,
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _submitOrderWithLinePay() async {
-    final uid = AuthService.instance.currentUser?.uid;
-    final email = AuthService.instance.currentUser?.email;
-    if (uid == null) {
-      AppFeedback.show(context, message: '請先登入後再結帳', tone: FeedbackTone.error);
-      return;
-    }
-    if (email == null || email.isEmpty) {
-      AppFeedback.show(
-        context,
-        message: '缺少使用者 Email，無法建立 LINE Pay 結帳連結。',
-        tone: FeedbackTone.error,
-      );
-      return;
-    }
-
-    setState(() => _submitting = true);
-    try {
-      final amount = _parseAmount(widget.priceLabel);
-      const paymentStatus = 'checkout_created';
-
-      // 先建立/更新訂單，使用 purchaseId 當作 LINE Pay 的 orderId，方便對帳。
-      final orderId =
-          _createdOrder?.id ?? 'line_${DateTime.now().millisecondsSinceEpoch}';
-      final purchase = Purchase(
-        planName: widget.planName,
-        priceLabel: widget.priceLabel,
-        priceAmount: amount,
-        status: 'pending',
-        paymentProvider: PaymentProvider.linepay.name,
-        paymentStatus: paymentStatus,
-        invoiceId: orderId,
-        checkoutUrl: null,
-        paymentCurrency: 'twd',
-      );
-
-      Purchase created;
-      if (_createdOrder == null) {
-        created = await PurchaseService.instance.createOrder(
-          uid: uid,
-          purchase: purchase,
-        );
-      } else {
-        created = _createdOrder!.copyWith(
-          paymentProvider: purchase.paymentProvider,
-          paymentStatus: purchase.paymentStatus,
-          invoiceId: purchase.invoiceId,
-          checkoutUrl: purchase.checkoutUrl,
-          paymentCurrency: purchase.paymentCurrency,
-        );
-        await PurchaseService.instance.updateOrder(uid: uid, purchase: created);
-      }
-
-      final payment = await PaymentService.instance.createLinePayCheckout(
-        amount: amount,
-        orderId: created.id ?? orderId,
-        description: 'WarmMemo - ${widget.planName} (${widget.priceLabel})',
-        currency: 'TWD',
-      );
-
-      final uri = Uri.parse(payment.checkoutUrl);
-      final updated = created.copyWith(
-        invoiceId: payment.invoiceId,
-        checkoutUrl: payment.checkoutUrl,
-        paymentProvider: payment.provider.name,
-        paymentStatus: paymentStatus,
-        paymentCurrency: 'twd',
-      );
-      await PurchaseService.instance.updateOrder(uid: uid, purchase: updated);
-
-      final opened = await _openCheckoutUri(uri, preferSameTabOnWeb: true);
-      if (!opened && mounted) {
-        AppFeedback.show(
-          context,
-          message: 'LINE Pay 付款頁未成功開啟，請先複製連結再於瀏覽器貼上。',
-          tone: FeedbackTone.error,
-        );
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _createdOrder = updated;
-        _lastInvoiceId = payment.invoiceId;
-        _lastCheckoutUrl = payment.checkoutUrl;
-        _lastPaymentProvider = payment.provider.name;
-        _lastErrorCode = null;
-        _lastRequestId = null;
-        _lastErrorDetail = null;
-      });
-      AppFeedback.show(
-        context,
-        message: '訂單已建立，正在前往 LINE Pay（Sandbox）付款。',
-        tone: FeedbackTone.success,
-      );
-    } catch (error) {
-      if (!mounted) return;
-      final info = appErrorInfo(
-        error,
-        fallback: '發生未知錯誤，請稍後再試。',
-      );
-      setState(() {
-        _lastErrorCode = info.code;
-        _lastRequestId = info.requestId;
-        _lastErrorDetail = info.rawDebug;
-      });
-      logDebugError('checkout.submit.linepay', error);
-      AppFeedback.show(
-        context,
-        message: '${info.message}（${info.code}）',
-        tone: FeedbackTone.error,
-        actionLabel: '重試',
-        onAction: _submitOrderWithLinePay,
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -430,27 +307,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                 ),
               const Spacer(),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(
-                    width: kIsWeb ? 260 : double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _submitting ? null : _submitOrder,
-                      icon: const Icon(Icons.credit_card),
-                      label: Text(_submitting ? '正在開啟付款頁…' : '前往 Stripe 付款'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: kIsWeb ? 260 : double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _submitting ? null : _submitOrderWithLinePay,
-                      icon: const Icon(Icons.qr_code_2_outlined),
-                      label: const Text('LINE Pay（Sandbox）'),
-                    ),
-                  ),
-                ],
+              SizedBox(
+                width: kIsWeb ? 320 : double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _submitting ? null : _submitOrder,
+                  icon: const Icon(Icons.credit_card),
+                  label: Text(_submitting ? '正在開啟付款頁…' : '前往 Stripe 安全付款'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '目前免費方案使用 Stripe Payment Link，付款後由管理員依訂單參考編號人工核對。LINE Pay 需要可執行後端確認流程，因此暫不提供。',
+                style: theme.textTheme.bodySmall,
               ),
             ],
           ),

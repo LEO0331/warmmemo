@@ -86,6 +86,30 @@ class PaymentService {
     return _resolveHostedPaymentLink(amountCents: amountCents);
   }
 
+  Uri hostedCheckoutUriForAmount(int amountCents, {String? clientReferenceId}) {
+    final rawUrl = hostedCheckoutUrlForAmount(amountCents);
+    if (rawUrl == null || rawUrl.isEmpty) {
+      final key = missingHostedLinkKeyForAmount(amountCents);
+      throw StateError('payment-link-missing:$key');
+    }
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null ||
+        !uri.isScheme('https') ||
+        uri.host.toLowerCase() != 'buy.stripe.com') {
+      throw StateError('payment-link-invalid');
+    }
+    if (clientReferenceId == null) return uri;
+    if (!RegExp(r'^[A-Za-z0-9_-]{1,200}$').hasMatch(clientReferenceId)) {
+      throw StateError('payment-reference-invalid');
+    }
+    return uri.replace(
+      queryParameters: {
+        ...uri.queryParameters,
+        'client_reference_id': clientReferenceId,
+      },
+    );
+  }
+
   Future<PaymentResult> createInvoice({
     required String email,
     required String name,
@@ -95,19 +119,11 @@ class PaymentService {
     String currency = 'twd',
   }) async {
     if (_useHostedPaymentLinks) {
-      final url = hostedCheckoutUrlForAmount(amountCents);
-      if (url == null) {
-        throw StateError('尚未設定此方案的 Stripe Payment Link。');
-      }
-      final hosted = Uri.tryParse(url);
-      if (hosted == null ||
-          !(hosted.isScheme('https') || hosted.isScheme('http'))) {
-        throw StateError('Payment Link 格式錯誤，請確認以 https:// 開頭。');
-      }
+      final hosted = hostedCheckoutUriForAmount(amountCents);
       return PaymentResult(
         provider: PaymentProvider.stripe,
         invoiceId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
-        checkoutUrl: url,
+        checkoutUrl: hosted.toString(),
       );
     }
 
@@ -169,15 +185,16 @@ class PaymentService {
       throw StateError('後端未回傳完整付款資訊。');
     }
     final parsed = Uri.tryParse(checkoutUrl);
-    if (parsed == null ||
-        !(parsed.isScheme('https') || parsed.isScheme('http'))) {
+    if (parsed == null || !parsed.isScheme('https')) {
       throw StateError('後端回傳的 checkoutUrl 無效：$checkoutUrl');
     }
 
-    final providerValue = PaymentProvider.values.firstWhere(
-      (item) => item.name == providerName,
-      orElse: () => PaymentProvider.stripe,
-    );
+    final providerValue = PaymentProvider.values
+        .where((item) => item.name == providerName)
+        .firstOrNull;
+    if (providerValue == null) {
+      throw StateError('後端回傳未知的付款服務：$providerName');
+    }
 
     return PaymentResult(
       provider: providerValue,
@@ -245,8 +262,7 @@ class PaymentService {
       throw StateError('後端未回傳完整 LINE Pay 付款資訊。');
     }
     final parsed = Uri.tryParse(checkoutUrl);
-    if (parsed == null ||
-        !(parsed.isScheme('https') || parsed.isScheme('http'))) {
+    if (parsed == null || !parsed.isScheme('https')) {
       throw StateError('後端回傳的 checkoutUrl 無效：$checkoutUrl');
     }
     return PaymentResult(
