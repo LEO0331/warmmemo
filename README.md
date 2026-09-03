@@ -30,6 +30,40 @@ The core business workflow is:
 - Cloud Firestore
 - GitHub Actions and GitHub Pages
 
+## Architecture
+
+```mermaid
+flowchart TB
+  user[Families and service teams]
+  ci[GitHub Actions<br/>analyze, test, build]
+  pages[GitHub Pages]
+
+  ci --> pages
+  user --> pages
+
+  subgraph webapp[Flutter Web application]
+    routes[AuthGate and public routes]
+    features[Feature UI<br/>memorial, obituary, packages, admin, skills]
+    domain[Services and repositories<br/>validation, workflow, cache]
+    shared[Core utilities<br/>export, QR, UI feedback]
+
+    routes --> features
+    features --> domain
+    features --> shared
+  end
+
+  pages --> routes
+  domain --> auth[Firebase Authentication]
+  domain --> firestore[Cloud Firestore]
+  rules[Firestore security rules] -. authorize reads and writes .-> firestore
+
+  domain --> links[Stripe Payment Links]
+  domain -. optional authenticated invoice API .-> functions[Firebase Cloud Functions]
+  functions --> stripe[Stripe API]
+```
+
+The standard GitHub Pages deployment uses Stripe Payment Links directly. Cloud Functions are optional and are not required for the free-tier checkout flow.
+
 ## Getting Started
 
 Prerequisites: a Flutter SDK compatible with Dart `^3.11.0`, plus a Firebase project configured for the app.

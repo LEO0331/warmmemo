@@ -6,6 +6,11 @@
 
 **Status:** Ready for a clean restart.
 
+### Architecture Diagram Added (2026-09-03)
+
+- Added a Mermaid architecture diagram to `README.md`, covering delivery, Flutter Web layers, Firebase services and rules, plus free-tier and optional Stripe payment paths.
+- Verified the README change with `git diff --check`.
+
 ### Free-tier Payment Hardening Completed (2026-09-02)
 
 - Stripe Payment Links now require `https://buy.stripe.com` and receive the stable Firestore order ID through `client_reference_id` for Dashboard-to-order reconciliation.
