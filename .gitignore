@@ -58,6 +58,7 @@ node_modules/
 
 # 排除本地測試用的金鑰設定
 .runtimeconfig.json
+.secret.local
 
 # 排除日誌檔案
 npm-debug.log*

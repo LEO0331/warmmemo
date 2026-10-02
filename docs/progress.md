@@ -1,6 +1,12 @@
 # WarmMemo — 專案進度紀錄
 
-> 最後更新：2026-05-26
+> 最後更新：2026-10-02
+
+## 2026-10-02 Dependency security maintenance
+
+- Reviewed all eight open Dependabot alerts; both npm backends now resolve patched `qs` 6.16.0 and Gaxios's `uuid` 11.1.1. Online npm audits report zero vulnerabilities.
+- Updated removed Firebase Functions/Admin APIs after earlier SDK upgrades, and added ten passing Node.js 22 regression tests to CI. Flutter analysis and all 161 Flutter tests passed.
+- The optional Cloud Function now requires the Secret Manager `STRIPE_SECRET_KEY` before deployment; see `docs/info.md` for setup. No live backend deployment or payment operation was performed.
 
 ---
 

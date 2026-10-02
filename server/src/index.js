@@ -2,15 +2,16 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
-import admin from 'firebase-admin';
+import { getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin if credentials are available
 let firebaseAdminReady = false;
 try {
-  if (!admin.apps.length) {
-    admin.initializeApp();
+  if (!getApps().length) {
+    initializeApp();
   }
-  firebaseAdminReady = admin.apps.length > 0;
+  firebaseAdminReady = getApps().length > 0;
 } catch (_) {
   // ignore init errors in local without creds
 }
@@ -55,7 +56,7 @@ async function ensureAuthorized(req, res, next) {
   }
 
   try {
-    await admin.auth().verifyIdToken(token);
+    await getAuth().verifyIdToken(token);
     return next();
   } catch (err) {
     return res.status(401).json({

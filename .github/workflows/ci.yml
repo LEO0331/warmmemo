@@ -13,6 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify backend dependency security and compatibility
+        run: |
+          npm ci --prefix server --ignore-scripts
+          npm ci --prefix functions --ignore-scripts
+          node --test tools/node_security.test.cjs
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:

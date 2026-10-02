@@ -106,6 +106,14 @@ PDF 匯出字型策略（on-demand）：
 
 ## CI/CD
 
+### Optional Node backends
+
+- `server/` requires Node.js 20 or newer; `functions/` targets the Firebase Node.js 22 runtime.
+- Both backends require Express 4.22.3 or newer within major 4, supplying patched `qs` 6.16.0. Gaxios alone overrides `uuid` to 11.1.1, which fixes buffer bounds checks while retaining CommonJS support. Recheck Gaxios compatibility before removing or changing this override.
+- The optional first-generation `createInvoice` function uses `firebase-functions/v1` and binds the Secret Manager secret `STRIPE_SECRET_KEY`. Before enabling this backend, configure it with `firebase functions:secrets:set STRIPE_SECRET_KEY`; the removed `functions.config().stripe.secret` setting is no longer read. Local emulation can supply the same variable through an ignored `functions/.secret.local` file.
+- Both backends use the modular `firebase-admin/app` and `firebase-admin/auth` APIs required by Admin 14.
+- Run `npm ci --prefix server --ignore-scripts`, `npm ci --prefix functions --ignore-scripts`, then `node --test tools/node_security.test.cjs`. CI runs these checks on Node.js 22; they exercise all four reviewed advisories, both backend entrypoints, and authentication/validation without external payment calls.
+
 - CI workflow: `.github/workflows/ci.yml`
   - `flutter analyze`
   - `flutter test`

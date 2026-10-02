@@ -1,10 +1,32 @@
 # Session Progress Log
 
-## Current State (Last Updated: 2026-09-02)
+## Current State (Last Updated: 2026-10-02)
 
 **Current Objective:** No active feature. Select one `planned` item from `feature_list.json` before starting new product work.
 
 **Status:** Ready for a clean restart.
+
+### Dependabot Alert Remediation Completed (2026-10-02)
+
+Objective: Review the eight open Dependabot alerts and fix worthwhile issues without changing payment or public-route behavior.
+
+- Synced the clean checkout to `origin/main` (`153c9ff`) first; previously merged Firebase/other security upgrades were retained.
+- Alerts **#62/#33** (`GHSA-x5fp-wj9c-mxmx`), **#61/#32** (`GHSA-4mjr-xmp4-gh2g`), and **#51/#22** (`GHSA-q8mj-m7cp-5q26`): raised the Express 4 minimum to 4.22.3 and resolved every `qs` copy to 6.16.0 in both backends. Current application code does not enable comma parsing/stringifying or round-trip query objects through `qs.stringify`, so direct exploitability is limited; the compatible patch remains worthwhile preventive maintenance.
+- Alerts **#50/#21** (`GHSA-w5hq-g745-h8pq`): pinned Gaxios's transitive `uuid` to 11.1.1. Gaxios uses argument-free UUID v4; the vulnerable v3/v5/v6 buffer APIs are not exposed by the app. This narrow override fixes the vulnerable library without upgrading Firebase again or selecting an ESM-only UUID major.
+- Runtime checks found incompatibilities from the earlier Firebase major upgrades: removed `functions.config()` and `admin.auth()`/`admin.apps` APIs. Used explicit first-generation Functions imports and modular Admin app/auth APIs. Bound `STRIPE_SECRET_KEY` through Secret Manager; Functions now targets Node.js 22 and the standalone server declares Node.js >=20, matching Admin's minimum.
+- Added ten offline Node regression tests and a Node.js 22 CI step. Tests reproduce all four advisory cases and exercise real local HTTP startup, health/preflight, authentication and invoice validation.
+- Simplifications: deduplicated patched `qs` entries and removed obsolete Firebase config access; no new project dependencies.
+
+Changed files: `functions/package.json`, `functions/package-lock.json`, `functions/index.js`, `server/package.json`, `server/package-lock.json`, `server/src/index.js`, `tools/node_security.test.cjs`, `.github/workflows/ci.yml`, `.gitignore`, `docs/info.md`, `docs/progress.md`, and `progress.md`.
+
+Verification evidence:
+
+- Online `npm audit` / clean `npm ci --ignore-scripts` for both backends: **zero vulnerabilities**; installed dependency trees resolve `qs` 6.16.0 and Gaxios's `uuid` 11.1.1.
+- `npx --yes --package=node@22 node --test tools/node_security.test.cjs`: **10/10 passed** on the declared Functions runtime, including authenticated validation with mocked Firebase tokens and no external payment requests.
+- Windows equivalents of `init.sh`: `flutter pub get`, `flutter analyze` (**no issues**), `flutter test` (**161 passed**). The installed newer Flutter SDK refreshed five SDK-pinned transitive packages locally; that generated `pubspec.lock` change was discarded to keep this commit scoped to npm/backend security.
+- `node --check functions/index.js`, `node --check server/src/index.js`, `node tools/verify_seo.mjs`, and `git diff --check`: passed.
+
+Remaining risks / next step: no live Firebase deployment or Stripe invoice creation was performed. Before enabling the optional Cloud Function, set the Secret Manager `STRIPE_SECRET_KEY` as documented in `docs/info.md`; the old `stripe.secret` runtime config is no longer supported by Firebase v7. Revisit the UUID override when Gaxios ships a compatible patched dependency requirement. Product feature state remains unchanged.
 
 ### Architecture Diagram Added (2026-09-03)
 

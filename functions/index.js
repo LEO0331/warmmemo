@@ -1,13 +1,13 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
 
-admin.initializeApp();
+initializeApp();
 
-const stripeSecretKey =
-  functions.config().stripe?.secret || process.env.STRIPE_SECRET_KEY;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
 const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, { apiVersion: '2024-08-31' })
@@ -35,7 +35,10 @@ app.post('/', async (req, res) => {
   }
 });
 
-exports.createInvoice = functions.region('asia-east1').https.onRequest(app);
+exports.createInvoice = functions
+  .region('asia-east1')
+  .runWith({ secrets: ['STRIPE_SECRET_KEY'] })
+  .https.onRequest(app);
 
 async function _ensureAuthorized(req) {
   const authHeader = req.headers.authorization;
@@ -45,7 +48,7 @@ async function _ensureAuthorized(req) {
     throw error;
   }
   const token = authHeader.substring('Bearer '.length);
-  return admin.auth().verifyIdToken(token);
+  return getAuth().verifyIdToken(token);
 }
 
 function _validatePayload(body, identity) {
