@@ -1,10 +1,28 @@
 # Session Progress Log
 
-## Current State (Last Updated: 2026-10-02)
+## Current State (Last Updated: 2026-10-12)
 
 **Current Objective:** No active feature. Select one `planned` item from `feature_list.json` before starting new product work.
 
 **Status:** Ready for a clean restart.
+
+### Proxy Trust Dependency Patch Completed (2026-10-12)
+
+Objective: Fix Dependabot alert #71 (GHSA-jqcg-44mw-7w3h) by updating `proxy-addr` to 2.0.8 in both backend lockfiles.
+
+- Both backend lockfiles now resolve `proxy-addr` 2.0.8. Before pushing, rebased onto `origin/main` (`da3440e`), which already contained the Functions patch and separate `@fastify/busboy` fixes. This commit changes only the server's `proxy-addr` package entry. Existing dependency ranges accept the patch, so no manifest changes, overrides, or new dependencies were needed.
+- Added regression coverage in `tools/node_security.test.cjs` for spoofed forwarding through short IPv4-mapped IPv6 and zero-prefix IPv6 trust subnets, plus correctly configured IPv4 and mapped IPv6 subnets. Both new tests failed on installed 2.0.7 and passed after installing 2.0.8.
+- Updated `docs/progress.md` and this log. No application workflow or configuration changes; no refactor was needed.
+
+Verification evidence:
+
+- Clean `npm ci --ignore-scripts` installs passed for both backends. `npm ls proxy-addr` confirms 2.0.8 for server Express, Functions Express, and Firebase Functions' nested Express.
+- `npx --yes --package=node@22 node --test tools/node_security.test.cjs`: **12/12 passed**, including local HTTP authentication and validation checks.
+- `flutter analyze --no-pub`: **no issues**. Full Flutter tests were not run for this focused npm lockfile/test change.
+- Initial online audits reported separate `@fastify/busboy` findings. After integrating the already-merged Dependabot fixes, clean installs/audits report **zero vulnerabilities** in both backends, and all 12 Node.js 22 tests pass again.
+- `git diff --check`: passed. Initial sandbox-only npm access and local HTTP checks were blocked by network restrictions; rerunning with the necessary access succeeded.
+
+Remaining risks / next step: no live backend deployment or payment operation was performed; GitHub alert closure requires the patched lockfile to reach the default branch. Product feature state remains unchanged.
 
 ### Dependabot Alert Remediation Completed (2026-10-02)
 

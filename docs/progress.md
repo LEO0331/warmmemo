@@ -1,6 +1,12 @@
 # WarmMemo — 專案進度紀錄
 
-> 最後更新：2026-10-02
+> 最後更新：2026-10-12
+
+## 2026-10-12 Proxy trust dependency patch
+
+- Updated both npm backend lockfiles from `proxy-addr` 2.0.7 to 2.0.8 for Dependabot alert #71 (GHSA-jqcg-44mw-7w3h), with no other dependency version or application behavior changes.
+- Added two regression tests that reproduce IPv6 trust-subnet IP spoofing on 2.0.7 and pass on 2.0.8. Clean backend installs passed; all 12 Node.js 22 security/compatibility tests passed; Flutter analysis reported no issues.
+- Before pushing, integrated the latest main commits, which already included the Functions `proxy-addr` patch and separate `@fastify/busboy` fixes. Clean installs/audits now report zero vulnerabilities in both backends; all 12 Node.js 22 tests passed again. No live backend deployment was performed.
 
 ## 2026-10-02 Dependency security maintenance
 

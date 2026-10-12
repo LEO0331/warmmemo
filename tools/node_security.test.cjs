@@ -9,8 +9,27 @@ const { pathToFileURL } = require('node:url');
 for (const backend of ['server', 'functions']) {
   const backendRequire = createRequire(path.resolve(__dirname, '..', backend, 'package.json'));
   const qs = backendRequire('qs');
+  const proxyaddr = backendRequire('proxy-addr');
   const gaxiosRequire = createRequire(backendRequire.resolve('gaxios'));
   const uuid = gaxiosRequire('uuid');
+
+  test(`${backend}: proxy-addr rejects spoofed forwarding through IPv6 trust subnets`, () => {
+    const req = {
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { 'x-forwarded-for': '10.1.2.3' },
+    };
+    for (const subnet of ['::ffff:10.0.0.0/8', '::/1']) {
+      const trust = proxyaddr.compile(subnet);
+      assert.equal(trust(req.socket.remoteAddress), false);
+      assert.equal(proxyaddr(req, trust), req.socket.remoteAddress);
+    }
+    for (const subnet of ['10.0.0.0/8', '::ffff:10.0.0.0/104']) {
+      const trust = proxyaddr.compile(subnet);
+      assert.equal(trust('10.1.2.3'), true);
+      assert.equal(trust('203.0.113.9'), false);
+      assert.equal(proxyaddr({ ...req, socket: { remoteAddress: '10.2.3.4' } }, trust), '10.1.2.3');
+    }
+  });
 
   test(`${backend}: qs rejects bracket-key comma arrays exceeding the limit`, () => {
     assert.throws(() => qs.parse('a[]=1,2,3,4', {
