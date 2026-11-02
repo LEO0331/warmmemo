@@ -4,7 +4,9 @@ const http = require('node:http');
 const { createRequire } = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
+const { setTimeout: delay } = require('node:timers/promises');
 const { pathToFileURL } = require('node:url');
+const { gzipSync } = require('node:zlib');
 
 for (const backend of ['server', 'functions']) {
   const backendRequire = createRequire(path.resolve(__dirname, '..', backend, 'package.json'));
@@ -12,6 +14,50 @@ for (const backend of ['server', 'functions']) {
   const proxyaddr = backendRequire('proxy-addr');
   const gaxiosRequire = createRequire(backendRequire.resolve('gaxios'));
   const uuid = gaxiosRequire('uuid');
+
+  const parsers = [backendRequire('body-parser')];
+  if (backend === 'functions') {
+    const functionsRequire = createRequire(backendRequire.resolve('firebase-functions'));
+    parsers.push(functionsRequire('body-parser'));
+  }
+  for (const [index, parser] of parsers.entries()) {
+    test(`${backend}: body-parser copy ${index + 1} survives compressed trailing bytes`, async (t) => {
+      // GHSA-27r3-jxmh-p828: decoding can finish before the HTTP body does.
+      const parse = parser.json();
+      const server = http.createServer((req, res) => {
+        parse(req, res, (error) => {
+          res.statusCode = error ? 400 : 200;
+          res.end(JSON.stringify(req.body));
+        });
+      }).listen(0, '127.0.0.1');
+      t.after(() => new Promise((resolve) => server.close(resolve)));
+      await once(server, 'listening');
+      const body = Buffer.concat([gzipSync('{"ok":true}'), Buffer.from([0]), Buffer.alloc(100 * 1024, 'X')]);
+      const response = await new Promise((resolve, reject) => {
+        const request = http.request({
+          host: '127.0.0.1', port: server.address().port, method: 'POST', agent: false,
+          headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', 'Content-Length': body.length },
+        }, resolve);
+        request.on('error', reject);
+        request.setTimeout(3000, () => request.destroy(new Error('Compressed request timed out')));
+        request.end(body);
+      });
+      let result = '';
+      for await (const chunk of response) result += chunk;
+      assert.equal(response.statusCode, 200);
+      assert.deepEqual(JSON.parse(result), { ok: true });
+      // Late decoder errors must not crash the worker after it responds.
+      await delay(100);
+    });
+  }
+
+  test(`${backend}: qs handles comma arrays containing a shadowed toString`, () => {
+    for (const encodeValuesOnly of [false, true]) {
+      assert.doesNotThrow(() => qs.stringify({ a: [{ toString: 'x' }] }, {
+        arrayFormat: 'comma', encodeValuesOnly,
+      }));
+    }
+  });
 
   test(`${backend}: proxy-addr rejects spoofed forwarding through IPv6 trust subnets`, () => {
     const req = {

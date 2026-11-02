@@ -1,10 +1,31 @@
 # Session Progress Log
 
-## Current State (Last Updated: 2026-10-12)
+## Current State (Last Updated: 2026-11-02)
 
 **Current Objective:** No active feature. Select one `planned` item from `feature_list.json` before starting new product work.
 
 **Status:** Ready for a clean restart.
+
+### Dependabot Applicability Review Completed (2026-11-02)
+
+Objective: Review the repository's current Dependabot warnings and patch dependencies relevant to the project's usage without changing workflows.
+
+- Read all five open alerts using the authenticated GitHub REST API. Alert #73 (`qs`, GHSA-6pq8-jhm2-2vcw) is patched in both backend lockfiles with the compatible 6.16.2 release. The vulnerable comma-array serialization is not used by application code, but the patch is worthwhile preventive maintenance.
+- Online npm audits found an additional directly applicable high-severity issue: GHSA-27r3-jxmh-p828. Both backends use default `express.json()` decompression before authentication. Updated their `body-parser` 1.20.8 copies to 1.20.9 and Firebase Functions' nested 2.3.0 copy to 2.4.0.
+- Deferred #74/#78 (`glob`) and #75/#79 (`minimatch`): no reachable application use or attacker-controlled pattern path was found. These packages enter through optional Firestore dependencies and unused `rimraf` dependencies in Google clients; the actual Admin app/auth imports do not load them. Published fixes require major-version jumps. No overrides, manifests, business logic, or deployment settings changed. Detailed triage is in `docs/progress.md`.
+- Before pushing, rebased onto `origin/main` (`6ed9adb`), which already included Dependabot's three `body-parser` patches and the server `qs` patch. Preserved its nested Firebase Functions `qs` 6.17.1 resolution. The final dependency diff updates only the Functions root `qs` to 6.16.2; regression tests and the applicability review cover both backends. A fresh Functions install and all 17 Node.js 22 tests passed again after integration.
+- Changed files relative to the updated main: `functions/package-lock.json`, `tools/node_security.test.cjs`, `docs/info.md`, `docs/progress.md`, and `progress.md`.
+
+Verification evidence:
+
+- Five new regression tests all failed against the old installed versions: three uncaught compressed-body decoder errors and two `qs` serialization exceptions. After clean `npm ci --ignore-scripts` installs for both backends, all **17/17 Node.js 22.23.3 tests passed**, including existing authentication and validation tests. `npm ls body-parser qs` confirms all parser copies and shared `qs` resolutions are patched.
+- Both online npm audits now report **zero high/critical findings** and no `body-parser` or `qs` findings. Six moderate package findings remain per backend, all from the deferred `glob`/`minimatch` chain and its parents; audit exits nonzero for those known findings.
+- Windows equivalents of `init.sh`: `flutter pub get` passed, `flutter analyze --no-pub` reported **no issues**, and `flutter test --no-pub` passed **161/161 tests**. The local newer SDK refreshed five SDK-pinned transitive Dart packages; discarded only that generated `pubspec.lock` diff to keep the requested npm maintenance focused.
+- `git diff --check`: passed. Initial sandbox npm DNS access failed and Flutter startup could not acquire its SDK cache lock; retries with the required access passed. The npm installer is Node.js 24, so it emitted the expected Functions Node.js 22 engine warning; runtime verification used Node.js 22 explicitly.
+
+Blockers: none for the scoped fixes. No alerts were dismissed and no live backend deployment was performed.
+
+Recommended next step: merge the patched lockfiles to the default branch for GitHub to close #73, and deploy the patched backends wherever enabled. Reassess the four deferred alerts when a compatible upstream fix removes the dependency chain or application filesystem-globbing usage changes. Product feature state remains unchanged.
 
 ### Proxy Trust Dependency Patch Completed (2026-10-12)
 

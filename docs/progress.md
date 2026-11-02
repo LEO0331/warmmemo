@@ -1,6 +1,23 @@
 # WarmMemo — 專案進度紀錄
 
-> 最後更新：2026-10-12
+> 最後更新：2026-11-02
+
+## 2026-11-02 Dependabot applicability review
+
+Read all five open alerts through GitHub's authenticated Dependabot API; checked both backend lockfiles against the current npm advisory database.
+
+| Finding | Applicability and action |
+| --- | --- |
+| #73, `qs`, [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw) | No application call to the vulnerable comma-array serializer; Express query parsing does not trigger it. Applied the compatible preventive patch to 6.16.2 in both backends, including the server copy reported by npm. |
+| #74/#78, `glob`, [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | No application glob traversal or AbortSignal-based glob timeout. Present through optional Firestore dependencies and `rimraf`; no runtime `rimraf` calls found in the installed Google clients. Retained 10.5.0; the published fix requires major 14. |
+| #75/#79, `minimatch`, [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) | Same unused chain; no attacker-controlled glob patterns reach it. Retained 9.0.9; the published fix requires major 11. |
+| Additional npm finding: `body-parser`, [GHSA-27r3-jxmh-p828](https://github.com/advisories/GHSA-27r3-jxmh-p828) | Both backend entrypoints call `express.json()` with default decompression before authentication. Patched the Express 4 copies from 1.20.8 to 1.20.9 and Firebase Functions' nested Express 5 copy from 2.3.0 to 2.4.0. |
+
+- No application behavior, manifests, major versions, or overrides changed. The existing Admin app/auth imports do not load Firestore, `glob`, `minimatch`, or `rimraf`. Reassess the deferred alerts if filesystem globbing is introduced or upstream compatible updates remove the chain.
+- Added five regression tests: all three parser copies receive compressed JSON with trailing bytes, and both `qs` copies receive comma arrays containing a shadowed `toString`. All five failed on the old installed versions; all 17 backend tests passed after clean installs on Node.js 22.23.3.
+- Flutter dependency initialization passed, analysis reported no issues, and all 161 Flutter tests passed. Discarded only the generated SDK-pinned `pubspec.lock` refresh to retain the existing Dart dependency scope.
+- Before pushing, rebased onto latest main (`6ed9adb`), retaining Dependabot's already-merged parser/server fixes and nested Firebase Functions `qs` 6.17.1. The final dependency diff updates only Functions' root `qs` to 6.16.2.
+- Both online npm audits now report zero high/critical findings and no `body-parser` or `qs` findings. Six moderate package findings remain per backend, all from the deferred `glob`/`minimatch` chain and its parents. GitHub alerts were not dismissed; closure of #73 requires merging the lockfile change to the default branch. No backend deployment was performed.
 
 ## 2026-10-12 Proxy trust dependency patch
 
