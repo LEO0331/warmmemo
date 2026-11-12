@@ -1,10 +1,26 @@
 # Session Progress Log
 
-## Current State (Last Updated: 2026-11-02)
+## Current State (Last Updated: 2026-11-12)
 
-**Current Objective:** No active feature. Select one `planned` item from `feature_list.json` before starting new product work.
+**Current Objective:** `final-countdown-financial-footing` — optional current financial context for the Final Countdown planner.
 
-**Status:** Ready for a clean restart.
+**Status:** Implementation and feature verification complete. Ready for draft PR review.
+
+**Baseline:** Fetched `origin/main` and created `codex/final-countdown-wealth-aware-planning` at `27f0a5318bd18846df667ad420988fdec7ea53a9`.
+
+- Added `financial_footing_model.dart`, `financial_footing_card.dart`, and focused model and widget tests. Updated `final_countdown_tab.dart` to put the lifetime projections before the optional section and distinguish projections from present-day balances. The lifetime calculations, readiness weights, and `final_countdown_tab_v1` format are preserved.
+- The snapshot uses only explicitly entered inputs and remains in memory. The optional target compares the estimated cash-buffer months with the user's own buffer assumption. There is no snapshot dependency in Firebase, analytics, public sharing or exports.
+- Updated `feature_list.json`, both READMEs, `docs/flow.md`, `docs/progress.md`, and the [financial footing guide](docs/final-countdown-financial-footing.md).
+- Windows equivalent of `init.sh` before implementation: `flutter pub get` succeeded, `flutter analyze --no-pub` reported no issues, and `flutter test --no-pub` passed 161 tests. The installed Flutter SDK refreshed five pinned transitive versions in the local lockfile during verification.
+- Focused desktop tests passed: 10 model tests and 2 widget tests, including prior draft loading, preserved readiness, session isolation and keyboard/semantics at a 360 px viewport.
+- Post-change `flutter analyze --no-pub` reported no issues and `flutter test --no-pub` passed 173 tests. The legacy-draft widget fixture exposed a Material ink ancestor assertion in the experience checkbox, fixed with a transparent Material wrapper.
+- `flutter build web --no-pub --release --base-href /warmmemo/` built the JavaScript release bundle with default payment configuration. The Wasm dry run reported the existing `printing`/`ffi` and `image` incompatibilities.
+- Focused `flutter test --platform chrome` stalled during browser setup. Headless Chrome reported an HTTP load failure for the Flutter test runner's local `/canvaskit/chromium/canvaskit.js` and its Wasm asset. Stopped that runner before it could execute test assertions.
+- An isolated web build of `FinalCountdownTab` with bundled CanvasKit passed a Playwright smoke check using installed Chrome at 360 px. Verified collapsed-by-default behavior, all six labeled fields, NT$−40,000 estimated net worth, a three-month cash buffer against a four-month target, and an empty browser local-storage area after entry.
+- The pinned Patrol CLI started its web server, then stalled downloading Playwright Chromium. Ran the existing cases with Playwright and installed Chrome against that server. Three of four passed. The landing CTA case still expects `開始規劃`, while the baseline renders `開始整理`. The unrelated smoke mismatch is recorded in `session-handoff.md`.
+- `git diff --check` passed. The SDK-generated lockfile refresh and temporary smoke harness are excluded from the feature.
+
+Recommended next step: Review the draft PR, with particular attention to the projection labels and the distinction between current liquidity and lifetime resources.
 
 ### Dependabot Applicability Review Completed (2026-11-02)
 

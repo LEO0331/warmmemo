@@ -13,6 +13,7 @@ WarmMemo is a Flutter Web and Firebase application that helps families and funer
 - Create and share memorial pages, including public links and QR codes.
 - Draft, rewrite, export, and share digital obituaries.
 - Plan end-of-life finances and meaningful experiences with the Final Countdown planner.
+- Use the optional Financial Footing section to estimate current net worth and liquid cash buffer for this session. [Financial Footing guide](docs/final-countdown-financial-footing.md)
 - Purchase service packages, follow order progress, and receive notifications.
 - Generate digital-persona skills from daily-life or workplace templates.
 - Give administrators a secure workspace for orders, suppliers, materials, delivery milestones, and funnel reporting.
