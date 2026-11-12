@@ -65,7 +65,7 @@
       "id": "offline-chinese-pdf-font",
       "name": "Offline Chinese PDF font support",
       "description": "Provide a local Chinese font subset so PDF exports remain reliable when external font retrieval is unavailable.",
-      "status": "planned",
+      "status": "complete",
       "dependencies": [],
       "doneCriteria": [
         "A licensed local subset font is included and configured as an export fallback.",

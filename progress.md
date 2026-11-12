@@ -1,5 +1,15 @@
 # Session Progress Log
 
+## Offline Traditional Chinese PDF Fonts (2026-11-12)
+
+- Fetched `origin/main` at `f2c5dfcf8e9d402a44ba010a10660cc560058a5f`. Final Countdown is complete. The offline PDF font and CI coverage features were both still planned.
+- Baseline on Flutter 3.47.2: `flutter pub get` passed, `flutter analyze --no-pub` found no issues, and all 173 Flutter tests passed.
+- Replaced the two byte-identical source assets with reproducible SIL OFL 1.1 fonts from a checksum-pinned Google Fonts release. The two subsets total 61,996 bytes, and the full font covers 20,745 Unicode code points in 7,149,192 bytes. Regenerating the assets reproduced the hashes.
+- Updated the two PDF exports and the compliance PDF's existing local fallback. Registered assets explicitly, added byte-generation seams, glyph validation, four focused tests and a browser smoke fixture. Updated the READMEs, flow and architecture docs.
+- Post-change analysis reported no issues and all 177 tests passed. The production and fixture JavaScript release builds succeeded. The production startup made zero PDF font requests. Chrome passed both cold exports with external requests denied and both downloads fully offline after loading the assets, without a service worker. Rendered PDF pages showed legible mixed text, both uncommon glyphs, and the memorial QR. Outputs were 12,681 and 10,879 bytes.
+- The browser fixture exercised the production exporters and sharing wrappers with synthetic drafts. Signed-in export buttons still have their service-token preflight, and the current PDF writer can omit supplementary characters from extracted text even when they render. [Offline PDF guide](docs/offline-chinese-pdf-font.md)
+- Next step: review the offline PDF draft PR. Coverage is tracked separately from main.
+
 ## Current State (Last Updated: 2026-11-12)
 
 **Current Objective:** `final-countdown-financial-footing` — optional current financial context for the Final Countdown planner.

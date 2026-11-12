@@ -9,148 +9,171 @@ import '../utils/meaning_memory_copy.dart';
 class PdfExporter {
   PdfExporter._();
 
+  static final _subset = _PdfFontAsset('assets/fonts/NotoSansTC-Subset.ttf');
+  static final _bold = _PdfFontAsset('assets/fonts/NotoSansTC-Bold-Subset.ttf');
+  static final _full = _PdfFontAsset('assets/fonts/NotoSansTC-Regular.ttf');
+
   static Future<void> exportMemorial(
     MemorialDraft draft, {
     String? publicUrl,
     String languageCode = 'zh',
   }) async {
-    final bytes = await _pdfBytes(
-      await _buildMemorialPage(
-        draft,
-        publicUrl: publicUrl,
-        languageCode: languageCode,
-      ),
+    final bytes = await memorialBytes(
+      draft,
+      publicUrl: publicUrl,
+      languageCode: languageCode,
     );
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_memorial.pdf');
   }
 
   static Future<void> exportObituary(ObituaryDraft draft) async {
-    final bytes = await _pdfBytes(await _buildObituaryPage(draft));
+    final bytes = await obituaryBytes(draft);
     await Printing.sharePdf(bytes: bytes, filename: 'warmmemo_obituary.pdf');
   }
 
-  static Future<pw.Page> _buildMemorialPage(
+  static Future<Uint8List> memorialBytes(
     MemorialDraft draft, {
     String? publicUrl,
-    required String languageCode,
-  }) async {
-    final (myFont, fontBold) = await _resolvePdfFonts();
-    final meaningCopy = MeaningMemoryCopy.forLanguageCode(languageCode);
+    String languageCode = 'zh',
+  }) {
+    final meaning = MeaningMemoryCopy.forLanguageCode(languageCode);
+    return _buildPdf(
+      title: 'WarmMemo 紀念頁',
+      fields: [
+        ('姓名', draft.name),
+        ('暱稱', draft.nickname),
+        ('一句話', draft.motto),
+      ],
+      sections: [
+        ('生平摘要', draft.bio),
+        ('人生亮點', draft.highlights),
+        ('給後人的話', draft.willNote),
+        (meaning.storyPrompt, draft.meaningLifeStory),
+        (meaning.purposePrompt, draft.meaningPurpose),
+        (meaning.matteredToPrompt, draft.meaningMatteredTo),
+        (meaning.memoriesPrompt, draft.meaningMemoriesToKeep),
+      ],
+      publicUrl: publicUrl != null && publicUrl.trim().isNotEmpty
+          ? publicUrl
+          : null,
+    );
+  }
 
-    return pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      theme: pw.ThemeData.withFont(base: myFont, bold: fontBold),
-      build: (context) => pw.Padding(
-        padding: const pw.EdgeInsets.all(24),
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              'WarmMemo 紀念頁',
-              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 12),
-            _labelValue('姓名', draft.name ?? ''),
-            _labelValue('暱稱', draft.nickname ?? ''),
-            _labelValue('一句話', draft.motto ?? ''),
-            _section('生平摘要', draft.bio),
-            _section('人生亮點', draft.highlights),
-            _section('給後人的話', draft.willNote),
-            _section(meaningCopy.storyPrompt, draft.meaningLifeStory),
-            _section(meaningCopy.purposePrompt, draft.meaningPurpose),
-            _section(meaningCopy.matteredToPrompt, draft.meaningMatteredTo),
-            _section(meaningCopy.memoriesPrompt, draft.meaningMemoriesToKeep),
-            if (publicUrl != null && publicUrl.trim().isNotEmpty) ...[
-              pw.SizedBox(height: 16),
+  static Future<Uint8List> obituaryBytes(ObituaryDraft draft) {
+    return _buildPdf(
+      title: 'WarmMemo 訃聞',
+      fields: [
+        ('逝者姓名', draft.deceasedName),
+        ('關係', draft.relationship),
+        ('地點', draft.location),
+        ('時間', draft.serviceDate),
+        ('語氣', draft.tone),
+      ],
+      sections: [('補充註記', draft.customNote)],
+    );
+  }
+
+  static Future<Uint8List> _buildPdf({
+    required String title,
+    required List<(String, String?)> fields,
+    required List<(String, String?)> sections,
+    String? publicUrl,
+  }) async {
+    final rows = [
+      for (final (label, value) in fields) ('$label：', _normalizeText(value)),
+    ];
+    final paragraphs = [
+      for (final (label, value) in sections)
+        if (value != null && value.isNotEmpty) (label, _normalizeText(value)),
+    ];
+    const linkHeading = '公開紀念頁';
+    final base = await _resolveFont(_subset, [
+      for (final (_, text) in rows) text,
+      for (final (_, text) in paragraphs) text,
+      if (publicUrl != null) _normalizeText(publicUrl),
+    ]);
+    final bold = await _resolveFont(_bold, [
+      title,
+      for (final (label, _) in rows) label,
+      for (final (label, _) in paragraphs) label,
+      if (publicUrl != null) linkHeading,
+    ]);
+
+    final document = pw.Document();
+    document.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: base, bold: bold),
+        build: (context) => pw.Padding(
+          padding: const pw.EdgeInsets.all(24),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               pw.Text(
-                '公開紀念頁',
+                title,
                 style: pw.TextStyle(
-                  fontSize: 14,
+                  fontSize: 24,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 6),
-              pw.Text(publicUrl),
-              pw.SizedBox(height: 10),
-              pw.SizedBox(
-                width: 112,
-                height: 112,
-                child: pw.BarcodeWidget(
-                  barcode: pw.Barcode.qrCode(),
-                  data: publicUrl,
+              pw.SizedBox(height: 12),
+              for (final (label, value) in rows) _labelValue(label, value),
+              for (final (label, value) in paragraphs) _section(label, value),
+              if (publicUrl != null) ...[
+                pw.SizedBox(height: 16),
+                pw.Text(
+                  linkHeading,
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
-              ),
+                pw.SizedBox(height: 6),
+                pw.Text(_normalizeText(publicUrl)),
+                pw.SizedBox(height: 10),
+                pw.SizedBox(
+                  width: 112,
+                  height: 112,
+                  child: pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: publicUrl,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
+    return document.save();
   }
 
-  static Future<pw.Page> _buildObituaryPage(ObituaryDraft draft) async {
-    final (myFont, fontBold) = await _resolvePdfFonts();
+  static String _normalizeText(String? text) =>
+      (text ?? '').replaceAll(RegExp(r'\r\n?'), '\n').replaceAll('\t', ' ');
 
-    return pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      theme: pw.ThemeData.withFont(base: myFont, bold: fontBold),
-      build: (context) => pw.Padding(
-        padding: const pw.EdgeInsets.all(24),
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              'WarmMemo 訃聞',
-              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 12),
-            _labelValue('逝者姓名', draft.deceasedName ?? ''),
-            _labelValue('關係', draft.relationship ?? ''),
-            _labelValue('地點', draft.location ?? ''),
-            _labelValue('時間', draft.serviceDate ?? ''),
-            _labelValue('語氣', draft.tone ?? ''),
-            _section('補充註記', draft.customNote),
-          ],
-        ),
-      ),
-    );
-  }
+  static Future<pw.Font> _resolveFont(
+    _PdfFontAsset preferred,
+    List<String> text,
+  ) async {
+    final runes = {
+      for (final value in text) ...value.runes.where((rune) => rune != 0x0a),
+    };
+    final subset = await preferred.load();
+    if (subset != null && runes.every(subset.supports)) {
+      return pw.Font.ttf(subset.bytes);
+    }
 
-  static Future<Uint8List> _pdfBytes(pw.Page page) async {
-    final doc = pw.Document();
-    doc.addPage(page);
-    return doc.save();
-  }
-
-  static Future<(pw.Font, pw.Font)> _resolvePdfFonts() async {
-    // Prefer on-demand smaller CJK font from Google Fonts for export only.
-    // This avoids loading large bundled TTF on app startup.
-    try {
-      final base = await PdfGoogleFonts.notoSerifHKRegular();
-      final bold = await PdfGoogleFonts.notoSerifHKBold();
-      return (base, bold);
-    } catch (_) {
-      // Continue to local fallback.
+    final full = await _full.load();
+    if (full == null) {
+      throw StateError('無法載入 PDF 字型。請重新連線載入頁面資源後再試。');
     }
-    try {
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansTC-Subset.ttf',
-      );
-      final base = pw.Font.ttf(fontData);
-      final bold = pw.Font.ttf(fontData);
-      return (base, bold);
-    } catch (_) {
-      // Continue to platform fallback.
+    for (final rune in runes) {
+      if (!full.supports(rune)) {
+        final code = rune.toRadixString(16).toUpperCase().padLeft(4, '0');
+        throw FormatException('PDF 字型不支援字元 U+$code。請修改該字元後再試。');
+      }
     }
-    try {
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
-      );
-      final base = pw.Font.ttf(fontData);
-      final bold = pw.Font.ttf(fontData);
-      return (base, bold);
-    } catch (_) {
-      return (pw.Font.helvetica(), pw.Font.helveticaBold());
-    }
+    return pw.Font.ttf(full.bytes);
   }
 
   static pw.Widget _labelValue(String label, String value) {
@@ -159,18 +182,14 @@ class PdfExporter {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(
-            '$label：',
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-          ),
+          pw.Text(label, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           pw.Expanded(child: pw.Text(value)),
         ],
       ),
     );
   }
 
-  static pw.Widget _section(String title, String? body) {
-    if (body == null || body.isEmpty) return pw.SizedBox.shrink();
+  static pw.Widget _section(String title, String body) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 12, bottom: 4),
       child: pw.Column(
@@ -183,4 +202,32 @@ class PdfExporter {
       ),
     );
   }
+}
+
+class _PdfFontAsset {
+  _PdfFontAsset(this.path);
+
+  final String path;
+  _LoadedPdfFont? _cached;
+
+  Future<_LoadedPdfFont?> load() async {
+    if (_cached != null) return _cached;
+    try {
+      final bytes = await rootBundle.load(path);
+      final glyphs = TtfParser(bytes).charToGlyphIndexMap;
+      return _cached = _LoadedPdfFont(bytes, glyphs);
+    } catch (_) {
+      // A missing asset can be retried once the browser is connected again.
+      return null;
+    }
+  }
+}
+
+class _LoadedPdfFont {
+  _LoadedPdfFont(this.bytes, this.glyphs);
+
+  final ByteData bytes;
+  final Map<int, int> glyphs;
+
+  bool supports(int rune) => (glyphs[rune] ?? 0) > 0;
 }

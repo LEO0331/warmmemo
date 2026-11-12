@@ -124,5 +124,5 @@ Firestore rules protect role assignment, token balances, payment status, and ord
 
 ## Known Constraints
 
-- PDF exports can fall back to a less complete Chinese font when network access is unavailable and no local subset font is included.
+- Memorial and obituary PDFs use bundled Traditional Chinese fonts. The browser must be able to read the relevant app assets on first use. [Offline PDF export guide](docs/offline-chinese-pdf-font.md)
 - After a GitHub Pages deployment, browsers with an older cached service worker may briefly request outdated assets; use a hard refresh if needed.

@@ -76,15 +76,9 @@ Admin 主檔：
 UI 字型策略：
 - Web 首屏不綁大型中文字型，使用系統 fallback，降低首載時間。
 
-PDF 匯出字型策略（on-demand）：
-1. `PdfGoogleFonts.notoSerifHKRegular/Bold`
-2. `assets/fonts/NotoSansTC-Subset.ttf`（若存在）
-3. `assets/fonts/NotoSansTC-VariableFont_wght.ttf`
-4. Helvetica fallback
+紀念頁與訃聞 PDF 在匯出時才讀取本機 Noto Sans TC。正文與標題優先使用各自的子集，任何字元超出子集涵蓋範圍時改用完整本機字型。匯出會回報缺少的 Unicode 字元或無法載入的字型資源。[字型來源、重建與驗證](offline-chinese-pdf-font.md)
 
-影響：
-- 首屏載入更快。
-- 若網路受限且本地 subset 不存在，PDF 可能回退字型。
+管理員的合規 PDF 仍優先使用 Google Fonts，本機備援採用完整 Noto Sans TC。
 
 ---
 
