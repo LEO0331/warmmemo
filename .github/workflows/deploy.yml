@@ -11,13 +11,15 @@ permissions:
   pages: write
   id-token: write
 
+# Only release-eligible runs share the production group. A PR CI completion
+# still triggers this workflow, but its skipped run must never cancel a deploy.
 concurrency:
-  group: pages
+  group: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')) && 'pages-production' || format('pages-ineligible-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
   build:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout workflow_run commit
@@ -34,7 +36,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # flutter-version: '3.40.0' # 可選：指定版本
+          # Keep release builds aligned with the SDK verified by .github/workflows/ci.yml.
+          flutter-version: '3.47.2'
 
       - name: Install dependencies
         run: flutter pub get
