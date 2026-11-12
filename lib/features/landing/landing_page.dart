@@ -323,6 +323,7 @@ class _LandingPageState extends State<LandingPage> {
             runSpacing: 12,
             children: [
               FilledButton(
+                key: const Key('LandingStartButton'),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF8F4F36),
                   foregroundColor: Colors.white,
