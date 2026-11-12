@@ -22,6 +22,12 @@
 
 Recommended next step: Review the draft PR, with particular attention to the projection labels and the distinction between current liquidity and lifetime resources.
 
+### PR #27 CI Flutter SDK Pin (2026-11-12)
+
+- The Analyze step in GitHub Actions job `130883709292` selected Flutter 3.50.0 and exited on 29 Material import and localization deprecations. The Test step was skipped.
+- Pinned `.github/workflows/ci.yml` to Flutter 3.47.2 and documented the pin in `docs/info.md`. The official Linux release manifest lists that version on the stable channel.
+- On Flutter 3.47.2, dependency resolution and sitemap verification passed, `flutter analyze --no-pub` reported no issues, and `flutter test --no-pub` passed all 173 tests. The generated SDK-only lockfile refresh was excluded.
+
 ### Dependabot Applicability Review Completed (2026-11-02)
 
 Objective: Review the repository's current Dependabot warnings and patch dependencies relevant to the project's usage without changing workflows.
