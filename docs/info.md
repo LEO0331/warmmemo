@@ -115,6 +115,7 @@ PDF 匯出字型策略（on-demand）：
 - Run `npm ci --prefix server --ignore-scripts`, `npm ci --prefix functions --ignore-scripts`, then `node --test tools/node_security.test.cjs`. CI runs these checks on Node.js 22; they exercise the patched dependency behavior (including compressed-body trailing bytes), both backend entrypoints, and authentication/validation without external payment calls. See `docs/progress.md` for the 2026-11-02 applicability assessment of deferred optional Firestore `glob`/`minimatch` findings.
 
 - CI workflow: `.github/workflows/ci.yml`
+  - Uses Flutter 3.47.2 for reproducible analysis and tests. Revisit the pin when the app migrates its Material imports and localization delegates for Flutter 3.50.
   - `flutter analyze`
   - `flutter test`
 - Deploy workflow: `.github/workflows/deploy.yml`

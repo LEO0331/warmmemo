@@ -3,6 +3,18 @@
   "activeFeatureId": null,
   "features": [
     {
+      "id": "final-countdown-financial-footing",
+      "name": "Final Countdown financial footing",
+      "description": "Add optional, session-only financial context and reflection prompts to life planning.",
+      "status": "complete",
+      "dependencies": [],
+      "doneCriteria": [
+        "Current net worth and cash buffer use explicitly entered inputs and are clearly distinguished from lifetime projections.",
+        "The optional bilingual section provides guidance without assigning wealth levels or saving snapshot data.",
+        "Existing planner drafts and readiness calculations are preserved and verified."
+      ]
+    },
+    {
       "id": "harness-foundation",
       "name": "Project agent harness foundation",
       "description": "Maintain restartable task state, focused scope boundaries, and a fail-fast verification entrypoint for coding-agent work.",

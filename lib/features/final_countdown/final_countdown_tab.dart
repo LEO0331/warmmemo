@@ -10,6 +10,7 @@ import '../../core/utils/input_guard.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../data/firebase/auth_service.dart';
 import '../../data/services/input_analytics_service.dart';
+import 'financial_footing_card.dart';
 
 enum _AmountKind { oneTime, annual }
 
@@ -696,7 +697,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                   eyebrow: 'Planning',
                   icon: Icons.hourglass_bottom_outlined,
                   title: '人生規劃與體驗預算',
-                  subtitle: '用退休、健康與生活目標估算資產和支出，幫助你在不同階段更有意識地安排想做的事。',
+                  subtitle: '用退休、健康與生活目標估算終身資源和支出，幫助你安排不同階段想做的事。',
                   badges: ['壽命預估', '資產支出平衡', '行動建議'],
                 ),
                 const SizedBox(height: 16),
@@ -895,7 +896,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                         key: const Key('compare_health'),
                       ),
                       _metricChip(
-                        '財務',
+                        '預估終身差額 / 目標期末結餘',
                         '${_currency(net)} / ${_currency(targetEndBalance)}',
                         key: const Key('compare_wealth'),
                       ),
@@ -930,6 +931,69 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                     );
                   },
                 ),
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: '終身財務預估',
+                  icon: Icons.balance_outlined,
+                  child: SelectionArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _metricChip(
+                              '預估終身資源',
+                              _currency(totalAsset),
+                              key: const Key('summary_total_asset'),
+                            ),
+                            _metricChip(
+                              '預估終身支出',
+                              _currency(totalCost),
+                              key: const Key('summary_total_cost'),
+                            ),
+                            _metricChip(
+                              '預估終身差額',
+                              _currency(net),
+                              key: const Key('summary_net'),
+                            ),
+                            _metricChip('平均每年預估資源', _currency(annualTarget)),
+                            _metricChip('平均每月預估資源', _currency(monthlyTarget)),
+                            _metricChip(
+                              '生活目標對齊度',
+                              '${(overallReadiness * 100).toStringAsFixed(0)}%',
+                              key: const Key('overall_readiness'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            minHeight: 12,
+                            value: score,
+                            backgroundColor: const Color(0xFFF1E4DA),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          net.abs() < 1000
+                              ? '預估終身資源與支出接近平衡，可隨生活變化調整。'
+                              : net > 0
+                              ? '預估終身資源高於支出，可一併檢視未來承諾與重視的體驗。'
+                              : '預估終身支出高於資源，可檢視收入、資產與支出優先順序。',
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '此估算加總你填入的一次性金額和適用年數的年度金額，未計入投資報酬、通膨、稅負、債務還款時程或逐年現金流。生活目標對齊度綜合健康、財務、時間與體驗進度，僅供規劃參考。',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const FinancialFootingCard(),
                 const SizedBox(height: 16),
                 SectionCard(
                   title: '記憶體驗進度',
@@ -1027,14 +1091,17 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: CheckboxListTile(
-                                            contentPadding: EdgeInsets.zero,
-                                            title: const Text('已完成'),
-                                            value: item.completed,
-                                            onChanged: (value) {
-                                              item.completed = value == true;
-                                              _refreshAndSave();
-                                            },
+                                          child: Material(
+                                            type: MaterialType.transparency,
+                                            child: CheckboxListTile(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('已完成'),
+                                              value: item.completed,
+                                              onChanged: (value) {
+                                                item.completed = value == true;
+                                                _refreshAndSave();
+                                              },
+                                            ),
                                           ),
                                         ),
                                         SizedBox(
@@ -1120,67 +1187,6 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                 ),
                 const SizedBox(height: 16),
                 SectionCard(
-                  title: '資產與支出預估',
-                  icon: Icons.balance_outlined,
-                  child: SelectionArea(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _metricChip(
-                              '總資產',
-                              _currency(totalAsset),
-                              key: const Key('summary_total_asset'),
-                            ),
-                            _metricChip(
-                              '總支出',
-                              _currency(totalCost),
-                              key: const Key('summary_total_cost'),
-                            ),
-                            _metricChip(
-                              '差額（資產 - 支出）',
-                              _currency(net),
-                              key: const Key('summary_net'),
-                            ),
-                            _metricChip('建議年預算', _currency(annualTarget)),
-                            _metricChip('建議月預算', _currency(monthlyTarget)),
-                            _metricChip(
-                              '生活目標對齊度',
-                              '${(overallReadiness * 100).toStringAsFixed(0)}%',
-                              key: const Key('overall_readiness'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            minHeight: 12,
-                            value: score,
-                            backgroundColor: const Color(0xFFF1E4DA),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          net.abs() < 1000
-                              ? '資產與支出目前接近平衡；仍可依生活變化定期調整。'
-                              : net > 0
-                              ? '目前預留資金較多；可評估增加體驗、照護或家庭支持的預算。'
-                              : '目前預估支出較高；可檢視收入、資產與支出優先順序。',
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '此指標用健康、財務、時間與體驗進度提供參考，不代表財務或醫療建議。',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SectionCard(
                   title: '如何使用這張表',
                   icon: Icons.menu_book_outlined,
                   child: const Column(
@@ -1191,20 +1197,18 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
                       ),
                       SizedBox(height: 6),
                       SelectableText(
-                        '2. 完成「健康自評」與「記憶體驗」：用分數和體驗清單檢視你想過的人生比例，不只看金錢。',
+                        '2. 完成「健康自評」與「記憶體驗」：用自評分數和體驗清單檢視你重視的生活目標。',
                       ),
                       SizedBox(height: 6),
                       SelectableText(
-                        '3. 在「左側支出 / 右側資產」逐項填入：可用快速加入，再微調成你的實際情況。',
+                        '3. 在「體驗與生活成本 / 資產與收入」逐項填入：可用快速加入，再微調成你的實際情況。',
                       ),
                       SizedBox(height: 6),
                       SelectableText(
-                        '4. 觀察「三軸比較」與「Die with Zero 準備度」：看差距在哪裡，優先調整差距最大的項目。',
+                        '4. 觀察「三軸比較」與「生活目標對齊度」：看差距在哪裡，優先調整差距最大的項目。',
                       ),
                       SizedBox(height: 6),
-                      SelectableText(
-                        '5. 建議每季回來更新一次，讓計畫跟著健康、收入與家庭狀況一起迭代。',
-                      ),
+                      SelectableText('5. 建議每季回來更新一次，讓計畫跟著健康、收入與家庭狀況一起迭代。'),
                     ],
                   ),
                 ),
@@ -1218,7 +1222,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
 
   Widget _buildCostPanel() {
     return SectionCard(
-      title: '左側：體驗與生活成本（支出）',
+      title: '終身支出：體驗與生活成本',
       icon: Icons.trending_down_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1294,7 +1298,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
 
   Widget _buildAssetPanel() {
     return SectionCard(
-      title: '右側：現有資產與收入',
+      title: '終身資源：資產與收入',
       icon: Icons.trending_up_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
