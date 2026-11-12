@@ -2,13 +2,13 @@
 
 Use this template only when a task is incomplete, blocked, or waiting for a decision. Copy its sections into root `progress.md` when the session ends.
 
-## Outstanding browser harness follow-up
+## Release acceptance follow-up
 
-2026-11-12 (Asia/Taipei) · `codex/final-countdown-wealth-aware-planning`
+2026-11-12 (Asia/Taipei) · `codex/fix-pdf-cmap-aliases`
 
-Final Countdown implementation, all 173 Flutter tests, the release build and the 360 px feature smoke passed. The existing `patrol_test/app_smoke_test.dart` ran through Playwright with installed Chrome after Patrol's bundled browser download stalled. Three cases passed. The landing CTA case timed out looking for `開始規劃`; the baseline landing page already displays `開始整理`.
+PR #30 resolved the stale landing CTA check. All four current Patrol cases passed against the Patrol server using installed Chrome. The stock runner timed out during Playwright initialization. Fresh public links passed on desktop and mobile. The same-tab hash-switching limitation is recorded in the release audit.
 
-In a separate harness change, update the landing CTA locator to follow the current UI and rerun the stock Patrol Chrome suite in an environment with Playwright's pinned browser installed.
+PR #31 is merged. Main at `42c4976` passed CI and Pages deployment and published its LCOV artifact. Review the open PDF glyph correction in PR #32. After merge, verify main CI, the LCOV artifact, and Pages for the release commit before marking formal production acceptance complete. [Readiness audit](docs/production-readiness-audit-2026-11.md)
 
 ## Last Updated
 

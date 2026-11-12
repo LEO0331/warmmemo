@@ -76,7 +76,7 @@
       "id": "ci-coverage-gate",
       "name": "CI coverage artifact and threshold",
       "description": "Publish coverage evidence in CI and enforce an agreed coverage threshold.",
-      "status": "planned",
+      "status": "complete",
       "dependencies": [],
       "doneCriteria": [
         "CI uploads a coverage artifact.",
