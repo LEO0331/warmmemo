@@ -40,5 +40,25 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Test
-        run: flutter test
+      - name: Test coverage checker
+        run: node --test tools/check_flutter_coverage.test.mjs
+
+      - name: Test Flutter with coverage
+        id: flutter_tests
+        run: flutter test --coverage
+
+      - name: Enforce Flutter line coverage
+        shell: bash
+        env:
+          MIN_FLUTTER_LINE_COVERAGE: '92'
+        run: |
+          node tools/check_flutter_coverage.mjs coverage/lcov.info "$MIN_FLUTTER_LINE_COVERAGE" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Flutter LCOV
+        if: ${{ !cancelled() && steps.flutter_tests.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: flutter-lcov
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14

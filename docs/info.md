@@ -111,7 +111,7 @@ UI 字型策略：
 - CI workflow: `.github/workflows/ci.yml`
   - Uses Flutter 3.47.2 for reproducible analysis and tests. Revisit the pin when the app migrates its Material imports and localization delegates for Flutter 3.50.
   - `flutter analyze`
-  - `flutter test`
+  - `flutter test --coverage`, a 92% line coverage gate, and a 14-day LCOV artifact. [Coverage policy](ci-coverage-policy.md)
 - Deploy workflow: `.github/workflows/deploy.yml`
   - Builds and deploys only after successful `push` CI on `main` (or manual dispatch); PR CI completion must never publish.
   - Production-eligible runs share the `pages-production` concurrency group; ineligible runs use unique run-ID groups so a skipped PR-triggered deployment cannot cancel production.
