@@ -202,13 +202,7 @@ CheckoutPage._submitOrder()
 
 ## 五、字型與匯出流程
 
-Web 首屏不綁大型中文字型，改系統字型 fallback。
-
-匯出字型解析順序：
-1. `PdfGoogleFonts.notoSerifHK*`（on-demand）
-2. `assets/fonts/NotoSansTC-Subset.ttf`（若存在）
-3. `assets/fonts/NotoSansTC-VariableFont_wght.ttf`
-4. Helvetica fallback
+Web 首屏使用系統字型。紀念頁和訃聞 PDF 在匯出時才載入本機 Noto Sans TC 字型。正文或標題有子集未涵蓋的字元時，改用完整字型。完整字型也缺少該字元時，顯示可處理的匯出錯誤。公開紀念頁連結的 QR 碼沿用原本流程。
 
 ---
 

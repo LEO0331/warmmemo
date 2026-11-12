@@ -176,17 +176,7 @@ class ComplianceExporter {
     }
     try {
       final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansTC-Subset.ttf',
-      );
-      final base = pw.Font.ttf(fontData);
-      final bold = pw.Font.ttf(fontData);
-      return (base, bold);
-    } catch (_) {
-      // Continue to platform fallback.
-    }
-    try {
-      final fontData = await rootBundle.load(
-        'assets/fonts/NotoSansTC-VariableFont_wght.ttf',
+        'assets/fonts/NotoSansTC-Regular.ttf',
       );
       final base = pw.Font.ttf(fontData);
       final bold = pw.Font.ttf(fontData);
