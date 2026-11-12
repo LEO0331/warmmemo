@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## PDF shared-glyph correction (2026-11-12)
+
+- Release QA on `aad238a0cffffbd97c1a26a144e802386015754d` reproduced a PDF writer defect: when the full font was selected, `·・龘` could render as one dot followed by two copies of 龘. The new test failed against the original font and passed with the correction.
+- The pinned generator now copies outlines and metrics for shared Unicode mappings to separate glyph IDs. Two builds reproduced the full font hash. All 20,745 mappings are retained, the full font is 7,231,072 bytes, and both small subsets are byte-identical.
+- Flutter analysis, all five targeted PDF tests, all 178 Flutter tests, and both JavaScript release builds passed. The Chrome smoke generated both files with external requests blocked and fully offline after font loading. Poppler showed both punctuation marks, 龘 and 𠱓, with the memorial QR still present.
+- Review this correction separately from the coverage draft. The main branch keeps its existing PDF feature record until the release correction is reviewed and merged.
+
 ## Release Readiness: Deployment Concurrency and Patrol CTA (2026-11-12)
 
 - Baseline: `main` at `9135a8ccfc6f5c5f33afb18345b6f4f76a4333e5` (Dependabot PR #29 merged).

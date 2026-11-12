@@ -50,7 +50,7 @@ class _PdfSmokeState extends State<_PdfSmoke> {
                   ObituaryDraft(
                     deceasedName: '王小明龘𠱓',
                     serviceDate: '2026-11-12',
-                    customNote: '，Mary 2026。',
+                    customNote: '·・龘，Mary 2026。',
                   ),
                 ),
               ),

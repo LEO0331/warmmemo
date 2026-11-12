@@ -21,9 +21,11 @@ Supply `--source /path/to/upstream.ttf` to rebuild with a predownloaded copy. Th
 | --- | ---: | ---: | ---: |
 | Regular subset | 400 | 185 | 31,032 |
 | Bold subset | 700 | 185 | 30,964 |
-| Full regular | 400 | 20,745 | 7,149,192 |
+| Full regular | 400 | 20,745 | 7,231,072 |
 
-The previous 11,917,560-byte files were byte-identical Noto Sans TC variable fonts with a default weight of 100. Their checksum differs from the pinned Google Fonts release. The generated full static fallback preserves the pinned release's Unicode repertoire. The combined font and license bundle is 7,215,575 bytes.
+The previous 11,917,560-byte files were byte-identical Noto Sans TC variable fonts with a default weight of 100. Their checksum differs from the pinned Google Fonts release. The generated full static fallback preserves the pinned release's Unicode repertoire. The combined font and license bundle is 7,297,455 bytes.
+
+The generator gives 440 shared Unicode mappings separate glyph IDs and copies the original outlines and metrics. This avoids a PDF writer bug that could substitute a glyph when two Unicode characters shared one source ID. The regression test compares the embedded outlines for `·・龘`. Both small subset binaries are unchanged.
 
 Supplementary-plane glyphs supported by the full font, such as 𠱓, render on the page. The current PDF library's Unicode map can omit them during copy or text extraction.
 
@@ -38,9 +40,11 @@ node tools/verify_pdf_web.cjs build/web .dart_tool/pdf-smoke/fixture .dart_tool/
 
 The browser check uses Playwright and Chromium. Set `PLAYWRIGHT_MODULE` if the package is installed outside the repo and `CHROME_EXECUTABLE` to use installed Chrome. It checks the production build at startup and runs the same PDF and download code through a separate release-mode fixture with synthetic drafts. The fixture bypasses the signed-in service-token check.
 
-Chrome made zero PDF font requests at production startup. A cold memorial export fetched only the 61,996 bytes of subsets and generated a 12,681-byte PDF in 247 ms. A cold obituary export fetched the full fallback for its uncommon glyphs and generated a 10,879-byte PDF in 174 ms. With the browser offline and its service worker disabled, both exports downloaded again from the live session in 83 ms and 99 ms respectively, without requests to the asset server. Timings are from one local run and include the download.
+In the original offline acceptance run, Chrome made zero PDF font requests at production startup. A cold memorial export fetched only the 61,996 bytes of subsets and generated a 12,681-byte PDF in 247 ms. A cold obituary export fetched the full fallback for its uncommon glyphs and generated a 10,879-byte PDF in 174 ms. With the browser offline and its service worker disabled, both exports downloaded again from the live session in 83 ms and 99 ms respectively, without requests to the asset server. Timings are from one local run and include the download.
 
 Poppler rendered both downloaded pages. Traditional Chinese, English, punctuation, and the uncommon characters 龘 and 𠱓 were legible. The memorial QR decoded to the exact synthetic public URL. Flutter analysis and all 177 tests passed.
+
+The new regression test failed with the original bundled font and passed with the regenerated font. Analysis, all five PDF tests, and all 178 Flutter tests passed with the correction. In a fresh Chrome run, both cold exports passed with external requests blocked, and both warm downloads passed fully offline. The outputs were 12,681 bytes (memorial) and 10,943 bytes (obituary). Poppler rendered the corrected `·・龘` sequence and both uncommon characters.
 
 ## 繁體中文
 
