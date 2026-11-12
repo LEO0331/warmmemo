@@ -51,12 +51,12 @@ void main() {
     await $('密碼至少需要 6 碼。').waitUntilVisible();
   });
 
-  patrolTest('landing CTA 開始規劃 can open auth page', ($) async {
+  patrolTest('landing primary CTA can open auth page', ($) async {
     app.main();
     await $.pumpAndSettle();
 
-    await $('開始規劃').waitUntilVisible();
-    await $('開始規劃').tap();
+    await $(#LandingStartButton).waitUntilVisible();
+    await $(#LandingStartButton).tap();
     await $.pumpAndSettle();
 
     await $('WarmMemo 登入').waitUntilVisible();

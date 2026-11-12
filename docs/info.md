@@ -113,8 +113,11 @@ UI 字型策略：
   - `flutter analyze`
   - `flutter test`
 - Deploy workflow: `.github/workflows/deploy.yml`
-  - Triggered after CI success on `main` (plus manual dispatch)
-  - GitHub Pages artifact deployment + SPA fallback (`404.html`)
+  - Builds and deploys only after successful `push` CI on `main` (or manual dispatch); PR CI completion must never publish.
+  - Production-eligible runs share the `pages-production` concurrency group; ineligible runs use unique run-ID groups so a skipped PR-triggered deployment cannot cancel production.
+  - Release builds use the same pinned Flutter 3.47.2 SDK as CI.
+  - GitHub Pages artifact deployment + SPA fallback (`404.html`).
+  - After a merge, verify the Pages workflow completed both `build` and `deploy` for the intended `main` commit SHA; passing CI alone does not prove deployment.
 
 ---
 
