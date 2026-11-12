@@ -1,6 +1,7 @@
 """Build WarmMemo's local PDF fonts with fontTools 4.61.1."""
 
 import argparse
+from copy import deepcopy
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -56,6 +57,37 @@ def keep_glyphs(font: TTFont, codepoints: set[int]) -> None:
         raise ValueError("Generated font's Unicode coverage differs from its input")
 
 
+def separate_unicode_glyphs(font: TTFont) -> None:
+    # pdf 3.11.3 removes each source glyph from its subset queue after first use.
+    # Give each Unicode mapping its own glyph ID while keeping its outline.
+    mappings = font.getBestCmap()
+    unicode_maps = [
+        table.cmap
+        for table in font["cmap"].tables
+        if table.isUnicode() and table.format != 14
+    ]
+    order = list(font.getGlyphOrder())
+    seen = set()
+    for codepoint, glyph in sorted(mappings.items()):
+        if glyph not in seen:
+            seen.add(glyph)
+            continue
+        alias = f"warmmemo.u{codepoint:06X}"
+        if alias in font["glyf"]:
+            raise ValueError(f"Generated glyph name already exists: {alias}")
+        font["glyf"][alias] = deepcopy(font["glyf"][glyph])
+        font["hmtx"][alias] = font["hmtx"][glyph]
+        if "vmtx" in font:
+            font["vmtx"][alias] = font["vmtx"][glyph]
+        order.append(alias)
+        for mapping in unicode_maps:
+            if mapping.get(codepoint) == glyph:
+                mapping[codepoint] = alias
+    font.setGlyphOrder(order)
+    if len(set(mappings.values())) != len(mappings):
+        raise ValueError("Generated font still has shared Unicode glyph IDs")
+
+
 def save(font: TTFont, path: Path, style: str, is_subset: bool = False) -> None:
     family = "WarmMemo PDF Subset" if is_subset else "WarmMemo PDF"
     postscript = f"WarmMemoPDF-{style}{'Subset' if is_subset else ''}"
@@ -84,6 +116,7 @@ def build(data: bytes, output_dir: Path) -> None:
         instantiateVariableFont(regular, {"wght": 400}, inplace=True)
         if set(regular.getBestCmap()) != full_codepoints:
             raise ValueError("Static instantiation changed the full font's Unicode coverage")
+        separate_unicode_glyphs(regular)
         save(regular, output_dir / "NotoSansTC-Regular.ttf", "Regular")
 
     for weight, style, name in (

@@ -77,6 +77,20 @@ void main() {
   );
 
   test(
+    'shared source outlines render both punctuation characters correctly',
+    () async {
+      final bytes = await _withoutHttp(
+        () => PdfExporter.obituaryBytes(ObituaryDraft(deceasedName: '·・龘')),
+      );
+      final outlines = _PdfEvidence(bytes).embeddedOutlines();
+      final firstDot = outlines[0x00b7];
+      expect(firstDot, isNotEmpty);
+      expect(outlines[0x30fb], orderedEquals(firstDot!));
+      expect(outlines[0x9f98], isNot(orderedEquals(firstDot)));
+    },
+  );
+
+  test(
     'reports unsupported glyphs instead of producing a missing-glyph box',
     () async {
       await expectLater(
@@ -156,8 +170,8 @@ class _PdfEvidence {
         .fold(0, (total, count) => total + count);
   }
 
-  void expectInk(String expected) {
-    final glyphsWithInk = <int>{};
+  Map<int, Uint8List> embeddedOutlines() {
+    final outlines = <int, Uint8List>{};
     for (final (dictionary, _) in _objects.values) {
       final unicode = _ref(dictionary, 'ToUnicode');
       if (unicode == null) continue;
@@ -174,11 +188,16 @@ class _PdfEvidence {
       for (final match in entries.allMatches(mapping)) {
         final glyph = int.parse(match[1]!, radix: 16);
         final codePoint = int.parse(match[2]!, radix: 16);
-        if (glyph > 0 && font.readGlyph(glyph).data.lengthInBytes > 0) {
-          glyphsWithInk.add(codePoint);
-        }
+        if (glyph == 0) continue;
+        final outline = font.readGlyph(glyph).data;
+        if (outline.isNotEmpty) outlines[codePoint] = outline;
       }
     }
+    return outlines;
+  }
+
+  void expectInk(String expected) {
+    final glyphsWithInk = embeddedOutlines().keys;
     for (final codePoint in expected.runes) {
       expect(
         glyphsWithInk,

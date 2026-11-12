@@ -4,11 +4,11 @@ Use this template only when a task is incomplete, blocked, or waiting for a deci
 
 ## Release acceptance follow-up
 
-2026-11-12 (Asia/Taipei) · `codex/ci-coverage-gate`
+2026-11-12 (Asia/Taipei) · `codex/fix-pdf-cmap-aliases`
 
 PR #30 resolved the stale landing CTA check. All four current Patrol cases passed against the Patrol server using installed Chrome. The stock runner timed out during Playwright initialization. Fresh public links passed on desktop and mobile. The same-tab hash-switching limitation is recorded in the release audit.
 
-Review the coverage draft and the isolated PDF glyph correction. After the owner approves and merges the release changes, verify the corresponding main CI, LCOV artifact, and Pages deployment before marking formal production acceptance complete. [Readiness audit](docs/production-readiness-audit-2026-11.md)
+PR #31 is merged. Main at `42c4976` passed CI and Pages deployment and published its LCOV artifact. Review the open PDF glyph correction in PR #32. After merge, verify main CI, the LCOV artifact, and Pages for the release commit before marking formal production acceptance complete. [Readiness audit](docs/production-readiness-audit-2026-11.md)
 
 ## Last Updated
 

@@ -5,11 +5,13 @@
 ## 2026-11-12 Flutter CI 行覆蓋率
 
 - 使用 Flutter 3.47.2 執行完整測試，最低行覆蓋率設為 92%。GitHub Actions 測得 92.44%（3,277 / 3,545），並提供保留 14 天的 LCOV 檔案。[覆蓋率政策](ci-coverage-policy.md) · [上線驗收稽核](production-readiness-audit-2026-11.md)
+- PR #31 已合併至 `42c4976`。該版本通過主分支 CI 與 GitHub Pages 建置及部署。[CI](https://github.com/LEO0331/warmmemo/actions/runs/43164696341) · [LCOV](https://github.com/LEO0331/warmmemo/actions/runs/43164696341/artifacts/13918844345) · [部署](https://github.com/LEO0331/warmmemo/actions/runs/43164913849)
 
 ## 2026-11-12 紀念頁與訃聞 PDF 本機中文字型
 
 - 已內建授權可追溯的 Noto Sans TC 正文及粗體子集。子集缺字時載入完整靜態字型，完整字型缺字時會提示該字元的 Unicode 代碼。
 - Chrome 已驗證首屏無 PDF 字型請求、外網封鎖時可首次匯出，以及所需字型載入後完全離線時兩種 PDF 仍可下載。登入後的服務額度檢查沿用既有流程。[測試與限制](offline-chinese-pdf-font.md)
+- PR #32 修正共用字形造成的 PDF 字元替換。修正已通過 178 項 Flutter 測試及 Chrome 離線匯出驗證，目前待審查及合併。[PR #32](https://github.com/LEO0331/warmmemo/pull/32)
 
 ## 2026-11-12 人生倒數：財務基礎與人生體驗
 
