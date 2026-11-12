@@ -1,5 +1,15 @@
 # Session Progress Log
 
+## Release Readiness: Deployment Concurrency and Patrol CTA (2026-11-12)
+
+- Baseline: `main` at `9135a8ccfc6f5c5f33afb18345b6f4f76a4333e5` (Dependabot PR #29 merged).
+- Investigation: `main` CI `43134587303` passed all 177 Flutter tests, but Pages run `43134800090` for PDF merge `0707d0f` was cancelled after a PR CI completion triggered another, ineligible Pages workflow `43134946271`. Workflow-level `group: pages` plus `cancel-in-progress: true` allowed skipped PR workflows to cancel production.
+- Proposed fix: only successful push-triggered `main` CI (or manual dispatch) is deploy eligible; route those to `pages-production` and give ineligible workflow runs run-ID-specific concurrency groups. Align deploy Flutter with CI's verified 3.47.2 pin.
+- Existing Patrol CTA smoke expected `開始規劃`, but the current landing button reads `開始整理`. Added `LandingStartButton` key and use it in smoke tests to decouple locator from copy.
+- Verification: GitHub source review and direct file-diff anchor checks only. No local Flutter, Patrol, GitHub Actions workflow run, Firebase Emulator or Stripe end-to-end tests were executed by GitHub MCP.
+- Pending: PR CI, successful post-merge Pages deployment for the intended commit, and full Patrol smoke in a browser-equipped environment. CI coverage gate remains `planned` in `feature_list.json` and is separate from this change.
+
+
 ## Offline Traditional Chinese PDF Fonts (2026-11-12)
 
 - Fetched `origin/main` at `f2c5dfcf8e9d402a44ba010a10660cc560058a5f`. Final Countdown is complete. The offline PDF font and CI coverage features were both still planned.
