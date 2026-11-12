@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "activeFeatureId": "ci-coverage-gate",
+  "activeFeatureId": null,
   "features": [
     {
       "id": "final-countdown-financial-footing",
@@ -76,7 +76,7 @@
       "id": "ci-coverage-gate",
       "name": "CI coverage artifact and threshold",
       "description": "Publish coverage evidence in CI and enforce an agreed coverage threshold.",
-      "status": "in_progress",
+      "status": "complete",
       "dependencies": [],
       "doneCriteria": [
         "CI uploads a coverage artifact.",

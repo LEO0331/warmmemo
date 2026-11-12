@@ -4,7 +4,10 @@
 
 - Fetched main at `aad238a0cffffbd97c1a26a144e802386015754d`. PRs #27–#30 are merged. The PDF font and Final Countdown features are complete. Coverage was the sole planned item.
 - Flutter 3.47.2 dependency resolution and analysis passed. All 177 Flutter tests passed with coverage. The baseline recorded 3,276 of 3,545 instrumented lines (92.4118%) across 42 of 76 production Dart files.
-- Added the Node LCOV checker, CLI regression tests, and a 92% threshold. CI retains the existing security, SEO and analysis steps and uses the single full Flutter coverage run to upload `flutter-lcov`. Hosted verification and browser acceptance are tracked on the coverage branch.
+- Added the Node LCOV checker, CLI regression tests, and a 92% threshold. CI retains the existing security, SEO and analysis steps and uses the single full Flutter coverage run to upload `flutter-lcov`.
+- All ten checker tests passed. The real local report passed at 92% and failed at 92.42%. [Hosted CI](https://github.com/LEO0331/warmmemo/actions/runs/43163281410) passed with 3,277 of 3,545 lines (92.44%) and published the [LCOV artifact](https://github.com/LEO0331/warmmemo/actions/runs/43163281410/artifacts/13918359206). Marked the coverage feature complete for review in Draft PR #31.
+- All four Patrol cases passed through installed Chrome. Stock Patrol timed out before test discovery. Fresh public deep links passed at 1280 px and 390 px with synthetic inputs. Same-tab hash switching and a separately reproduced PDF glyph substitution are recorded in the [readiness audit](docs/production-readiness-audit-2026-11.md).
+- Next step: review the coverage draft and the isolated PDF correction, then verify main CI and Pages for the intended merged release.
 
 ## Release Readiness: Deployment Concurrency and Patrol CTA (2026-11-12)
 

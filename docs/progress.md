@@ -2,6 +2,10 @@
 
 > 最後更新：2026-11-12
 
+## 2026-11-12 Flutter CI 行覆蓋率
+
+- 使用 Flutter 3.47.2 執行完整測試，最低行覆蓋率設為 92%。GitHub Actions 測得 92.44%（3,277 / 3,545），並提供保留 14 天的 LCOV 檔案。[覆蓋率政策](ci-coverage-policy.md) · [上線驗收稽核](production-readiness-audit-2026-11.md)
+
 ## 2026-11-12 紀念頁與訃聞 PDF 本機中文字型
 
 - 已內建授權可追溯的 Noto Sans TC 正文及粗體子集。子集缺字時載入完整靜態字型，完整字型缺字時會提示該字元的 Unicode 代碼。
