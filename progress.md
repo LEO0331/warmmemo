@@ -1,5 +1,11 @@
 # Session Progress Log
 
+## CI Coverage and Release Closure (2026-11-12)
+
+- Fetched main at `aad238a0cffffbd97c1a26a144e802386015754d`. PRs #27–#30 are merged. The PDF font and Final Countdown features are complete. Coverage was the sole planned item.
+- Flutter 3.47.2 dependency resolution and analysis passed. All 177 Flutter tests passed with coverage. The baseline recorded 3,276 of 3,545 instrumented lines (92.4118%) across 42 of 76 production Dart files.
+- Added the Node LCOV checker, CLI regression tests, and a 92% threshold. CI retains the existing security, SEO and analysis steps and uses the single full Flutter coverage run to upload `flutter-lcov`. Hosted verification and browser acceptance are tracked on the coverage branch.
+
 ## Release Readiness: Deployment Concurrency and Patrol CTA (2026-11-12)
 
 - Baseline: `main` at `9135a8ccfc6f5c5f33afb18345b6f4f76a4333e5` (Dependabot PR #29 merged).
