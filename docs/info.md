@@ -66,8 +66,10 @@ Admin 主檔：
 - `vendors`
 
 權限原則：
-- User writable: `proposal`
-- Admin writable: `vendorAssignment`, `materialSelection`, `deliverySchedule`, `vendors`
+- 用戶可建立符合現行方案目錄的待結帳訂單，補上 Stripe 託管結帳資訊，並單獨更新 `proposal`。已付款的訂單仍可送出提案，付款欄位由管理員維護。
+- 管理員維護供應商、材質、排程與付款狀態。舊訂單的管理台回填只更正目前文件的 `schemaVersion` 和 `priceAmount`，無法解析的文件會略過並計數，可在 Firebase Console 檢查原始訂單。
+- 公開紀念頁允許依 slug 讀取單筆。集合查詢僅限管理員。
+- 降權時移除 `users/{uid}.role` 的 `admin` 值與舊 `admins/{uid}` 文件。若帳號另有 `admin` custom claim，透過受信任的 Firebase Admin SDK 清除該 claim 並撤銷 refresh tokens。已簽發的 ID token 仍可能有效至到期。
 
 ---
 
@@ -118,6 +120,8 @@ UI 字型策略：
   - Release builds use the same pinned Flutter 3.47.2 SDK as CI.
   - GitHub Pages artifact deployment + SPA fallback (`404.html`).
   - After a merge, verify the Pages workflow completed both `build` and `deploy` for the intended `main` commit SHA; passing CI alone does not prove deployment.
+  - Firestore 規則須另行發布。在 Firebase Console 確認目標專案後，發布同一版本的 `firestore.rules`。Pages 成功部署只代表 Web 應用程式已更新。
+  - 本機規則驗證使用 Firestore Emulator。將 `firebase` 與 `@firebase/rules-unit-testing` 安裝到暫存目錄，設定 `NODE_PATH` 指向其 `node_modules`，然後執行 `node --test tools/verify_firestore_rules.cjs`。測試使用 `demo-warmmemo-rules` 和 `127.0.0.1:18883`，也可用 `WARMMEMO_RULES_EMULATOR_PORT` 指定其他本機連接埠。
 
 ---
 
@@ -135,7 +139,7 @@ After changing code:
 3. Update docs when architecture/flow/progress materially changes
 
 Recent documentation-relevant changes to keep in sync:
-- Final countdown now stores extended keys in `final_countdown_tab_v1`:
+- Final Countdown stores the planner draft under `final_countdown_tab_v1:<uid>` in local SharedPreferences. The old unscoped key remains on the device because its owner cannot be determined. The app reads only the signed-in account's scoped key. Draft fields include:
   - `healthCurrent`, `healthTarget`
   - `targetEndBalance`, `targetLifeExpectancy`
   - `experienceItems` (with `category`, `completed`, `satisfaction`)

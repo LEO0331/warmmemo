@@ -98,7 +98,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         checkoutUrl: payment.checkoutUrl,
         paymentCurrency: 'twd',
       );
-      await PurchaseService.instance.updateOrder(
+      await PurchaseService.instance.updateOrderCheckout(
         uid: uid,
         purchase: checkoutOrder,
       );

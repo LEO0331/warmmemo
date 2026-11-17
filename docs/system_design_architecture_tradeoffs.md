@@ -336,7 +336,7 @@ Flutter UI (features/*, core/layout)
 - A: owner 權限邏輯最直接，資料邊界與 profile 綁定清楚；admin 透過 collectionGroup 補全全域查詢。這是「安全清晰優先」的取捨。
 
 ## Q2: 為什麼需要 `admins/{uid}`，不是只用 `users.role`？
-- A: `admins` 的 exists 檢查成本與語義都更穩定；在無 custom claims 發布管道時，維運可行性更高。
+- A: `admins` 支援沒有 custom claims 發布管道的環境。舊版管理員文件只在 `users/{uid}.role` 仍為 `admin` 時授權，降權後留下的文件不會繼續提供權限。
 
 ## Q3: 為什麼前端還要檢查 transition，Rules 不是已經會擋？
 - A: 前端先擋提供更快回饋與更好 UX；Rules 是最後防線，兩層互補而非重複。

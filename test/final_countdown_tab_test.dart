@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:warmmemo/features/final_countdown/final_countdown_tab.dart';
 import 'package:warmmemo/features/final_countdown/financial_footing_card.dart';
 
-const _draftKey = 'final_countdown_tab_v1';
+const _legacyDraftKey = 'final_countdown_tab_v1';
+const _userId = 'account-a';
+const _draftKey = '$_legacyDraftKey:$_userId';
 const _expansionKey = 'financial_footing_expansion';
 const _cashKey = 'financial_footing_liquid_cash';
 const _netWorthKey = 'financial_footing_net_worth';
@@ -87,7 +89,7 @@ void main() {
       final savedDraft = jsonEncode(draft);
       SharedPreferences.setMockInitialValues({_draftKey: savedDraft});
 
-      await tester.pumpWidget(_app(const FinalCountdownTab()));
+      await tester.pumpWidget(_app(FinalCountdownTab(userId: _userId)));
       await tester.pumpAndSettle();
 
       expect(
@@ -145,7 +147,7 @@ void main() {
       expect(jsonEncode(updated), isNot(contains('432123')));
 
       await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpWidget(_app(const FinalCountdownTab()));
+      await tester.pumpWidget(_app(FinalCountdownTab(userId: _userId)));
       await tester.pumpAndSettle();
       expect(
         tester.widget<EditableText>(_editable(_ageKey)).controller.text,
@@ -161,6 +163,49 @@ void main() {
       );
     },
   );
+
+  testWidgets('planner drafts are isolated when the account changes', (
+    tester,
+  ) async {
+    const secondUserId = 'account-b';
+    const secondDraftKey = '$_legacyDraftKey:$secondUserId';
+    const legacyDraft = '{"currentAge":62}';
+    const firstDraft = '{"currentAge":44}';
+    SharedPreferences.setMockInitialValues({
+      _legacyDraftKey: legacyDraft,
+      _draftKey: firstDraft,
+    });
+
+    await tester.pumpWidget(_app(FinalCountdownTab(userId: _userId)));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(_editable(_ageKey)).controller.text,
+      '44',
+    );
+
+    await tester.ensureVisible(_byKey(_ageKey));
+    await tester.enterText(_editable(_ageKey), '45');
+    await tester.pumpWidget(_app(FinalCountdownTab(userId: secondUserId)));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(_editable(_ageKey)).controller.text,
+      '35',
+    );
+
+    await _enter(tester, _ageKey, '51');
+    await tester.pump(const Duration(milliseconds: 350));
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(_legacyDraftKey), legacyDraft);
+    expect(prefs.getString(_draftKey), firstDraft);
+    expect(jsonDecode(prefs.getString(secondDraftKey)!)['currentAge'], 51);
+
+    await tester.pumpWidget(_app(FinalCountdownTab(userId: _userId)));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(_editable(_ageKey)).controller.text,
+      '44',
+    );
+  });
 
   testWidgets('financial footing supports keyboard navigation on mobile', (
     tester,

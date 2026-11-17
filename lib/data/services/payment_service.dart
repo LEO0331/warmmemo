@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../firebase/auth_service.dart';
+import '../models/purchase.dart';
 
 enum PaymentProvider { stripe, ecpay, linepay }
 
@@ -108,6 +109,24 @@ class PaymentService {
         'client_reference_id': clientReferenceId,
       },
     );
+  }
+
+  Uri? hostedCheckoutResendUri(Purchase order) {
+    final id = order.id;
+    // The hosted marker selects the checkout flow. Configuration supplies the URL.
+    if (id == null ||
+        order.paymentProvider != PaymentProvider.stripe.name ||
+        order.invoiceId != 'hosted_$id') {
+      return null;
+    }
+    try {
+      return hostedCheckoutUriForAmount(
+        order.priceAmount,
+        clientReferenceId: id,
+      );
+    } on StateError {
+      return null;
+    }
   }
 
   Future<PaymentResult> createInvoice({

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/purchase.dart';
@@ -175,7 +177,7 @@ class PurchaseService {
       query = query.limit(limit);
     }
     final snapshot = await query.get();
-    final items = snapshot.docs
+    return snapshot.docs
         .map(
           (doc) => Purchase.fromMap(
             doc.data(),
@@ -184,28 +186,53 @@ class PurchaseService {
           ),
         )
         .toList();
-    await _backfillSchemaIfNeeded(
-      snapshot.docs.map((doc) => doc.reference).toList(),
-      items,
-    );
-    return items;
   }
 
   Stream<List<Purchase>> adminOrders() {
     return _firestore
         .collectionGroup('orders')
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
-            final userId = doc.reference.parent.parent?.id;
-            return Purchase.fromMap(
-              doc.data(),
-              id: doc.id,
-              userId: userId,
-              docPath: doc.reference.path,
-            );
-          }).toList(),
-        );
+        .map((snapshot) => _readAdminOrders(snapshot));
+  }
+
+  List<Purchase> _readAdminOrders(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final items = <Purchase>[];
+    var invalidCount = 0;
+    for (final doc in snapshot.docs) {
+      final order = _readAdminOrder(doc, doc.data());
+      if (order == null) {
+        invalidCount++;
+      } else {
+        items.add(order);
+      }
+    }
+    if (invalidCount > 0) {
+      developer.log(
+        'Skipped $invalidCount malformed order documents.',
+        name: 'PurchaseService',
+      );
+    }
+    return items;
+  }
+
+  Purchase? _readAdminOrder(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+    Map<String, dynamic> data,
+  ) {
+    try {
+      return Purchase.fromMap(
+        data,
+        id: doc.id,
+        userId: doc.reference.parent.parent?.id,
+        docPath: doc.reference.path,
+      );
+    } on TypeError {
+      return null;
+    } on UnsupportedError {
+      return null; // Firestore can store non-finite numbers that cannot become ints.
+    }
   }
 
   Future<({List<Purchase> items, String? cursor})> adminOrdersPage({
@@ -213,16 +240,7 @@ class PurchaseService {
     String? startAfterDocPath,
   }) async {
     final snapshot = await _firestore.collectionGroup('orders').get();
-    final items = snapshot.docs
-        .map(
-          (doc) => Purchase.fromMap(
-            doc.data(),
-            id: doc.id,
-            userId: doc.reference.parent.parent?.id,
-            docPath: doc.reference.path,
-          ),
-        )
-        .toList();
+    final items = _readAdminOrders(snapshot);
     items.sort((a, b) {
       final byCreatedAt = b.createdAt.compareTo(a.createdAt);
       if (byCreatedAt != 0) {
@@ -237,10 +255,7 @@ class PurchaseService {
             cursor: _decodeAdminOrdersCursor(startAfterDocPath),
           );
     final pageItems = items.skip(startIndex).take(limit).toList();
-    await _backfillSchemaIfNeeded(
-      snapshot.docs.map((doc) => doc.reference).toList(),
-      items,
-    );
+    await _backfillSchemaIfNeeded(pageItems);
     final nextCursor = pageItems.isNotEmpty
         ? _encodeAdminOrdersCursor(
             createdAtIso: pageItems.last.createdAt.toIso8601String(),
@@ -285,26 +300,66 @@ class PurchaseService {
     return cursorIndex + 1;
   }
 
-  Future<void> _backfillSchemaIfNeeded(
-    List<DocumentReference<Map<String, dynamic>>> refs,
-    List<Purchase> items,
-  ) async {
-    if (refs.isEmpty || items.isEmpty) return;
-    final batch = _firestore.batch();
-    var writes = 0;
-    final count = refs.length < items.length ? refs.length : items.length;
-    for (var i = 0; i < count; i++) {
-      final order = items[i];
-      if (!order.needsSchemaMigration) continue;
-      batch.set(
-        refs[i],
-        order.normalizedForStorage().toMap(),
-        SetOptions(merge: true),
-      );
-      writes += 1;
+  Future<void> _backfillSchemaIfNeeded(List<Purchase> items) async {
+    for (final order in items.where((order) => order.needsSchemaMigration)) {
+      final ref = _firestore.doc(order.docPath!);
+      try {
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          final data = snapshot.data();
+          if (data == null) return;
+          final current = _readAdminOrder(snapshot, data);
+          if (current == null || !current.needsSchemaMigration) return;
+          final normalized = current.normalizedForStorage();
+          transaction.update(ref, {
+            'schemaVersion': normalized.schemaVersion,
+            'priceAmount': normalized.priceAmount,
+          });
+        });
+      } on FirebaseException catch (error) {
+        developer.log(
+          'Order schema backfill failed (${error.code}).',
+          name: 'PurchaseService',
+        );
+      }
     }
-    if (writes == 0) return;
-    await batch.commit();
+  }
+
+  Future<void> updateOrderProposal({
+    required String uid,
+    required Purchase purchase,
+  }) async {
+    if (purchase.id == null) return;
+    final proposal = purchase.proposal;
+    await _orderRef(uid, purchase).update({
+      'proposal': proposal == null || proposal.isEmpty
+          ? null
+          : proposal.toMap(),
+    });
+  }
+
+  Future<void> updateOrderCheckout({
+    required String uid,
+    required Purchase purchase,
+  }) async {
+    if (purchase.id == null) return;
+    await _orderRef(uid, purchase).update({
+      'paymentProvider': purchase.paymentProvider,
+      'paymentStatus': purchase.paymentStatus,
+      'invoiceId': purchase.invoiceId,
+      'checkoutUrl': purchase.checkoutUrl,
+      'paymentCurrency': purchase.paymentCurrency,
+    });
+  }
+
+  DocumentReference<Map<String, dynamic>> _orderRef(
+    String uid,
+    Purchase order,
+  ) {
+    final path = order.docPath;
+    return path != null && path.isNotEmpty
+        ? _firestore.doc(path)
+        : _users.doc(uid).collection('orders').doc(order.id);
   }
 
   Future<void> updateOrder({
@@ -313,9 +368,7 @@ class PurchaseService {
     String? mutationId,
   }) async {
     if (purchase.id == null) return;
-    final targetRef = (purchase.docPath != null && purchase.docPath!.isNotEmpty)
-        ? _firestore.doc(purchase.docPath!)
-        : _users.doc(uid).collection('orders').doc(purchase.id);
+    final targetRef = _orderRef(uid, purchase);
 
     final previousSnapshot = await targetRef.get();
     if (previousSnapshot.exists) {

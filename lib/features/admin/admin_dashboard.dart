@@ -12,6 +12,7 @@ import '../../data/models/purchase.dart';
 import '../../data/models/vendor.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
+import '../../data/services/payment_service.dart';
 import '../../data/services/purchase_service.dart';
 import '../../data/services/user_role_service.dart';
 import 'controllers/admin_vendor_controller.dart';
@@ -480,6 +481,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           else
             ...List.generate(filtered.length, (index) {
               final o = filtered[index];
+              final resendUri = PaymentService.instance.hostedCheckoutResendUri(
+                o,
+              );
               return StaggeredReveal(
                 index: index,
                 child: Card(
@@ -515,10 +519,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               onPressed: () => _copyVerificationSummary(o),
                               child: const Text('複製核對摘要'),
                             ),
-                            if (o.checkoutUrl != null &&
-                                o.checkoutUrl!.isNotEmpty)
+                            if (resendUri != null)
                               OutlinedButton(
-                                onPressed: () => _resendCheckoutLink(o),
+                                onPressed: () => _resendCheckoutLink(resendUri),
                                 child: const Text('重送付款連結'),
                               ),
                           ],
@@ -549,6 +552,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
     final cards = List.generate(filtered.length, (index) {
       final o = filtered[index];
+      final resendUri = PaymentService.instance.hostedCheckoutResendUri(o);
       final selected = o.id != null && _selectedOrderIds.contains(o.id!);
       return StaggeredReveal(
         index: index,
@@ -598,9 +602,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if (o.checkoutUrl != null && o.checkoutUrl!.isNotEmpty)
+                    if (resendUri != null)
                       OutlinedButton(
-                        onPressed: () => _resendCheckoutLink(o),
+                        onPressed: () => _resendCheckoutLink(resendUri),
                         child: const Text('重送付款連結'),
                       ),
                     OutlinedButton(
@@ -1277,7 +1281,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (status != 'checkout_created' && status != 'awaiting_checkout') {
       return false;
     }
-    return DateTime.now().difference(order.createdAt) > const Duration(hours: 24);
+    return DateTime.now().difference(order.createdAt) >
+        const Duration(hours: 24);
   }
 
   bool _isCaseOverdue(Purchase order) {
@@ -1295,7 +1300,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String _timelineSummary(Purchase order) {
     final created = order.createdAt.toLocal().toString().split('.').first;
     final paid = order.paidAt?.toLocal().toString().split('.').first ?? '-';
-    final verified = order.verifiedAt?.toLocal().toString().split('.').first ?? '-';
+    final verified =
+        order.verifiedAt?.toLocal().toString().split('.').first ?? '-';
     return '建立 $created → 付款 $paid → 核對 $verified';
   }
 
@@ -1308,14 +1314,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return today.isAfter(due);
   }
 
-  Future<void> _resendCheckoutLink(Purchase order) async {
-    final url = order.checkoutUrl;
-    if (url == null || url.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: url));
-    final uri = Uri.tryParse(url);
-    if (uri != null) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  Future<void> _resendCheckoutLink(Uri uri) async {
+    await Clipboard.setData(ClipboardData(text: uri.toString()));
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted) return;
     AppFeedback.show(
       context,
@@ -1608,6 +1609,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ? order.verificationLogs.last
         : null;
     final summary = StringBuffer()
+      ..writeln('訂單編號：${order.id ?? '-'}')
       ..writeln('方案：${order.planName}')
       ..writeln('訂單狀態：${order.status}')
       ..writeln('付款狀態：${order.paymentStatus ?? '-'}')
