@@ -486,30 +486,126 @@ void main() {
       expect(limited.first.planName, 'newer');
     });
 
-    test('PurchaseService backfills legacy schema values', () async {
-      final db = FakeFirebaseFirestore();
-      final purchaseService = PurchaseService(firestore: db);
-      final ref = db
-          .collection('users')
-          .doc('u-legacy')
-          .collection('orders')
-          .doc('legacy-1');
-      await ref.set({
-        'planName': 'Legacy',
-        'priceLabel': 'NT\$ 120,000',
-        'priceAmount': -5,
-        'status': 'pending',
-        'paymentStatus': 'checkout_created',
-        'schemaVersion': 1,
-        'createdAt': DateTime(2026, 1, 1).toIso8601String(),
-      });
+    test(
+      'PurchaseService migrates legacy data on its own admin order path',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+        final ref = db
+            .collection('users')
+            .doc('u-legacy')
+            .collection('orders')
+            .doc('legacy-1');
+        await ref.set({
+          'planName': 'Legacy',
+          'priceLabel': 'NT\$ 120,000',
+          'priceAmount': -5,
+          'status': 'pending',
+          'paymentStatus': 'checkout_created',
+          'schemaVersion': 1,
+          'createdAt': DateTime(2026, 1, 1).toIso8601String(),
+        });
+        final otherRef = db
+            .collection('users')
+            .doc('u-current')
+            .collection('orders')
+            .doc('current');
+        final current = Purchase(
+          userId: 'u-current',
+          planName: 'Current',
+          priceLabel: 'NT\$ 150,000',
+          priceAmount: 150000,
+          status: 'pending',
+          paymentStatus: 'checkout_created',
+          createdAt: DateTime(2026, 2, 1),
+        ).toMap();
+        await otherRef.set(current);
 
-      final orders = await purchaseService.fetchUserOrders('u-legacy');
-      expect(orders.length, 1);
-      final after = await ref.get();
-      expect(after.data()?['schemaVersion'], Purchase.currentSchemaVersion);
-      expect(after.data()?['priceAmount'], 0);
-    });
+        final orders = await purchaseService.fetchUserOrders('u-legacy');
+        expect(orders.length, 1);
+        expect((await ref.get()).data()?['schemaVersion'], 1);
+        final adminPage = await purchaseService.adminOrdersPage();
+        expect(adminPage.items.map((order) => order.docPath), [
+          otherRef.path,
+          ref.path,
+        ]);
+        final after = await ref.get();
+        expect(after.data()?['schemaVersion'], Purchase.currentSchemaVersion);
+        expect(after.data()?['priceAmount'], 0);
+        expect(after.data()?['planName'], orders.single.planName);
+        expect((await otherRef.get()).data(), current);
+      },
+    );
+
+    test(
+      'PurchaseService saves a proposal without rewriting payment data',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final purchaseService = PurchaseService(firestore: db);
+        final order = await purchaseService.createOrder(
+          uid: 'u-proposal',
+          purchase: Purchase(
+            planName: 'Current',
+            priceLabel: 'NT\$ 150,000',
+            priceAmount: 150000,
+            status: 'pending',
+            paymentStatus: 'checkout_created',
+          ),
+        );
+        final ref = db.doc(order.docPath!);
+        await ref.update({'paymentStatus': 'paid', 'verifiedBy': 'reviewer'});
+        await purchaseService.updateOrderProposal(
+          uid: 'u-proposal',
+          purchase: order.copyWith(
+            proposal: OrderProposal(note: 'Preferred date'),
+          ),
+        );
+        final data = (await ref.get()).data()!;
+        expect(data['proposal']['note'], 'Preferred date');
+        expect(data['paymentStatus'], 'paid');
+        expect(data['verifiedBy'], 'reviewer');
+      },
+    );
+
+    test(
+      'PurchaseService stores checkout details and preserves proposal',
+      () async {
+        final db = FakeFirebaseFirestore();
+        final service = PurchaseService(firestore: db);
+        const uid = 'u-checkout';
+        final order = await service.createOrder(
+          uid: uid,
+          purchase: Purchase(
+            planName: '城市極簡告別',
+            priceLabel: 'NT\$ 120,000',
+            priceAmount: 120000,
+            status: 'pending',
+            paymentProvider: 'stripe',
+            paymentCurrency: 'twd',
+            paymentStatus: 'awaiting_checkout',
+          ),
+        );
+        await service.updateOrderProposal(
+          uid: uid,
+          purchase: order.copyWith(
+            proposal: OrderProposal(note: 'Preferred date'),
+          ),
+        );
+        final invoiceId = 'hosted_${order.id}';
+        await service.updateOrderCheckout(
+          uid: uid,
+          purchase: order.copyWith(
+            paymentStatus: 'checkout_created',
+            invoiceId: invoiceId,
+            checkoutUrl: 'https://buy.stripe.com/example',
+          ),
+        );
+        final stored = (await service.fetchUserOrders(uid)).single;
+        expect(stored.paymentStatus, 'checkout_created');
+        expect(stored.invoiceId, invoiceId);
+        expect(stored.proposal?.note, 'Preferred date');
+      },
+    );
 
     test('PurchaseService updateOrder returns early when id is null', () async {
       final db = FakeFirebaseFirestore();

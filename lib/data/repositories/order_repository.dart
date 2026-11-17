@@ -64,14 +64,37 @@ class OrderRepository {
     required String uid,
     required Purchase previous,
     required Purchase next,
+  }) => _updateOptimistic(
+    uid: uid,
+    previous: previous,
+    next: next,
+    save: () => _service.updateOrder(
+      uid: uid,
+      purchase: next,
+      mutationId: _mutationId(uid, next.id),
+    ),
+  );
+
+  Future<void> updateProposalOptimistic({
+    required String uid,
+    required Purchase previous,
+    required Purchase next,
+  }) => _updateOptimistic(
+    uid: uid,
+    previous: previous,
+    next: next,
+    save: () => _service.updateOrderProposal(uid: uid, purchase: next),
+  );
+
+  Future<void> _updateOptimistic({
+    required String uid,
+    required Purchase previous,
+    required Purchase next,
+    required Future<void> Function() save,
   }) async {
     final orderId = next.id;
     if (orderId == null || orderId.isEmpty) {
-      await _service.updateOrder(
-        uid: uid,
-        purchase: next,
-        mutationId: _mutationId(uid, next.id),
-      );
+      await save();
       return;
     }
 
@@ -92,11 +115,7 @@ class OrderRepository {
 
     var success = false;
     try {
-      await _service.updateOrder(
-        uid: uid,
-        purchase: next,
-        mutationId: _mutationId(uid, orderId),
-      );
+      await save();
       success = true;
       _cache.invalidate(key);
     } catch (_) {

@@ -138,14 +138,15 @@ class _CurrencyInputFormatter extends TextInputFormatter {
 }
 
 class FinalCountdownTab extends StatefulWidget {
-  const FinalCountdownTab({super.key});
+  FinalCountdownTab({required this.userId}) : super(key: ValueKey(userId));
+
+  final String userId;
 
   @override
   State<FinalCountdownTab> createState() => _FinalCountdownTabState();
 }
 
 class _FinalCountdownTabState extends State<FinalCountdownTab> {
-  static const _prefsKey = 'final_countdown_tab_v1';
   static const int _minAge = 0;
   static const int _maxAge = 130;
   static const int _minLifeExpectancy = 1;
@@ -182,6 +183,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
   final _formatter = _CurrencyInputFormatter();
   final Map<String, DateTime> _validationTrackTs = <String, DateTime>{};
   Timer? _saveDebounce;
+  late final String _prefsKey = 'final_countdown_tab_v1:${widget.userId}';
 
   @override
   void initState() {
@@ -245,6 +247,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
 
   Future<void> _loadDraft() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final raw = prefs.getString(_prefsKey);
     if (raw == null || raw.isEmpty) return;
     try {
@@ -271,7 +274,6 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
         map['healthTarget'],
         fallback: 4,
       );
-      if (!mounted) return;
       setState(() {
         final currentAge = _readBoundedIntFromDynamic(
           map['currentAge'],
@@ -339,7 +341,7 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 300), () async {
       _normalizeInputsForPersistence();
-      final prefs = await SharedPreferences.getInstance();
+      final prefsKey = _prefsKey;
       final payload = <String, dynamic>{
         'currentAge': _readBoundedInt(
           _currentAgeController,
@@ -379,7 +381,9 @@ class _FinalCountdownTabState extends State<FinalCountdownTab> {
         'costItems': _costItems.map(_sanitizedItemJson).toList(),
         'assetItems': _assetItems.map(_sanitizedItemJson).toList(),
       };
-      await prefs.setString(_prefsKey, jsonEncode(payload));
+      final serialized = jsonEncode(payload);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefsKey, serialized);
     });
   }
 

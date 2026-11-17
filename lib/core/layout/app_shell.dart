@@ -21,8 +21,9 @@ import '../../features/skills/skill_generator_tab.dart'
     deferred as skill_generator_tab;
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.initialIndex = 0});
+  const AppShell({super.key, required this.userId, this.initialIndex = 0});
 
+  final String userId;
   final int initialIndex;
 
   @override
@@ -45,7 +46,7 @@ class _NavItem {
 
 class _AppShellState extends State<AppShell>
     with SingleTickerProviderStateMixin {
-  final List<_NavItem> _baseDestinations = [
+  late final List<_NavItem> _baseDestinations = [
     _NavItem(
       label: '流程總覽',
       icon: Icons.map_outlined,
@@ -62,7 +63,8 @@ class _AppShellState extends State<AppShell>
       label: '人生倒數',
       icon: Icons.hourglass_bottom_outlined,
       loadLibrary: final_countdown_tab.loadLibrary,
-      builder: () => final_countdown_tab.FinalCountdownTab(),
+      builder: () =>
+          final_countdown_tab.FinalCountdownTab(userId: widget.userId),
     ),
     _NavItem(
       label: '固定方案',

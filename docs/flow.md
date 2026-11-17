@@ -185,6 +185,7 @@ CheckoutPage._submitOrder()
 
 - 免費方案不依賴 Cloud Functions；Stripe 金鑰不會進入 Flutter client。
 - 管理員可在 Stripe Dashboard 以 `client_reference_id` 對應 Firestore order ID，人工核對後再將付款狀態更新為 `paid`。
+- 後台「重送付款連結」會用設定的 Stripe Payment Link 和訂單編號重新產生網址。舊版 Stripe 發票在 Stripe Dashboard 查核與重送。[人工核對流程](sop/phase1_admin_operations_sop.md)
 - LINE Pay 需要後端完成 request/confirm 流程，目前不在使用者介面提供。
 
 ---
@@ -208,6 +209,6 @@ Web 首屏使用系統字型。紀念頁和訃聞 PDF 在匯出時才載入本�
 
 ## 六、權限重點（Firestore）
 
-- 使用者可寫：`proposal`
+- 使用者可單獨更新 `proposal`，結帳寫入限於待結帳或可重試的狀態。已確認的付款欄位由管理員維護。
 - Admin 可寫：`vendorAssignment`、`materialSelection`、`deliverySchedule`、`vendors`
-- 既有付款與訂單規則保持不變
+- 公開紀念頁可依連結讀取單筆，僅管理員可查詢整個集合。

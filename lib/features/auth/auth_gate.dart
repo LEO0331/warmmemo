@@ -99,7 +99,13 @@ class _AuthGateState extends State<AuthGate> {
             }
             return const SelectionArea(child: LandingPage());
           }
-          return SelectionArea(child: AppShell(initialIndex: _initialTabIndex));
+          return SelectionArea(
+            child: AppShell(
+              key: ValueKey(user.uid),
+              userId: user.uid,
+              initialIndex: _initialTabIndex,
+            ),
+          );
         }
 
         return const SelectionArea(child: LandingPage());

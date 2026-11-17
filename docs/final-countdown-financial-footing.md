@@ -25,13 +25,13 @@
 
 ## 隱私
 
-財務快照只存在於當次頁面的記憶體，重新整理、登出或關閉頁面即清除。收合區塊時仍可在當次使用期間重新展開查看。快照無儲存或上傳功能，也不會進入分析紀錄、公開分享或匯出。原本的終身規劃草稿仍以 `final_countdown_tab_v1` 存於 SharedPreferences。瀏覽器中的原有本機草稿未加密，共用同一瀏覽器設定檔的人可能存取。
+財務快照只存在於當次頁面的記憶體，重新整理、登出或關閉頁面即清除。收合區塊時仍可在當次使用期間重新展開查看。快照無儲存或上傳功能，也不會進入分析紀錄、公開分享或匯出。終身規劃草稿依登入帳號自動儲存於瀏覽器的 SharedPreferences（`final_countdown_tab_v1:<uid>`）。舊版共用草稿保留在瀏覽器中，由於無法確認歸屬，App 不會自動載入或移轉。本機儲存未加密，可直接存取瀏覽器設定檔的人仍可讀取資料。
 
 ## English summary
 
 Financial Footing is an optional, bilingual section in Final Countdown. It uses reported current assets and liabilities to estimate net worth, and divides readily accessible cash by positive monthly essentials to estimate cash-buffer months. The optional buffer target reflects a personal assumption. Experience prompts remain available with blank fields. The existing Die with Zero projection continues to sum one-time entries and annual entries across applicable years, and its readiness calculation keeps the same inputs and weights.
 
-The snapshot lives in page memory. The existing planner draft continues to use browser-local storage. The feature adapts Maggiulli’s principles of adjusting priorities to financial circumstances and using resources for meaningful choices. Currency conversion, wealth levels, spending allowances, investment recommendations, detailed cash-flow projections and optional local saving are outside this release.
+The snapshot lives in page memory. The planner draft is saved locally per signed-in account. The legacy shared draft remains on the device and is excluded from automatic loading because its owner is unknown. The feature adapts Maggiulli’s principles of adjusting priorities to financial circumstances and using resources for meaningful choices. Currency conversion, wealth levels, spending allowances, investment recommendations, detailed cash-flow projections and optional local saving are outside this release.
 
 ## 驗證 / Verification
 

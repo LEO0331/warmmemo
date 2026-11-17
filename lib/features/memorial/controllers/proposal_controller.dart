@@ -27,7 +27,7 @@ class ProposalController {
     }
     state.value = const LoadingState();
     try {
-      await _repository.updateOrderOptimistic(
+      await _repository.updateProposalOptimistic(
         uid: uid,
         previous: previous,
         next: next,

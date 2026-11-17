@@ -1,5 +1,17 @@
 # Session Progress Log
 
+## Security audit fixes (2026-11-17)
+
+- Based `codex/security-audit-fixes` on `origin/main` at `2d6f61b`. Fixed scoped order backfill and malformed-record handling, checkout field integrity, trusted Stripe resend links, public memorial listing, legacy admin revocation, and per-account local drafts. Preserved the four checkout plans, manual reconciliation, and public memorial URLs. The old unscoped draft stays on the device and is no longer loaded.
+- Flutter 3.47.2 dependency initialization, analysis, 183 tests, 92.4132% line coverage (3,301 / 3,572), and the production JavaScript build passed. Excluded the SDK-only lockfile refresh. The Firestore Emulator passed all four rules suites. The Chrome widget runner stalled before test execution and was stopped. `git diff --check` passed.
+- After review, publish the updated Firestore rules separately in Firebase Console and verify the Pages deployment for the corresponding main commit. Use the updated manual Stripe reconciliation SOP for existing orders.
+
+## WarmMemo security audit (2026-11-16)
+
+- Fetched `origin/main` at `2d6f61b97cb04f1aa18c5b273ea2587574d322dc` and confirmed that the checked-out branch had identical tracked contents before recording this entry. Reviewed Firestore authorization, order and payment integrity, public sharing, browser draft isolation, dependency lockfiles, and CI configuration. The application files are untouched.
+- Prioritize the admin order backfill and order validation, then payment-link provenance and payment-state rules. Include public memorial slug access, admin role revocation, and account-scoped draft storage in focused follow-ups. Confirm deployed Firestore rules before drawing production conclusions.
+- Online production dependency audits reported six moderate package entries in `server` and six moderate plus one low in `functions`, with zero high or critical entries in either. Common credential patterns yielded no matches in a tracked-source scan. Local Node verification returned 12 passes and five loopback `EACCES` failures. The Flutter startup command stalled before dependency resolution, analysis, or tests. No production data or payment service was exercised.
+
 ## PDF shared-glyph correction (2026-11-12)
 
 - Release QA on `aad238a0cffffbd97c1a26a144e802386015754d` reproduced a PDF writer defect: when the full font was selected, `·・龘` could render as one dot followed by two copies of 龘. The new test failed against the original font and passed with the correction.
